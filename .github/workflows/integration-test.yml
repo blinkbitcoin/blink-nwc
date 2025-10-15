@@ -1,0 +1,21 @@
+name: "Integration test"
+
+on:
+  pull_request:
+    branches: [main]
+
+
+jobs:
+  integration:
+    name: Integration test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+      - name: Run the Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+      - run: nix develop -c pnpm install --frozen-lockfile
+      - name: Run integration tests
+        run: nix develop -c make reset-integration
