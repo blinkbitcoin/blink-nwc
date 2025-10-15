@@ -1,0 +1,5 @@
+query service {
+    _service {
+        sdl
+    }
+}

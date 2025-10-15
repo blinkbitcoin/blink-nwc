@@ -1,0 +1,7 @@
+query galoyUp{
+  globals {
+    buildInformation {
+      commitHash
+    }
+  }
+}
