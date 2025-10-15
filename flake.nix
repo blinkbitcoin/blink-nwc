@@ -15,16 +15,14 @@
       overlays = [
         (self: super: {
           nodejs = super.nodejs_20;
-          yarn = super.yarn.override {
-            nodejs = super.nodejs_20;
-          };
+          pnpm = super.nodePackages.pnpm;
         })
       ];
       pkgs = import nixpkgs {inherit overlays system;};
       nativeBuildInputs = with pkgs;
         [
           nodejs
-          yarn
+          pnpm
           alejandra
           gnumake
           docker-compose

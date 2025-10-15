@@ -21,7 +21,7 @@ Nostr Wallet Connect GraphQL subgraph for Blink wallet. Built with Apollo Federa
 
 1. Install dependencies:
 ```bash
-yarn install
+pnpm install
 ```
 
 2. Sync vendor dependencies:
@@ -31,12 +31,12 @@ vendir sync
 
 3. Generate GraphQL types:
 ```bash
-yarn generate-gql-types
+pnpm generate-gql-types
 ```
 
 4. Start development server:
 ```bash
-yarn dev
+pnpm dev
 ```
 
 The GraphQL playground will be available at http://localhost:4010/graphql
@@ -47,7 +47,7 @@ To run as part of an Apollo Federation supergraph:
 
 1. Generate the supergraph schema:
 ```bash
-yarn generate-supergraph
+pnpm generate-supergraph
 ```
 
 2. Start all dependencies (including Apollo Router):
@@ -57,7 +57,7 @@ make start-deps
 
 3. Start your subgraph (if not already running):
 ```bash
-yarn dev
+pnpm dev
 ```
 
 4. Access the federated graph through the Apollo Router at http://localhost:4004/graphql
@@ -66,14 +66,14 @@ yarn dev
 
 ### Available Scripts
 
-- `yarn dev` - Start development server with hot reload
-- `yarn build` - Build for production
-- `yarn start` - Start production server
-- `yarn generate-gql-types` - Generate TypeScript types from GraphQL schema
-- `yarn generate-supergraph` - Generate supergraph schema for federation
-- `yarn tsc-check` - Type check TypeScript
-- `yarn eslint-check` - Lint code
-- `yarn eslint-fix` - Fix linting issues
+- `pnpm dev` - Start development server with hot reload
+- `pnpm build` - Build for production
+- `pnpm start` - Start production server
+- `pnpm generate-gql-types` - Generate TypeScript types from GraphQL schema
+- `pnpm generate-supergraph` - Generate supergraph schema for federation
+- `pnpm tsc-check` - Type check TypeScript
+- `pnpm eslint-check` - Lint code
+- `pnpm eslint-fix` - Fix linting issues
 
 ### Project Structure
 
@@ -98,7 +98,7 @@ yarn dev
 
 1. Edit `src/graphql/schema.graphql` to define your schema
 2. Update `src/graphql/resolvers.ts` to implement your resolvers
-3. Run `yarn generate-gql-types` to generate TypeScript types
+3. Run `pnpm generate-gql-types` to generate TypeScript types
 4. Implement your business logic
 
 ### Environment Variables
@@ -112,7 +112,7 @@ yarn dev
 This project uses Nix flakes for a reproducible development environment. The flake provides:
 
 - Node.js 20
-- Yarn
+- pnpm
 - Docker Compose
 - Various development tools (vendir, jq, ytt, buf, etc.)
 
