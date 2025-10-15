@@ -16,8 +16,11 @@ unit-test:
 integration-test:
 	pnpm run integration
 
-bats-test:
+bats-test: build
 	bats -t test/bats
+
+build:
+	pnpm build
 
 # 16 is exit code for critical https://classic.yarnpkg.com/lang/en/docs/cli/audit
 audit:

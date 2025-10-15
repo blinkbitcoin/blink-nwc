@@ -8,7 +8,7 @@ start_server() {
   echo $! > $SERVER_PID_FILE
 
   server_is_up() {
-    exec_graphql 'anon' 'service' '{}' "$CIRCLES_ENDPOINT"
+    exec_graphql 'anon' 'service' '{}' "$NWC_ENDPOINT"
     sdl="$(graphql_output '.data._service.sdl')"
     echo "$sdl"
     [[ -n "$sdl" ]] || exit 1
