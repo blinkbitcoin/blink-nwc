@@ -7,3 +7,22 @@ services:
     - APOLLO_ROUTER_CONFIG_PATH=/repo/dev/apollo-federation/router.yaml
     volumes:
     - ${HOST_PROJECT_PATH:-.}/dev:/repo/dev
+
+  strfry:
+    image: dockurr/strfry:latest
+    ports:
+      - "7777:7777"
+    volumes:
+      - strfry-data:/app/strfry-db
+    restart: unless-stopped
+  nwc-pg:
+    image: postgres:15.1
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=pg
+    ports:
+      - "5431:5432"
+
+volumes:
+  strfry-data:
