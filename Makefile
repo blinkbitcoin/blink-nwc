@@ -10,6 +10,12 @@ check-code:
 	pnpm build
 	pnpm check-sdl
 
+unit-test:
+	pnpm run unit
+
+integration-test:
+	pnpm run integration
+
 # 16 is exit code for critical https://classic.yarnpkg.com/lang/en/docs/cli/audit
 audit:
 	bash -c 'pnpm audit --audit-level critical; [[ $$? -ge 16 ]] && exit 1 || exit 0'

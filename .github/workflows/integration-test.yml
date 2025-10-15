@@ -18,4 +18,4 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@v8
       - run: nix develop -c pnpm install --frozen-lockfile
       - name: Run integration tests
-        run: nix develop -c make reset-integration
+        run: nix develop -c make integration-test
