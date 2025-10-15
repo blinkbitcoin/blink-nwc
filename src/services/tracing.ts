@@ -7,9 +7,16 @@ import { HttpInstrumentation } from "@opentelemetry/instrumentation-http"
 import { Span as SdkSpan, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base"
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node"
 import {
-  SemanticAttributes,
-  SemanticResourceAttributes,
-} from "@opentelemetry/semantic-conventions"
+  ATTR_CODE_FUNCTION,
+  ATTR_CODE_NAMESPACE,
+  ATTR_USER_ID,
+  ATTR_SERVICE_NAME,
+} from "@opentelemetry/semantic-conventions/incubating"
+
+// these have been deprecated but we must keep them to avoid issues with alert system
+const ATTR_ENDUSER_ID = "enduser.id"
+const ATTR_HTTP_USER_AGENT = "http.user_agent"
+const ATTR_HTTP_CLIENT_IP = "http.client_ip"
 
 import {
   trace,
@@ -24,14 +31,18 @@ import {
   Context,
   AttributeValue,
 } from "@opentelemetry/api"
-import { ErrorLevel, RankedErrorLevel, parseErrorFromUnknown } from "@domain/errors"
+
 import { NetInstrumentation } from "@opentelemetry/instrumentation-net"
-import { ErrorLevel as ErrorLevelType } from "@domain/index.types"
 
 import type * as graphqlTypes from "graphql"
 import { Resource } from "@opentelemetry/resources"
-import { PartialResult } from "@app/index.types"
-import { IError } from "@graphql/index.types"
+
+import { baseLogger } from "./logger"
+
+import { ErrorLevel, RankedErrorLevel, parseErrorFromUnknown } from "@/domain/errors"
+import { ErrorLevel as ErrorLevelType } from "@/domain/index.types"
+import { PartialResult } from "@/app/index.types"
+import { IError } from "@/graphql/index.types"
 type ExtendedException = Exclude<Exception, string> & {
   level?: ErrorLevelType
 }
@@ -43,13 +54,13 @@ propagation.setGlobalPropagator(new W3CTraceContextPropagator())
 const gqlResponseHook = (span: ExtendedSpan, data: graphqlTypes.ExecutionResult) => {
   const baggage = propagation.getBaggage(context.active())
   if (baggage) {
-    const ip = baggage.getEntry(SemanticAttributes.HTTP_CLIENT_IP)
+    const ip = baggage.getEntry(ATTR_HTTP_CLIENT_IP)
     if (ip) {
-      span.setAttribute(SemanticAttributes.HTTP_CLIENT_IP, ip.value)
+      span.setAttribute(ATTR_HTTP_CLIENT_IP, ip.value)
     }
-    const userAgent = baggage.getEntry(SemanticAttributes.HTTP_USER_AGENT)
+    const userAgent = baggage.getEntry(ATTR_HTTP_USER_AGENT)
     if (userAgent) {
-      span.setAttribute(SemanticAttributes.HTTP_USER_AGENT, userAgent.value)
+      span.setAttribute(ATTR_HTTP_USER_AGENT, userAgent.value)
     }
   }
 
@@ -183,6 +194,7 @@ registerInstrumentations({
   instrumentations: [
     new NetInstrumentation(),
     new HttpInstrumentation({
+      ignoreIncomingPaths: ["/healthz"],
       headersToSpanAttributes: {
         server: {
           requestHeaders: [
@@ -190,16 +202,19 @@ registerInstrumentations({
             "apollographql-client-version",
             "x-real-ip",
             "x-forwarded-for",
+            "x-appcheck-jti",
             "user-agent",
           ],
         },
       },
     }),
-    new GrpcInstrumentation(),
     new GraphQLInstrumentation({
       mergeItems: true,
       allowValues: true,
       responseHook: gqlResponseHook,
+    }),
+    new GrpcInstrumentation({
+      ignoreGrpcMethods: [/GetPrice/],
     }),
   ],
 })
@@ -209,8 +224,7 @@ registerInstrumentations({
 const provider = new NodeTracerProvider({
   resource: Resource.default().merge(
     new Resource({
-      [SemanticResourceAttributes.SERVICE_NAME]:
-        process.env.TRACING_SERVICE_NAME || "circles",
+      [ATTR_SERVICE_NAME]: process.env.TRACING_SERVICE_NAME || "blink-nwc",
     }),
   ),
 })
@@ -234,6 +248,9 @@ provider.addSpanProcessor(new SpanProcessorWrapper(new OTLPTraceExporter()))
 
 provider.register()
 
+// the reason we have to use process.env.COMMITHASH instead of env.COMMITHASH
+// is because tracing is been initialized before any other code is imported,
+// including the env variables
 export const tracer = trace.getTracer(process.env.COMMITHASH || "dev")
 
 export const addAttributesToCurrentSpan = (attributes: Attributes) => {
@@ -364,29 +381,29 @@ const resolveFunctionSpanOptions = ({
   functionArgs,
   spanAttributes,
   root,
+  ignoreFnArgs,
 }: {
   namespace: string
   functionName: string
   functionArgs: Array<unknown>
   spanAttributes?: Attributes
   root?: boolean
+  ignoreFnArgs?: boolean
 }): SpanOptions => {
-  const attributes = {
-    [SemanticAttributes.CODE_FUNCTION]: functionName,
-    [SemanticAttributes.CODE_NAMESPACE]: namespace,
+  const attributes: Attributes = {
+    [ATTR_CODE_FUNCTION]: functionName,
+    [ATTR_CODE_NAMESPACE]: namespace,
     ...spanAttributes,
   }
-  if (functionArgs && functionArgs.length > 0) {
+  if (!ignoreFnArgs && functionArgs && functionArgs.length > 0) {
     const params =
       typeof functionArgs[0] === "object" ? functionArgs[0] : { "0": functionArgs[0] }
     for (const key in params) {
       // @ts-ignore-next-line no-implicit-any error
       const value = params[key]
-      attributes[`${SemanticAttributes.CODE_FUNCTION}.params.${key}`] = value
-      attributes[`${SemanticAttributes.CODE_FUNCTION}.params.${key}.null`] =
-        value === null
-      attributes[`${SemanticAttributes.CODE_FUNCTION}.params.${key}.undefined`] =
-        value === undefined
+      attributes[`${ATTR_CODE_FUNCTION}.params.${key}`] = value
+      attributes[`${ATTR_CODE_FUNCTION}.params.${key}.null`] = value === null
+      attributes[`${ATTR_CODE_FUNCTION}.params.${key}.undefined`] = value === undefined
     }
   }
   return { attributes, root }
@@ -401,12 +418,14 @@ export const wrapToRunInSpan = <
   namespace,
   spanAttributes,
   root,
+  ignoreFnArgs,
 }: {
   fn: (...args: A) => PromiseReturnType<R>
   fnName?: string
   namespace: string
   spanAttributes?: Attributes
   root?: boolean
+  ignoreFnArgs?: boolean
 }) => {
   const functionName = fnName || fn.name || "unknown"
 
@@ -418,6 +437,7 @@ export const wrapToRunInSpan = <
       functionArgs: args,
       spanAttributes,
       root,
+      ignoreFnArgs,
     })
     const ret = tracer.startActiveSpan(spanName, spanOptions, (span) => {
       try {
@@ -458,16 +478,24 @@ export const wrapAsyncToRunInSpan = <
   namespace,
   spanAttributes,
   root,
+  ignoreFnArgs,
 }: {
   fn: (...args: A) => Promise<PromiseReturnType<R>>
   fnName?: string
   namespace: string
   spanAttributes?: Attributes
   root?: boolean
+  ignoreFnArgs?: boolean
 }) => {
   const functionName = fnName || fn.name || "unknown"
 
   const wrappedFn = (...args: A): Promise<PromiseReturnType<R>> => {
+    // Determine if there's an active span that's recording
+    const currentContext = context.active()
+    const activeSpan = trace.getSpan(currentContext)
+    const parentSpanIsRecording = activeSpan?.isRecording()
+    const parentSpanName = (activeSpan as unknown as { name?: string })?.name
+
     const spanName = `${namespace}.${functionName}`
     const spanOptions = resolveFunctionSpanOptions({
       namespace,
@@ -475,8 +503,20 @@ export const wrapAsyncToRunInSpan = <
       functionArgs: args,
       spanAttributes,
       root,
+      ignoreFnArgs,
     })
     const ret = tracer.startActiveSpan(spanName, spanOptions, async (span) => {
+      baseLogger.info(
+        {
+          function: spanOptions.attributes?.["code.function"],
+          isRecording: span.isRecording(),
+          spanId: span.spanContext().spanId,
+          parentSpanIsRecording,
+          parentSpanId: activeSpan?.spanContext().spanId,
+          parentSpanName,
+        },
+        `spanName: ${spanName}`,
+      )
       try {
         const ret = await fn(...args)
         if (ret instanceof Error) recordException(span, ret)
@@ -513,10 +553,12 @@ type AsyncFunctionType = (
 export const wrapAsyncFunctionsToRunInSpan = <F extends object>({
   namespace,
   fns,
+  root,
   spanAttributes,
 }: {
   namespace: string
   fns: F
+  root?: boolean
   spanAttributes?: Attributes
 }): F => {
   const functions: Record<string, FunctionType | AsyncFunctionType> = {}
@@ -529,6 +571,7 @@ export const wrapAsyncFunctionsToRunInSpan = <F extends object>({
         namespace,
         fn: func,
         fnName: fnKey,
+        root,
         spanAttributes,
       })
       continue
@@ -539,6 +582,7 @@ export const wrapAsyncFunctionsToRunInSpan = <F extends object>({
         namespace,
         fn: fns[fn] as AsyncFunctionType,
         fnName: fnKey,
+        root,
         spanAttributes,
       })
       continue
@@ -573,7 +617,20 @@ export const shutdownTracing = async () => {
   await provider.shutdown()
 }
 
-export { SemanticAttributes, SemanticResourceAttributes }
+export const SemanticResourceAttributes = {
+  SERVICE_NAME: ATTR_SERVICE_NAME,
+}
+
+export const SemanticAttributes = {
+  CODE_FUNCTION: ATTR_CODE_FUNCTION,
+  CODE_NAMESPACE: ATTR_CODE_NAMESPACE,
+  HTTP_CLIENT_IP: ATTR_HTTP_CLIENT_IP,
+  HTTP_USER_AGENT: ATTR_HTTP_USER_AGENT,
+  ENDUSER_ID: ATTR_ENDUSER_ID,
+  USER_ID: ATTR_USER_ID,
+}
+
+export const ACCOUNT_USERNAME = "account.username"
 
 export interface ExtendedSpan extends OriginalSpan {
   attributes?: Attributes

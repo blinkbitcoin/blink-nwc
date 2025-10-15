@@ -32,6 +32,7 @@
           jq
           ytt
           buf
+          bats
         ];
     in
       with pkgs; {
@@ -46,4 +47,3 @@
         formatter = alejandra;
       });
 }
-

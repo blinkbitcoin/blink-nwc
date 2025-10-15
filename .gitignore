@@ -7,7 +7,9 @@ typings/
 
 node_modules/
 
-yarn-error.log
+# pnpm
+.pnpm-store/
+pnpm-debug.log*
 
 bigquery-serviceaccount.json
 keys/**/*
@@ -27,6 +29,7 @@ public/*
 
 coverage
 lib
+dist
 artifacts
 
 generated.gql

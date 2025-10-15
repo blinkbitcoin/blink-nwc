@@ -4,30 +4,20 @@
     "outDir": "lib",
     "sourceMap": true,
     "strict": true,
-    "target": "es2020",
-    "noImplicitAny": false,
+    "target": "ES2021",
     "esModuleInterop": true,
     "baseUrl": "./",
     "moduleResolution": "node",
-    "allowJs": true,
+    "noImplicitAny": true,
     "resolveJsonModule": true,
     "paths": {
-      "@config/*": ["src/config/*"],
-      "@app/*": ["src/app/*"],
-      "@domain/*": ["src/domain/*"],
-      "@services/*": ["src/services/*"],
-      "@utils": ["src/utils/index"],
-      "@graphql/*": ["src/graphql/*"],
-      "@servers/*": ["src/servers/*"]
+      "@/*": [
+        "src/*"
+      ]
     }
   },
   "compileOnSave": true,
-  "include": [
-    "src/**/*",
-    "test/**/*",
-    "scripts/**/*",
-    "src/services/notifications/galoy-admin/.tsoy-admin-client"
-  ],
+  "include": ["src/**/*", "test/**/*"],
   "watchOptions": {
     "synchronousWatchDirectory": true
   }

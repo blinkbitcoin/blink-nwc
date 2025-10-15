@@ -8,7 +8,7 @@ import { buildSubgraphSchema } from "@apollo/subgraph"
 import { gql } from "graphql-tag"
 import express from "express"
 import helmet from "helmet"
-import { APOLLO_PLAYGROUND_ENABLED, SUBGRAPH_PORT } from "@config/index"
+
 import {
   ApolloServerPluginLandingPageDisabled,
   ApolloServerPluginLandingPageGraphQLPlayground,
@@ -16,11 +16,12 @@ import {
 
 import { GraphQLError, GraphQLSchema } from "graphql"
 
-import { baseLogger } from "@services/logger"
-
 import { resolvers } from "../graphql"
 
 import { NODE_ENV } from "../config"
+
+import { baseLogger } from "@/services/logger"
+import { APOLLO_PLAYGROUND_ENABLED, SUBGRAPH_PORT } from "@/config/index"
 
 const graphqlLogger = baseLogger.child({
   module: "graphql",
@@ -86,9 +87,9 @@ export const startApolloServer = async ({
     PinoHttp({
       logger: graphqlLogger,
       wrapSerializers: true,
-      customProps: (req) => {
+      customProps: (req: any) => {
         return {
-          body: req["body"],
+          body: req.body,
         }
       },
       autoLogging: {
@@ -110,7 +111,7 @@ export const startApolloServer = async ({
   await apolloServer.start()
 
   apolloServer.applyMiddleware({
-    app,
+    app: app as any,
     path: "/graphql",
     cors: { credentials: true, origin: true },
   })
