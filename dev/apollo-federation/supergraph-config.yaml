@@ -3,7 +3,7 @@ subgraphs:
   galoy:
     routing_url: http://galoy:4012/graphql # https://api.staging.galoy.io/graphql
     schema:
-      file: ../../vendor/galoy-quickstart/graphql/schemas/public/schema.graphql
+      file: ../../vendor/blink-quickstart/graphql/schemas/public/schema.graphql
   nostr-wallet-connect:
     routing_url: http://nostr-wallet-connect:4010/graphql
     schema:

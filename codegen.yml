@@ -10,4 +10,3 @@ generates:
       - "typescript-resolvers"
     config:
       useIndexSignature: true
-      contextType: "../index.types#GqlContext"
