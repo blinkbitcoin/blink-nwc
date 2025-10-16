@@ -41,8 +41,6 @@ import { baseLogger } from "./logger"
 
 import { ErrorLevel, RankedErrorLevel, parseErrorFromUnknown } from "@/domain/errors"
 import { ErrorLevel as ErrorLevelType } from "@/domain/index.types"
-import { PartialResult } from "@/app/index.types"
-import { IError } from "@/graphql/index.types"
 type ExtendedException = Exclude<Exception, string> & {
   level?: ErrorLevelType
 }
