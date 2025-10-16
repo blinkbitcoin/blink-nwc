@@ -1,10 +1,15 @@
 import { Resolvers } from "./__generated__/resolvers-types"
+import { mapError } from "./error-map"
+
+import { Example } from "@/app"
 
 export const resolvers: Resolvers = {
   Query: {
     hello: {
       resolve: async () => {
-        return "Hello from GraphQL Subgraph!"
+        const result = await Example.hello()
+        if (result instanceof Error) throw mapError(result)
+        return result
       },
     },
   },
