@@ -59,7 +59,7 @@
     "@opentelemetry/instrumentation-net": "0.39.0",
     "@opentelemetry/resources": "1.26.0",
     "@opentelemetry/sdk-trace-base": "1.26.0",
-    "@opentelemetry/sdk-trace-node": "1.26.0",
+    "@opentelemetry/sdk-trace-node": "2.1.0",
     "@opentelemetry/semantic-conventions": "1.27.0",
     "@t3-oss/env-core": "^0.7.3",
     "apollo-server-core": "^3.12.0",
