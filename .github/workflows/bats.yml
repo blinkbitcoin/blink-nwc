@@ -23,7 +23,20 @@ jobs:
       - name: Build project
         run: nix develop -c pnpm build
       - name: Start dependencies
-        run: nix develop -c make start-deps
+        run: |
+          # Retry logic for docker compose to handle transient Docker Hub issues
+          max_attempts=3
+          attempt=1
+          until nix develop -c make start-deps; do
+            if [ $attempt -eq $max_attempts ]; then
+              echo "Failed to start dependencies after $max_attempts attempts"
+              exit 1
+            fi
+            echo "Attempt $attempt failed. Cleaning up and retrying in 10 seconds..."
+            nix develop -c make clean-deps || true
+            sleep 10
+            attempt=$((attempt + 1))
+          done
       - name: Wait for services to be ready
         run: |
           echo "Waiting for Galoy API to be ready..."
