@@ -4,7 +4,94 @@ type Query {
     hello: String!
 }
 
-type User @key(fields: "id") {
+extend type User @key(fields: "id") {
     id: ID!
     exampleField: String
+    nwcConnections: [NwcConnection]
+}
+
+type Mutation {
+    nwcConnectionCreate(input: NwcConnectionCreateInput): NwcConnectionCreatePayload!
+    nwcConnectionUpdate(input: NwcConnectionUpdateInput): NwcConnectionUpdatePayload!
+    nwcConnectionDelete(input: NwcConnectionDeleteInput): NwcConnectionDeletePayload!
+}
+
+scalar AccountId @shareable
+scalar WalletId @shareable
+scalar Timestamp @shareable
+
+type NwcConnection @key(fields: "id") {
+    id: ID!
+    alias: String
+    accountId: AccountId!
+    walletId: WalletId!
+    appPubkey: String!
+    permissions: [Nip47Method!]!
+    budget: NwcBudget
+    createdAt: Timestamp!
+    updatedAt: Timestamp!
+}
+
+type NwcBudget {
+    total: Int!
+    spent: Int!
+    resetInterval: BudgetResetInterval!
+    lastReset: Timestamp!
+}
+
+enum Nip47Method {
+    GET_INFO
+    GET_BALANCE
+    MAKE_INVOICE
+    PAY_INVOICE
+    LOOKUP_INVOICE
+    LIST_TRANSACTIONS
+}
+
+enum BudgetResetInterval {
+    DAILY
+    WEEKLY
+    MONTHLY
+    YEARLY
+    NEVER
+}
+
+input NwcConnectionCreateInput {
+    walletId: WalletId!
+    alias: String
+    apiKey: String
+    permissions: [Nip47Method!]!
+    budget: NwcBudgetInput
+}
+
+input NwcBudgetInput {
+    total: Int!
+    resetInterval: BudgetResetInterval!
+}
+
+input NwcConnectionUpdateInput {
+    id: ID!
+    alias: String
+    permissions: [Nip47Method!]
+    budget: NwcBudgetInput
+}
+
+input NwcConnectionDeleteInput {
+    id: ID!
+}
+
+type NwcConnectionCreatePayload {
+    errors: [Error!]!
+    connection: NwcConnection
+    connectionUri: String
+}
+
+type NwcConnectionUpdatePayload {
+    errors: [Error!]!
+    connection: NwcConnection
+}
+
+type NwcConnectionDeletePayload {
+    errors: [Error!]!
+    success: Boolean!
 }

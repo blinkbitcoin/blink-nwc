@@ -1,4 +1,4 @@
-import { NotFoundError, UnexpectedClientError, UnknownClientError } from "./errors"
+import { NotFoundError, UnexpectedClientError, UnknownClientError, InputValidationError } from "./errors"
 
 import { baseLogger } from "@/services/logger"
 
@@ -19,6 +19,29 @@ export const mapError = (error: ApplicationError): CustomGraphQLError => {
         error.message ? ": " + error.message : ""
       })`
       return new UnknownClientError({ message, logger: baseLogger })
+
+    case "ValidationError":
+    case "InvalidUserId":
+    case "InvalidWalletId":
+    case "InvalidApiKey":
+      message = error.message
+      return new InputValidationError({ message, logger: baseLogger })
+
+    case "CouldNotFindError":
+    case "CouldNotFindNwcConnectionFromIdError":
+    case "CouldNotFindNwcConnectionFromAppPubkeyError":
+    case "CouldNotFindNwcConnectionFromWalletIdError":
+    case "CouldNotFindNwcConnectionFromAccountIdError":
+    case "CouldNotFindNwcConnectionFromUserIdError":
+      message = error.message
+      return new NotFoundError({ message, logger: baseLogger })
+
+    case "RepositoryError":
+    case "NwcCreateConnectionError":
+      message = `Database error occurred, please try again or contact support if it persists (code: ${
+        error.name
+      }${error.message ? ": " + error.message : ""})`
+      return new UnexpectedClientError({ message, logger: baseLogger })
 
     case "ErrorLevel":
     case "RankedErrorLevel":

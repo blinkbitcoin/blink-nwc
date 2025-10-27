@@ -19,6 +19,22 @@ export class DomainError extends Error {
   }
 }
 
+export class ValidationError extends DomainError {}
+export class InvalidWalletId extends ValidationError {}
+export class InvalidUserId extends ValidationError {}
+export class InvalidApiKey extends ValidationError {}
+
+export class RepositoryError extends DomainError {}
+export class CouldNotFindError extends RepositoryError {}
+export class CouldNotFindNwcConnectionFromIdError extends CouldNotFindError {}
+export class CouldNotFindNwcConnectionFromAppPubkeyError extends CouldNotFindError {}
+export class CouldNotFindNwcConnectionFromWalletIdError extends CouldNotFindError {}
+export class CouldNotFindNwcConnectionFromAccountIdError extends CouldNotFindError {}
+export class CouldNotFindNwcConnectionFromUserIdError extends CouldNotFindError {}
+
+
+export class NwcCreateConnectionError extends DomainError {}
+
 export const parseErrorFromUnknown = (error: unknown): Error => {
   const err =
     error instanceof Error
