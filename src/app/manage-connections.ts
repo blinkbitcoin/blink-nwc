@@ -1,182 +1,172 @@
 import { getPublicKey, generateSecretKey } from "nostr-tools"
+
+import { NwcUri, NwcSecret, NwcAppPubkey, NwcConnectionId } from "@/domain/index.types"
 import {
-    NwcBudget,
-    Nip47Method,
-    NwcConnectionAlias,
-    NwcUri,
-    NwcSecret, NwcAppPubkey, NwcConnectionId, ApiKey,
-} from "@/domain/index.types"
-import {
-    checkedToUserId,
-    checkedToWalletId,
-    checkedToBudget,
-    checkedToPermissions,
-    checkedToNwcAlias,
-    checkedToConnectionId,
-    checkedToNwcUpdates,
+  checkedToUserId,
+  checkedToWalletId,
+  checkedToPermissions,
+  checkedToNwcAlias,
+  checkedToConnectionId,
+  checkedToNwcUpdates,
+  checkedToApiKey,
 } from "@/domain/validation"
-import {getServerKeypair, NwcConnection, stringifyNwcUri} from "@/domain/nwc-connection";
-import {ConnectionsRepository} from "@/services/db/connections";
-import {NOSTR_RELAY_URL} from "@/config";
-import {Account, WalletId} from "@/domain/core/index.types";
+import { getServerKeypair, NwcConnection, stringifyNwcUri } from "@/domain/nwc-connection"
+import { ConnectionsRepository } from "@/services/db/connections"
+import { NOSTR_RELAY_URL } from "@/config"
+import { Account } from "@/domain/core/index.types"
 
 export const createNwcConnection = async (
-    account: Account,
-    walletId: WalletId,
-    apiKey: ApiKey,
-    budget: NwcBudget | null,
-    permissions: Nip47Method[],
-    alias?: NwcConnectionAlias,
+  account: Account,
+  walletId: string,
+  apiKey: string,
+  permissions: string[],
+  alias?: string,
 ): Promise<
-    { connectionObj: NwcConnection; connectionUri: NwcUri } | ApplicationError
+  { connectionObj: NwcConnection; connectionUri: NwcUri } | ApplicationError
 > => {
+  const checkedWalletId = checkedToWalletId(walletId)
+  if (checkedWalletId instanceof Error) {
+    return checkedWalletId
+  }
 
-    const checkedWalletId = checkedToWalletId(walletId)
-    if (checkedWalletId instanceof Error) {
-        return checkedWalletId
-    }
+  const checkedPermissions = checkedToPermissions(permissions)
+  if (checkedPermissions instanceof Error) {
+    return checkedPermissions
+  }
 
-    const checkedBudget = checkedToBudget(budget)
-    if (checkedBudget instanceof Error) {
-        return checkedBudget
-    }
+  const checkedAlias = checkedToNwcAlias(alias)
+  if (checkedAlias instanceof Error) {
+    return checkedAlias
+  }
 
-    const checkedPermissions = checkedToPermissions(permissions)
-    if (checkedPermissions instanceof Error) {
-        return checkedPermissions
-    }
+  const checkedApiKey = checkedToApiKey(apiKey)
+  if (checkedApiKey instanceof Error) {
+    return checkedApiKey
+  }
 
-    const checkedAlias = checkedToNwcAlias(alias)
-    if (checkedAlias instanceof Error) {
-        return checkedAlias
-    }
+  const bytes = generateSecretKey()
+  const secret = Buffer.from(bytes).toString("hex") as NwcSecret
+  const appPubkey = getPublicKey(bytes) as NwcAppPubkey
+  const connection: Omit<NwcConnection, "id" | "createdAt" | "updatedAt" | "revoked"> = {
+    userId: account.kratosUserId,
+    accountId: account.id,
+    alias: checkedAlias,
+    walletId: checkedWalletId,
+    apiKey: checkedApiKey,
+    appPubkey,
+    permissions: checkedPermissions,
+  }
+  const connectionObj = await ConnectionsRepository().create(connection)
+  if (connectionObj instanceof Error) {
+    return connectionObj
+  }
 
+  const serverPubkey = getServerKeypair().pubkey
+  //create connection uri - it shouldn't be stored in wallet service - user should store it safely
+  const connectionUri = stringifyNwcUri({
+    pubkey: serverPubkey,
+    secret,
+    relay: NOSTR_RELAY_URL,
+  })
 
-    const bytes = generateSecretKey()
-    const secret = Buffer.from(bytes).toString("hex") as NwcSecret
-    const appPubkey = getPublicKey(bytes) as NwcAppPubkey
-    const connection: Omit<NwcConnection, "id" | "createdAt" | "updatedAt" | "revoked"> = {
-        userId: account.kratosUserId,
-        accountId: account.id,
-        alias: checkedAlias,
-        walletId: checkedWalletId,
-        apiKey,
-        appPubkey,
-        permissions: checkedPermissions,
-        budget: checkedBudget,
-    }
-    const connectionObj = await ConnectionsRepository().create(connection)
-    if (connectionObj instanceof Error) {
-        return connectionObj
-    }
-
-    const serverPubkey = getServerKeypair().pubkey
-    //create connection uri - it shouldn't be stored in wallet service - user should store it safely
-    const connectionUri = stringifyNwcUri({
-        pubkey: serverPubkey,
-        secret,
-        relay: NOSTR_RELAY_URL,
-    })
-
-    return {
-        connectionObj,
-        connectionUri,
-    }
+  return {
+    connectionObj,
+    connectionUri,
+  }
 }
 
 export const updateNwcConnection = async (
-    account: Account,
-    connectionId: NwcConnectionId,
-    updates: {
-        alias?: NwcConnectionAlias
-        permissions?: Nip47Method[]
-        budget?: NwcBudget | null // if budget isn't specified in request - don't update it. if it's null - budget settings should be removed -> infinite budget
-    },
+  account: Account,
+  connectionId: string,
+  updates: {
+    alias?: string | null
+    permissions?: string[]
+  },
 ): Promise<NwcConnection | ApplicationError> => {
-    const checkedConnectionId = checkedToConnectionId(connectionId)
-    if (checkedConnectionId instanceof Error) {
-        return checkedConnectionId
-    }
+  const checkedConnectionId = checkedToConnectionId(connectionId)
+  if (checkedConnectionId instanceof Error) {
+    return checkedConnectionId
+  }
 
-    const checkedUpdates = checkedToNwcUpdates(updates)
-    if (checkedUpdates instanceof Error) {
-        return checkedUpdates
-    }
+  const checkedUpdates = checkedToNwcUpdates(updates)
+  if (checkedUpdates instanceof Error) {
+    return checkedUpdates
+  }
 
-    const existingConnection = await ConnectionsRepository().findById(connectionId)
-    if (existingConnection instanceof Error) {
-        return existingConnection
-    }
+  const existingConnection = await ConnectionsRepository().findById(checkedConnectionId)
+  if (existingConnection instanceof Error) {
+    return existingConnection
+  }
 
-    if(existingConnection.accountId != account.id) {
-        // todo maybe invalid account exception?
-    }
+  if (existingConnection.accountId != account.id) {
+    // todo maybe invalid account exception?
+  }
 
-    return await ConnectionsRepository().update(connectionId, checkedUpdates)
+  return ConnectionsRepository().update(checkedConnectionId, checkedUpdates)
 }
 
 export const softDeleteNwcConnection = async (
-    account: Account,
-    connectionId: NwcConnectionId,
+  account: Account,
+  connectionId: string,
 ): Promise<boolean | ApplicationError> => {
-    const checkedConnectionId = checkedToConnectionId(connectionId)
-    if (checkedConnectionId instanceof Error) {
-        return checkedConnectionId
-    }
+  const checkedConnectionId = checkedToConnectionId(connectionId)
+  if (checkedConnectionId instanceof Error) {
+    return checkedConnectionId
+  }
 
-    const existingConnection = await ConnectionsRepository().findById(checkedConnectionId)
-    if (existingConnection instanceof Error) {
-        return existingConnection
-    }
-    if (existingConnection.accountId != account.id) {
-        // todo maybe invalid account exception?
-    }
+  const existingConnection = await ConnectionsRepository().findById(checkedConnectionId)
+  if (existingConnection instanceof Error) {
+    return existingConnection
+  }
+  if (existingConnection.accountId != account.id) {
+    // todo maybe invalid account exception?
+  }
 
-    return await ConnectionsRepository().softDelete(existingConnection.id)
+  return ConnectionsRepository().softDelete(existingConnection.id)
 }
 
 export const deleteNwcConnection = async (
-    connectionId: NwcConnectionId,
+  connectionId: NwcConnectionId,
 ): Promise<boolean | ApplicationError> => {
-    const checkedConnectionId = checkedToConnectionId(connectionId)
-    if (checkedConnectionId instanceof Error) {
-        return checkedConnectionId
-    }
+  const checkedConnectionId = checkedToConnectionId(connectionId)
+  if (checkedConnectionId instanceof Error) {
+    return checkedConnectionId
+  }
 
-    const existingConnection = await ConnectionsRepository().findById(checkedConnectionId)
-    if (existingConnection instanceof Error) {
-        return existingConnection
-    }
+  const existingConnection = await ConnectionsRepository().findById(checkedConnectionId)
+  if (existingConnection instanceof Error) {
+    return existingConnection
+  }
 
-    return await ConnectionsRepository().delete(existingConnection.id)
+  return ConnectionsRepository().delete(existingConnection.id)
 }
 
 export const getNwcConnectionById = async (
-    connectionId: NwcConnectionId,
+  connectionId: NwcConnectionId,
 ): Promise<NwcConnection | ApplicationError> => {
-    const checkedConnectionId = checkedToConnectionId(connectionId)
-    if (checkedConnectionId instanceof Error) {
-        return checkedConnectionId
-    }
-    return await ConnectionsRepository().findById(checkedConnectionId)
+  const checkedConnectionId = checkedToConnectionId(connectionId)
+  if (checkedConnectionId instanceof Error) {
+    return checkedConnectionId
+  }
+  return ConnectionsRepository().findById(checkedConnectionId)
 }
 
 export const nwcConnectionsByUserId = async (
-    userId: string
+  userId: string,
 ): Promise<NwcConnection[] | ApplicationError> => {
-    const checkedUserId = checkedToUserId(userId)
-    if (checkedUserId instanceof Error) {
-        return checkedUserId
-    }
-    return await ConnectionsRepository().findByUserId(checkedUserId)
+  const checkedUserId = checkedToUserId(userId)
+  if (checkedUserId instanceof Error) {
+    return checkedUserId
+  }
+  return ConnectionsRepository().findByUserId(checkedUserId)
 }
 
 export const nwcConnectionsByWalletId = async (
-    walletId: string,
+  walletId: string,
 ): Promise<NwcConnection[] | ApplicationError> => {
-    const checkedWalletId = checkedToWalletId(walletId)
-    if (checkedWalletId instanceof Error) {
-        return checkedWalletId
-    }
-    return await ConnectionsRepository().findByWalletId(checkedWalletId)
+  const checkedWalletId = checkedToWalletId(walletId)
+  if (checkedWalletId instanceof Error) {
+    return checkedWalletId
+  }
+  return ConnectionsRepository().findByWalletId(checkedWalletId)
 }

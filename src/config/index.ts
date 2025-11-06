@@ -2,8 +2,12 @@ import { env } from "@/config/env"
 import database from "@/config/db"
 export * from "@/config/error"
 
-import {BitcoinNetwork, Nip47Method, NwcRelay, ServerNostrPrivkey} from "@/domain/index.types";
-
+import {
+  BitcoinNetwork,
+  Nip47Method,
+  NwcRelay,
+  ServerNostrPrivkey,
+} from "@/domain/index.types"
 
 export const SUBGRAPH_PORT = process.env.SUBGRAPH_PORT
   ? parseInt(process.env.SUBGRAPH_PORT)
@@ -17,14 +21,14 @@ export const COMMITHASH = env.COMMITHASH
 export const LOGLEVEL = env.LOGLEVEL
 
 export const databaseConfig = {
-    host: process.env.DB_HOST || "localhost",
-    port: parseInt(process.env.DB_PORT || "", 10) || 5432,
-    user: process.env.DB_USER || "blink-nwc-usr",
-    password: process.env.DB_PWD || "blink-nwc-pwd",
-    database: process.env.DB_DB || "blink-nwc",
-    poolMin: parseInt(process.env.DB_POOL_MIN || "", 10) || 1,
-    poolMax: parseInt(process.env.DB_POOL_MAX || "", 10) || 5,
-    debug: process.env.DB_DEBUG === "true",
+  host: process.env.DB_HOST || "localhost",
+  port: parseInt(process.env.DB_PORT || "", 10) || 5432,
+  user: process.env.DB_USER || "blink-nwc-usr",
+  password: process.env.DB_PWD || "blink-nwc-pwd",
+  database: process.env.DB_DB || "blink-nwc",
+  poolMin: parseInt(process.env.DB_POOL_MIN || "", 10) || 1,
+  poolMax: parseInt(process.env.DB_POOL_MAX || "", 10) || 5,
+  debug: process.env.DB_DEBUG === "true",
 }
 
 export const databaseClientConfig = database
@@ -36,10 +40,10 @@ export const NETWORK = env.NETWORK as BitcoinNetwork
 export const WALLET_ALIAS = "Blink"
 export const WALLET_COLOR = "Orange"
 export const SUPPORTED_NWC_METHODS: Nip47Method[] = [
-    "get_info",
-    "get_balance",
-    "make_invoice",
-    "pay_invoice",
-    "lookup_invoice",
-    "list_transactions",
+  "get_info",
+  "get_balance",
+  "make_invoice",
+  "pay_invoice",
+  "lookup_invoice",
+  "list_transactions",
 ]

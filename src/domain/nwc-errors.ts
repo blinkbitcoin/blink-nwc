@@ -5,50 +5,50 @@
  * See: https://docs.nwc.dev/reference-api/error-codes
  */
 export class Nip47Error {
-    code: string
-    message: string
-    constructor(message: string, code: string) {
-        this.message = message
-        this.code = code
-    }
+  code: string
+  message: string
+  constructor(message: string, code: string) {
+    this.message = message
+    this.code = code
+  }
 }
 export class Nip47RateLimitedError extends Nip47Error {
-    constructor(message: string) {
-        super(message, "RATE_LIMITED")
-    }
+  constructor(message: string) {
+    super(message, "RATE_LIMITED")
+  }
 }
 export class Nip47NotImplementedError extends Nip47Error {
-    constructor(message: string) {
-        super(message, "NOT_IMPLEMENTED")
-    }
+  constructor(message: string) {
+    super(message, "NOT_IMPLEMENTED")
+  }
 }
 export class Nip47InsufficientBalanceError extends Nip47Error {
-    constructor(message: string) {
-        super(message, "INSUFFICIENT_BALANCE")
-    }
+  constructor(message: string) {
+    super(message, "INSUFFICIENT_BALANCE")
+  }
 }
 export class Nip47QuotaExceededError extends Nip47Error {
-    constructor(message: string) {
-        super(message, "QUOTA_EXCEEDED")
-    }
+  constructor(message: string) {
+    super(message, "QUOTA_EXCEEDED")
+  }
 }
 export class Nip47RestrictedError extends Nip47Error {
-    constructor(message: string) {
-        super(message, "RESTRICTED")
-    }
+  constructor(message: string) {
+    super(message, "RESTRICTED")
+  }
 }
 export class Nip47UnauthorizedError extends Nip47Error {
-    constructor(message: string) {
-        super(message, "UNAUTHORIZED")
-    }
+  constructor(message: string) {
+    super(message, "UNAUTHORIZED")
+  }
 }
 export class Nip47InternalError extends Nip47Error {
-    constructor(message: string) {
-        super(message, "INTERNAL")
-    }
+  constructor(message: string) {
+    super(message, "INTERNAL")
+  }
 }
 export class Nip47OtherError extends Nip47Error {
-    constructor(message: string) {
-        super(message, "OTHER")
-    }
+  constructor(message: string) {
+    super(message, "OTHER")
+  }
 }

@@ -4,21 +4,33 @@ type Query {
     hello: String!
 }
 
+scalar AccountId
+scalar WalletId
+scalar Timestamp
+interface Error
+{
+    code: String
+    message: String!
+    path: [String]
+}
+type GraphQLApplicationError implements Error @shareable
+{
+    code: String
+    message: String!
+    path: [String]
+}
+
 extend type User @key(fields: "id") {
     id: ID!
     exampleField: String
-    nwcConnections: [NwcConnection]
+    nwcConnections: [NwcConnection!]!
 }
 
 type Mutation {
-    nwcConnectionCreate(input: NwcConnectionCreateInput): NwcConnectionCreatePayload!
-    nwcConnectionUpdate(input: NwcConnectionUpdateInput): NwcConnectionUpdatePayload!
-    nwcConnectionDelete(input: NwcConnectionDeleteInput): NwcConnectionDeletePayload!
+    nwcConnectionCreate(input: NwcConnectionCreateInput!): NwcConnectionCreatePayload!
+    nwcConnectionUpdate(input: NwcConnectionUpdateInput!): NwcConnectionUpdatePayload!
+    nwcConnectionDelete(input: NwcConnectionDeleteInput!): NwcConnectionDeletePayload!
 }
-
-scalar AccountId @shareable
-scalar WalletId @shareable
-scalar Timestamp @shareable
 
 type NwcConnection @key(fields: "id") {
     id: ID!
@@ -27,16 +39,8 @@ type NwcConnection @key(fields: "id") {
     walletId: WalletId!
     appPubkey: String!
     permissions: [Nip47Method!]!
-    budget: NwcBudget
     createdAt: Timestamp!
     updatedAt: Timestamp!
-}
-
-type NwcBudget {
-    total: Int!
-    spent: Int!
-    resetInterval: BudgetResetInterval!
-    lastReset: Timestamp!
 }
 
 enum Nip47Method {
@@ -48,32 +52,17 @@ enum Nip47Method {
     LIST_TRANSACTIONS
 }
 
-enum BudgetResetInterval {
-    DAILY
-    WEEKLY
-    MONTHLY
-    YEARLY
-    NEVER
-}
-
 input NwcConnectionCreateInput {
     walletId: WalletId!
     alias: String
-    apiKey: String
+    apiKey: String!
     permissions: [Nip47Method!]!
-    budget: NwcBudgetInput
-}
-
-input NwcBudgetInput {
-    total: Int!
-    resetInterval: BudgetResetInterval!
 }
 
 input NwcConnectionUpdateInput {
     id: ID!
     alias: String
     permissions: [Nip47Method!]
-    budget: NwcBudgetInput
 }
 
 input NwcConnectionDeleteInput {

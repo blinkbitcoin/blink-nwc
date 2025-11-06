@@ -9,13 +9,50 @@ import {
   NwcUri,
   ServerNostrKeypair,
   ServerNostrPubkey,
-  NwcBudget,
-  Nip47Method,
   ApiKey,
+  Nip47Method,
 } from "./index.types"
 
 import { NOSTR_PRIVATE_KEY } from "@/config"
-import {AccountId, UserId, WalletId} from "@/domain/core/index.types";
+import { AccountId, UserId, WalletId } from "@/domain/core/index.types"
+import { RepositoryError } from "@/domain/errors"
+
+export interface IConnectionsRepository {
+  create(
+    data: Omit<NwcConnection, "id" | "createdAt" | "updatedAt" | "revoked">,
+  ): Promise<NwcConnection | RepositoryError>
+  update(
+    id: NwcConnectionId,
+    updates: Partial<
+      Omit<
+        NwcConnection,
+        | "id"
+        | "accountId"
+        | "userId"
+        | "walletId"
+        | "apiKey"
+        | "appPubkey"
+        | "createdAt"
+        | "updatedAt"
+        | "revoked"
+      >
+    >,
+  ): Promise<NwcConnection | RepositoryError>
+
+  findByPubkey(pubkey: string): Promise<NwcConnection | RepositoryError>
+  findById(id: NwcConnectionId): Promise<NwcConnection | RepositoryError>
+  findByWalletId(walletId: string): Promise<NwcConnection[] | RepositoryError>
+  findByUserId(userId: string): Promise<NwcConnection[] | RepositoryError>
+  deleteByWalletId(walletId: string): Promise<number | RepositoryError>
+
+  updatePermissions(
+    id: NwcConnectionId,
+    permissions: Nip47Method[],
+  ): Promise<NwcConnection | RepositoryError>
+
+  softDelete(id: NwcConnectionId): Promise<boolean | RepositoryError>
+  delete(id: NwcConnectionId): Promise<boolean | RepositoryError>
+}
 
 export interface NwcConnection {
   id: NwcConnectionId
@@ -29,7 +66,6 @@ export interface NwcConnection {
   alias: NwcConnectionAlias | null
   appPubkey: NwcAppPubkey
   permissions: Nip47Method[]
-  budget: NwcBudget | null
 
   revoked: boolean
 

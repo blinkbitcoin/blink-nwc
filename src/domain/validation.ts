@@ -1,14 +1,17 @@
 import {
   ApiKey,
   Nip47Method,
-  NwcBudget,
-  NwcBudgetResetInterval,
   NwcConnectionAlias,
   NwcConnectionId,
 } from "@/domain/index.types"
 
-import {InvalidApiKey, InvalidUserId, InvalidWalletId, ValidationError} from "@/domain/errors"
-import {UserId, WalletId} from "@/domain/core/index.types";
+import {
+  InvalidApiKey,
+  InvalidUserId,
+  InvalidWalletId,
+  ValidationError,
+} from "@/domain/errors"
+import { UserId, WalletId } from "@/domain/core/index.types"
 
 export const UuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -28,68 +31,10 @@ export const checkedToWalletId = (walletId: string): WalletId | InvalidWalletId 
 }
 
 export const checkedToApiKey = (apiKey: string): ApiKey | InvalidApiKey => {
-  if(!apiKey.match(UuidRegex)) {
+  if (!apiKey.match(UuidRegex)) {
     return new InvalidApiKey(apiKey)
   }
   return apiKey as ApiKey
-}
-
-
-export const checkedToBudget = (
-  budget: NwcBudget | null,
-): NwcBudget | null | ValidationError => {
-  if (budget == null) {
-    return null
-  }
-  if (typeof budget !== "object") {
-    return new ValidationError("Budget must be an object or null")
-  }
-  if (
-    typeof budget.spent !== "number" ||
-    !Number.isFinite(budget.spent) ||
-    budget.spent < 0
-  ) {
-    return new ValidationError("Invalid spent amount")
-  }
-
-  if (
-    typeof budget.total !== "number" ||
-    !Number.isFinite(budget.total) ||
-    budget.total < 0
-  ) {
-    return new ValidationError("Invalid total amount")
-  }
-
-  if (budget.spent > budget.total) {
-    return new ValidationError("Spent cannot exceed total")
-  }
-
-  const lastReset = new Date(budget.lastReset)
-  if (isNaN(lastReset.getTime())) {
-    return new ValidationError("Invalid date for lastReset")
-  }
-  if (lastReset > new Date()) {
-    return new ValidationError("Last reset cannot be in the future")
-  }
-
-  const allowedResetIntervals: NwcBudgetResetInterval[] = [
-    "daily",
-    "weekly",
-    "monthly",
-    "yearly",
-    "never",
-  ]
-
-  if (!allowedResetIntervals.includes(budget.resetInterval)) {
-    return new ValidationError("Invalid reset interval")
-  }
-
-  return {
-    spent: budget.spent,
-    total: budget.total,
-    lastReset,
-    resetInterval: budget.resetInterval as NwcBudgetResetInterval,
-  }
 }
 
 export const checkedToPermissions = (
@@ -131,14 +76,12 @@ export const checkedToConnectionId = (
 }
 
 export const checkedToNwcUpdates = (updates: {
-  alias?: NwcConnectionAlias
-  permissions?: Nip47Method[]
-  budget?: NwcBudget | null
+  alias?: string | null
+  permissions?: string[]
 }) => {
   const checkedUpdates: Partial<{
     alias: NwcConnectionAlias | null
     permissions: Nip47Method[]
-    budget: NwcBudget | null
   }> = {}
 
   if ("alias" in updates) {
@@ -158,16 +101,6 @@ export const checkedToNwcUpdates = (updates: {
       checkedUpdates.permissions = checkedPermissions
     } else {
       checkedUpdates.permissions = undefined
-    }
-  }
-
-  if ("budget" in updates) {
-    if (updates.budget !== undefined) {
-      const checkedBudget = checkedToBudget(updates.budget)
-      if (checkedBudget instanceof Error) return checkedBudget
-      checkedUpdates.budget = checkedBudget
-    } else {
-      checkedUpdates.budget = undefined
     }
   }
 
