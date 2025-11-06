@@ -1,6 +1,13 @@
-import { NotFoundError, UnexpectedClientError, UnknownClientError, InputValidationError } from "./errors"
+import {
+  NotFoundError,
+  UnexpectedClientError,
+  UnknownClientError,
+  InputValidationError,
+  DbError,
+} from "./errors"
 
 import { baseLogger } from "@/services/logger"
+import { CustomGraphQLError, IError } from "@/graphql/index.types"
 
 const assertUnreachable = (x: never): never => {
   throw new Error(`This should never compile with ${x}`)
@@ -19,6 +26,11 @@ export const mapError = (error: ApplicationError): CustomGraphQLError => {
         error.message ? ": " + error.message : ""
       })`
       return new UnknownClientError({ message, logger: baseLogger })
+
+    case "CannotConnectToDbError":
+      message =
+        "Service offline, please try again in a few minutes. If the problem persists, please contact support."
+      return new DbError({ message, logger: baseLogger })
 
     case "ValidationError":
     case "InvalidUserId":
@@ -43,6 +55,7 @@ export const mapError = (error: ApplicationError): CustomGraphQLError => {
       }${error.message ? ": " + error.message : ""})`
       return new UnexpectedClientError({ message, logger: baseLogger })
 
+    case "UnknownRepositoryError":
     case "ErrorLevel":
     case "RankedErrorLevel":
     case "DomainError":

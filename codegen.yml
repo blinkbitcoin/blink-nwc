@@ -10,3 +10,8 @@ generates:
       - "typescript-resolvers"
     config:
       useIndexSignature: true
+      resolverTypeWrapperSignature: 'T'
+      enumValues:
+        Nip47Method: '@/domain/methods#Nip47Method'
+      mappers:
+        Error: '@/graphql/index.types#IError'

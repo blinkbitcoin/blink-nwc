@@ -32,6 +32,12 @@ export class CouldNotFindNwcConnectionFromWalletIdError extends CouldNotFindErro
 export class CouldNotFindNwcConnectionFromAccountIdError extends CouldNotFindError {}
 export class CouldNotFindNwcConnectionFromUserIdError extends CouldNotFindError {}
 
+export class CannotConnectToDbError extends RepositoryError {
+  level = ErrorLevel.Critical
+}
+export class UnknownRepositoryError extends RepositoryError {
+  level = ErrorLevel.Critical
+}
 
 export class NwcCreateConnectionError extends DomainError {}
 

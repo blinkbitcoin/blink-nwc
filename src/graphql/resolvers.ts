@@ -1,11 +1,14 @@
 import { Resolvers } from "./__generated__/resolvers-types"
-import { mapError } from "./error-map"
+import { mapAndParseErrorForGqlResponse, mapError } from "./error-map"
 
 import { Example } from "@/app"
-import { nwcConnectionsByUserId, } from "@/app/manage-connections"
-import nwcConnectionCreateMutation from "@/graphql/mutations/nwc-connection-create";
-import nwcConnectionUpdateMutation from "@/graphql/mutations/nwc-connection-update";
-import nwcConnectionDeleteMutation from "@/graphql/mutations/nwc-connection-delete";
+import {
+  createNwcConnection,
+  nwcConnectionsByUserId,
+  softDeleteNwcConnection,
+  updateNwcConnection,
+} from "@/app/manage-connections"
+import { Account } from "@/domain/core/index.types"
 
 export const resolvers: Resolvers = {
   Query: {
@@ -21,8 +24,8 @@ export const resolvers: Resolvers = {
     __resolveReference: async (user: { id: string }) => {
       return { id: user.id }
     },
-    nwcConnections: async (parent: { id: string }) => {
-      const result = await nwcConnectionsByUserId(parent.id)
+    nwcConnections: async (user: { id: string }) => {
+      const result = await nwcConnectionsByUserId(user.id)
       if (result instanceof Error) {
         throw mapError(result)
       }
@@ -30,8 +33,67 @@ export const resolvers: Resolvers = {
     },
   },
   Mutation: {
-    nwcConnectionCreate: nwcConnectionCreateMutation,
-    nwcConnectionUpdate: nwcConnectionUpdateMutation,
-    nwcConnectionDelete: nwcConnectionDeleteMutation,
-  }
+    nwcConnectionCreate: async (
+      _,
+      args,
+      { domainAccount }: { domainAccount: Account },
+    ) => {
+      const { walletId, alias, permissions, apiKey } = args.input
+      const result = await createNwcConnection(
+        domainAccount,
+        walletId,
+        apiKey,
+        permissions,
+        alias ?? undefined,
+      )
+
+      if (result instanceof Error) {
+        return { errors: [mapAndParseErrorForGqlResponse(result)] }
+      }
+
+      return {
+        errors: [],
+        connection: result.connectionObj,
+        connectionUri: result.connectionUri,
+      }
+    },
+    nwcConnectionUpdate: async (
+      _,
+      args,
+      { domainAccount }: { domainAccount: Account },
+    ) => {
+      const { id: connectionId, alias, permissions } = args.input
+      const connection = await updateNwcConnection(domainAccount, connectionId, {
+        alias,
+        permissions: permissions === null ? [] : permissions,
+      })
+
+      if (connection instanceof Error) {
+        return { errors: [mapAndParseErrorForGqlResponse(connection)] }
+      }
+
+      return {
+        errors: [],
+        connection,
+      }
+    },
+    nwcConnectionDelete: async (
+      _,
+      args,
+      { domainAccount }: { domainAccount: Account },
+    ) => {
+      const { id: connectionId } = args.input
+
+      const result = await softDeleteNwcConnection(domainAccount, connectionId)
+
+      if (result instanceof Error) {
+        return { errors: [mapAndParseErrorForGqlResponse(result)], success: false }
+      }
+
+      return {
+        errors: [],
+        success: result,
+      }
+    },
+  },
 }
