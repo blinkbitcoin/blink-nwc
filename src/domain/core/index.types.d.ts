@@ -3,6 +3,9 @@ export type WalletId = string & { readonly brand: unique symbol }
 export type AccountId = string & { readonly brand: unique symbol }
 export type Username = string & { readonly brand: unique symbol }
 export type Satoshis = number & { readonly brand: unique symbol }
+export type PaymentHash = string & { readonly brand: unique symbol }
+export type DescriptionHash = string & { readonly brand: unique symbol }
+
 export type PrivilegedClientId = string & { readonly brand: unique symbol }
 export type IpAddress = string & { readonly brand: unique symbol }
 export type SessionId = string & { readonly brand: unique symbol }

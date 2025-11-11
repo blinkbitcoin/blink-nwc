@@ -49,6 +49,13 @@ module.exports = {
     "no-throw-literal": "error",
     "no-void": "error",
     "no-async-promise-executor": "off",
+
+    '@typescript-eslint/no-unused-expressions': [
+      'error',
+      {
+        allowTaggedTemplates: true
+      }
+    ]
   },
   settings: {
     "import/resolver": {

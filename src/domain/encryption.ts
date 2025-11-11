@@ -31,6 +31,7 @@ const encrypt = (
   content: string,
   encryptionType: Nip47EncryptionType,
 ) => {
+  // legacy compatibility for nip04. nip44 should be used always when possible
   if (encryptionType === "nip04") {
     return nip04.encrypt(serverKeypair.privkey, appPubkey, content)
   }

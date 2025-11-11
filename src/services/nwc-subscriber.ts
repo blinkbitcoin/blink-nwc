@@ -16,7 +16,7 @@ import { parseNip47Response } from "@/domain"
 import { Nip47UnauthorizedError } from "@/domain/nwc-errors"
 import { ConnectionsRepository } from "@/services/db"
 
-const NwcSubscriber = () => {
+export const NwcSubscriber = () => {
   const r = new Relay(NOSTR_RELAY_URL)
   const serverKeypair = getServerKeypair()
 
@@ -210,4 +210,3 @@ const NwcSubscriber = () => {
 
   return { subscribe, stop }
 }
-export default NwcSubscriber

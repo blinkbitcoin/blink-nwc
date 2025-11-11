@@ -9,6 +9,9 @@ export type BitcoinNetwork = string & { readonly brand: unique symbol }
 
 export type ApiKey = string & { readonly brand: unique symbol }
 
+export type InvoiceBolt11 = string & { readonly brand: unique symbol }
+export type Memo = string & { readonly brand: unique symbol }
+
 export type ServerNostrPubkey = string & { readonly brand: unique symbol }
 export type ServerNostrPrivkey = string & { readonly brand: unique symbol }
 export type NwcRelay = string & { readonly brand: unique symbol }

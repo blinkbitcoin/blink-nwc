@@ -20,6 +20,8 @@ export const APOLLO_PLAYGROUND_ENABLED = process.env.APOLLO_PLAYGROUND_ENABLED
 export const COMMITHASH = env.COMMITHASH
 export const LOGLEVEL = env.LOGLEVEL
 
+export const ROUTER_URL = env.ROUTER_URL
+
 export const databaseConfig = {
   host: process.env.DB_HOST || "localhost",
   port: parseInt(process.env.DB_PORT || "", 10) || 5432,

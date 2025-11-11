@@ -11,7 +11,6 @@ import {
   Nip47PayInvoiceRequest,
   Nip47PayInvoiceResult,
   Nip47Result,
-  Nip47Transaction,
 } from "@/domain/index.types"
 import { getServerKeypair, hasPermission, NwcConnection } from "@/domain/nwc-connection"
 import {
@@ -21,50 +20,81 @@ import {
   Nip47OtherError,
   Nip47RestrictedError,
 } from "@/domain/nwc-errors"
+import { BlinkCoreService } from "@/services"
 import { NETWORK, SUPPORTED_NWC_METHODS } from "@/config"
+import { DescriptionHash, Satoshis } from "@/domain/core/index.types"
+import { Minutes } from "@/domain/units"
 
 const NwcEventHandler = () => {
+  /*
+  Key differences:
+  NWC uses millisatoshis, blink uses satoshis,
+  NWC uses seconds for expiry, blink uses minutes,
+  */
   const getInfo = async (): Promise<Nip47Error | Nip47GetInfoResult> => {
     const serverPubkey = getServerKeypair().pubkey
 
-    // without onchain data we can still return some info. without nostr pubkey nwc wouldn't work anyway
-    // const lndConnect = getActiveOnchainLnd()
-    // if (lndConnect instanceof Error) {
+    const info = await BlinkCoreService().getNodeInfo()
+    if (info instanceof Error) {
+      return new Nip47InternalError(info.message)
+    }
+
     return {
       alias: "Blink Wallet",
       color: "F2A900",
       pubkey: serverPubkey,
       methods: SUPPORTED_NWC_METHODS,
-      // notifications  //not implemented yet,
+      // todo notifications
       network: NETWORK,
-      block_height: 0,
-      block_hash: "unknown",
+      block_height: info.block_height,
+      block_hash: info.block_hash,
     }
-    // }
-    // const info = await getWalletInfo({ lnd: lndConnect.lnd })
-    // return {
-    //     alias: "Blink Wallet",
-    //     color: "F2A900",
-    //     pubkey: serverPubkey,
-    //     methods: SUPPORTED_NWC_METHODS,
-    //     notifications,
-    // network: NETWORK,
-    // block_height: info.current_block_height,
-    // block_hash: info.current_block_hash,
-    // }
   }
 
   const getBalance = async (
     connection: NwcConnection,
   ): Promise<Nip47Error | Nip47GetBalanceResult> => {
-    throw new Error("Not imlemented")
+    const { apiKey, walletId } = connection
+    const satoshis = await BlinkCoreService().getBalance(apiKey, walletId)
+    if (satoshis instanceof Error) {
+      throw new Error() //todo handle
+    }
+    return { balance: satoshis * 1000 }
   }
 
   const makeInvoice = async (
     req: Nip47MakeInvoiceRequest,
     connection: NwcConnection,
   ): Promise<Nip47Error | Nip47MakeInvoiceResult> => {
-    throw new Error("Not imlemented")
+    const { apiKey, walletId } = connection
+    const { amount, description_hash, expiry } = req
+    const satoshis = Math.round(amount / 1000) as Satoshis
+    const expiry_minutes = expiry ? ((expiry / 60) as Minutes) : undefined
+    const res = await BlinkCoreService().createInvoice(
+      apiKey,
+      walletId,
+      satoshis,
+      description_hash as DescriptionHash,
+      expiry_minutes,
+    )
+    if (res instanceof Error) {
+      return new Nip47InternalError("todo") //todo handle
+    }
+    if (!res) {
+      // it won't be here since BlinkCore service will be better typed
+      return new Nip47OtherError("")
+    }
+    return {
+      type: "incoming",
+      amount: satoshis * 1000,
+      created_at: res.createdAt,
+      description_hash: description_hash,
+      expires_at: res.createdAt / 1000 + (expiry_minutes ? expiry_minutes * 60 : 10 * 60),
+      fees_paid: 0,
+      invoice: res.paymentRequest,
+      payment_hash: res.paymentHash,
+      preimage: res.paymentSecret,
+    }
   }
 
   const payInvoice = async (
@@ -81,7 +111,6 @@ const NwcEventHandler = () => {
     throw new Error("Not imlemented")
   }
 
-  // there will be some problems with intraledger txs - there's no way to make them nip47Compliant.
   const listInvoices = async (
     req: Nip47ListTransactionsRequest,
     connection: NwcConnection,
