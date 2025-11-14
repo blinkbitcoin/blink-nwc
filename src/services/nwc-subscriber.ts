@@ -3,7 +3,7 @@ import { Subscription } from "nostr-tools/lib/types/abstract-relay"
 
 import { NOSTR_RELAY_URL, SUPPORTED_NWC_METHODS } from "@/config"
 import { sleep } from "@/utils"
-import { getServerKeypair, NwcConnection } from "@/domain/nwc-connection"
+import { getServerKeypair, NwcConnection } from "@/domain/connection"
 import {
   Nip47EncryptionType,
   Nip47Method,
@@ -13,7 +13,7 @@ import {
 } from "@/domain/index.types"
 import { decrypt, encrypt, hexToBytes } from "@/domain/encryption"
 import { parseNip47Response } from "@/domain"
-import { Nip47UnauthorizedError } from "@/domain/nwc-errors"
+import { Nip47UnauthorizedError } from "@/domain/nip47-errors"
 import { ConnectionsRepository } from "@/services/db"
 
 export const NwcSubscriber = () => {
@@ -199,6 +199,7 @@ export const NwcSubscriber = () => {
     await r.publish(responseEvent)
   }
 
+  // exponential backoff with ceiling. will reconnect every few minutes
   const backoff = async (retries: number) => {
     const SECOND = 1000
     const MAX_BACKOFF_MS = SECOND * 60 * 5

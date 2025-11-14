@@ -2353,12 +2353,41 @@ export const Link__Purpose = {
 } as const;
 
 export type Link__Purpose = typeof Link__Purpose[keyof typeof Link__Purpose];
+export type LnNoAmountInvoiceCreateOnBehalfOfRecipientMutationVariables = Exact<{
+  input: LnNoAmountInvoiceCreateOnBehalfOfRecipientInput;
+}>;
+
+
+export type LnNoAmountInvoiceCreateOnBehalfOfRecipientMutation = { readonly __typename: 'Mutation', readonly lnNoAmountInvoiceCreateOnBehalfOfRecipient: { readonly __typename: 'LnNoAmountInvoicePayload', readonly invoice?: { readonly __typename: 'LnNoAmountInvoice', readonly createdAt: number, readonly paymentRequest: string, readonly paymentHash: string } | null, readonly errors: ReadonlyArray<{ readonly __typename: 'GraphQLApplicationError', readonly message: string }> } };
+
 export type LnInvoiceCreateOnBehalfOfRecipientMutationVariables = Exact<{
   input: LnInvoiceCreateOnBehalfOfRecipientInput;
 }>;
 
 
 export type LnInvoiceCreateOnBehalfOfRecipientMutation = { readonly __typename: 'Mutation', readonly lnInvoiceCreateOnBehalfOfRecipient: { readonly __typename: 'LnInvoicePayload', readonly errors: ReadonlyArray<{ readonly __typename: 'GraphQLApplicationError', readonly code?: string | null, readonly message: string, readonly path?: ReadonlyArray<string | null> | null }>, readonly invoice?: { readonly __typename: 'LnInvoice', readonly createdAt: number, readonly externalId: string, readonly paymentHash: string, readonly paymentRequest: string, readonly paymentSecret: string, readonly paymentStatus: InvoicePaymentStatus, readonly satoshis: number } | null } };
+
+export type LnInvoicePaymentSendMutationVariables = Exact<{
+  input: LnInvoicePaymentInput;
+}>;
+
+
+export type LnInvoicePaymentSendMutation = { readonly __typename: 'Mutation', readonly lnInvoicePaymentSend: { readonly __typename: 'PaymentSendPayload', readonly status?: PaymentSendResult | null, readonly transaction?: { readonly __typename: 'Transaction', readonly createdAt: number, readonly direction: TxDirection, readonly id: string, readonly memo?: string | null, readonly settlementFee: number, readonly settlementAmount: number, readonly settlementCurrency: WalletCurrency, readonly status: TxStatus, readonly initiationVia: { readonly __typename: 'InitiationViaIntraLedger' } | { readonly __typename: 'InitiationViaLn', readonly paymentHash: string, readonly paymentRequest: string } | { readonly __typename: 'InitiationViaOnChain' }, readonly settlementVia: { readonly __typename: 'SettlementViaIntraLedger', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaLn', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaOnChain' } } | null, readonly errors: ReadonlyArray<{ readonly __typename: 'GraphQLApplicationError', readonly message: string }> } };
+
+export type GetWalletQueryVariables = Exact<{
+  walletId: Scalars['WalletId']['input'];
+}>;
+
+
+export type GetWalletQuery = { readonly __typename: 'Query', readonly me?: { readonly __typename: 'User', readonly defaultAccount: { readonly __typename: 'ConsumerAccount', readonly walletById: { readonly __typename: 'BTCWallet', readonly id: string, readonly balance: number, readonly walletCurrency: WalletCurrency } | { readonly __typename: 'UsdWallet', readonly id: string, readonly balance: number, readonly walletCurrency: WalletCurrency } } } | null };
+
+export type InvoiceByPaymentHashQueryVariables = Exact<{
+  paymentHash: Scalars['PaymentHash']['input'];
+  walletId: Scalars['WalletId']['input'];
+}>;
+
+
+export type InvoiceByPaymentHashQuery = { readonly __typename: 'Query', readonly me?: { readonly __typename: 'User', readonly defaultAccount: { readonly __typename: 'ConsumerAccount', readonly walletById: { readonly __typename: 'BTCWallet', readonly invoiceByPaymentHash: { readonly __typename: 'LnInvoice', readonly satoshis: number, readonly createdAt: number, readonly paymentHash: string, readonly paymentRequest: string, readonly paymentSecret: string, readonly paymentStatus: InvoicePaymentStatus } | { readonly __typename: 'LnNoAmountInvoice', readonly createdAt: number, readonly paymentHash: string, readonly paymentRequest: string, readonly paymentSecret: string, readonly paymentStatus: InvoicePaymentStatus } } | { readonly __typename: 'UsdWallet', readonly invoiceByPaymentHash: { readonly __typename: 'LnInvoice', readonly satoshis: number, readonly createdAt: number, readonly paymentHash: string, readonly paymentRequest: string, readonly paymentSecret: string, readonly paymentStatus: InvoicePaymentStatus } | { readonly __typename: 'LnNoAmountInvoice', readonly createdAt: number, readonly paymentHash: string, readonly paymentRequest: string, readonly paymentSecret: string, readonly paymentStatus: InvoicePaymentStatus } } } } | null };
 
 export type LnInvoicePaymentStatusByHashQueryVariables = Exact<{
   input: LnInvoicePaymentStatusByHashInput;
@@ -2374,27 +2403,6 @@ export type LnInvoicePaymentStatusByPaymentRequestQueryVariables = Exact<{
 
 export type LnInvoicePaymentStatusByPaymentRequestQuery = { readonly __typename: 'Query', readonly lnInvoicePaymentStatusByPaymentRequest: { readonly __typename: 'LnInvoicePaymentStatus', readonly paymentHash?: string | null, readonly paymentPreimage?: string | null, readonly paymentRequest?: string | null, readonly status?: InvoicePaymentStatus | null } };
 
-export type LnNoAmountInvoicePaymentSendMutationVariables = Exact<{
-  input: LnNoAmountInvoicePaymentInput;
-}>;
-
-
-export type LnNoAmountInvoicePaymentSendMutation = { readonly __typename: 'Mutation', readonly lnNoAmountInvoicePaymentSend: { readonly __typename: 'PaymentSendPayload', readonly status?: PaymentSendResult | null, readonly errors: ReadonlyArray<{ readonly __typename: 'GraphQLApplicationError', readonly message: string, readonly code?: string | null }>, readonly transaction?: { readonly __typename: 'Transaction', readonly createdAt: number, readonly direction: TxDirection, readonly id: string, readonly memo?: string | null, readonly settlementAmount: number, readonly settlementCurrency: WalletCurrency, readonly status: TxStatus, readonly initiationVia: { readonly __typename: 'InitiationViaIntraLedger' } | { readonly __typename: 'InitiationViaLn', readonly paymentHash: string, readonly paymentRequest: string } | { readonly __typename: 'InitiationViaOnChain' }, readonly settlementVia: { readonly __typename: 'SettlementViaIntraLedger', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaLn', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaOnChain' } } | null } };
-
-export type LnInvoicePaymentSendMutationVariables = Exact<{
-  input: LnInvoicePaymentInput;
-}>;
-
-
-export type LnInvoicePaymentSendMutation = { readonly __typename: 'Mutation', readonly lnInvoicePaymentSend: { readonly __typename: 'PaymentSendPayload', readonly status?: PaymentSendResult | null, readonly transaction?: { readonly __typename: 'Transaction', readonly createdAt: number, readonly direction: TxDirection, readonly id: string, readonly memo?: string | null, readonly settlementAmount: number, readonly settlementCurrency: WalletCurrency, readonly status: TxStatus, readonly initiationVia: { readonly __typename: 'InitiationViaIntraLedger' } | { readonly __typename: 'InitiationViaLn', readonly paymentHash: string, readonly paymentRequest: string } | { readonly __typename: 'InitiationViaOnChain' }, readonly settlementVia: { readonly __typename: 'SettlementViaIntraLedger', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaLn', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaOnChain' } } | null, readonly errors: ReadonlyArray<{ readonly __typename: 'GraphQLApplicationError', readonly message: string }> } };
-
-export type GetWalletQueryVariables = Exact<{
-  walletId: Scalars['WalletId']['input'];
-}>;
-
-
-export type GetWalletQuery = { readonly __typename: 'Query', readonly me?: { readonly __typename: 'User', readonly defaultAccount: { readonly __typename: 'ConsumerAccount', readonly walletById: { readonly __typename: 'BTCWallet', readonly id: string, readonly balance: number, readonly walletCurrency: WalletCurrency } | { readonly __typename: 'UsdWallet', readonly id: string, readonly balance: number, readonly walletCurrency: WalletCurrency } } } | null };
-
 export type TransactionsByPaymentHashQueryVariables = Exact<{
   paymentHash: Scalars['PaymentHash']['input'];
   walletId: Scalars['WalletId']['input'];
@@ -2405,10 +2413,13 @@ export type TransactionsByPaymentHashQuery = { readonly __typename: 'Query', rea
 
 export type TransactionsForWalletIdQueryVariables = Exact<{
   walletId: Scalars['WalletId']['input'];
+  first?: InputMaybe<Scalars['Int']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  after?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type TransactionsForWalletIdQuery = { readonly __typename: 'Query', readonly me?: { readonly __typename: 'User', readonly defaultAccount: { readonly __typename: 'ConsumerAccount', readonly walletById: { readonly __typename: 'BTCWallet', readonly transactions?: { readonly __typename: 'TransactionConnection', readonly edges?: ReadonlyArray<{ readonly __typename: 'TransactionEdge', readonly node: { readonly __typename: 'Transaction', readonly createdAt: number, readonly direction: TxDirection, readonly id: string, readonly memo?: string | null, readonly settlementAmount: number, readonly settlementCurrency: WalletCurrency, readonly status: TxStatus, readonly initiationVia: { readonly __typename: 'InitiationViaIntraLedger' } | { readonly __typename: 'InitiationViaLn', readonly paymentHash: string, readonly paymentRequest: string } | { readonly __typename: 'InitiationViaOnChain' }, readonly settlementVia: { readonly __typename: 'SettlementViaIntraLedger', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaLn', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaOnChain' } } }> | null } | null } | { readonly __typename: 'UsdWallet', readonly transactions?: { readonly __typename: 'TransactionConnection', readonly edges?: ReadonlyArray<{ readonly __typename: 'TransactionEdge', readonly node: { readonly __typename: 'Transaction', readonly createdAt: number, readonly direction: TxDirection, readonly id: string, readonly memo?: string | null, readonly settlementAmount: number, readonly settlementCurrency: WalletCurrency, readonly status: TxStatus, readonly initiationVia: { readonly __typename: 'InitiationViaIntraLedger' } | { readonly __typename: 'InitiationViaLn', readonly paymentHash: string, readonly paymentRequest: string } | { readonly __typename: 'InitiationViaOnChain' }, readonly settlementVia: { readonly __typename: 'SettlementViaIntraLedger', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaLn', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaOnChain' } } }> | null } | null } } } | null };
+export type TransactionsForWalletIdQuery = { readonly __typename: 'Query', readonly me?: { readonly __typename: 'User', readonly defaultAccount: { readonly __typename: 'ConsumerAccount', readonly walletById: { readonly __typename: 'BTCWallet', readonly transactions?: { readonly __typename: 'TransactionConnection', readonly edges?: ReadonlyArray<{ readonly __typename: 'TransactionEdge', readonly cursor: string, readonly node: { readonly __typename: 'Transaction', readonly createdAt: number, readonly direction: TxDirection, readonly id: string, readonly memo?: string | null, readonly settlementAmount: number, readonly settlementCurrency: WalletCurrency, readonly settlementFee: number, readonly settlementDisplayFee: string, readonly status: TxStatus, readonly initiationVia: { readonly __typename: 'InitiationViaIntraLedger' } | { readonly __typename: 'InitiationViaLn', readonly paymentHash: string, readonly paymentRequest: string } | { readonly __typename: 'InitiationViaOnChain' }, readonly settlementVia: { readonly __typename: 'SettlementViaIntraLedger', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaLn', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaOnChain' } } }> | null, readonly pageInfo: { readonly __typename: 'PageInfo', readonly hasNextPage: boolean, readonly hasPreviousPage: boolean, readonly startCursor?: string | null, readonly endCursor?: string | null } } | null } | { readonly __typename: 'UsdWallet', readonly transactions?: { readonly __typename: 'TransactionConnection', readonly edges?: ReadonlyArray<{ readonly __typename: 'TransactionEdge', readonly cursor: string, readonly node: { readonly __typename: 'Transaction', readonly createdAt: number, readonly direction: TxDirection, readonly id: string, readonly memo?: string | null, readonly settlementAmount: number, readonly settlementCurrency: WalletCurrency, readonly settlementFee: number, readonly settlementDisplayFee: string, readonly status: TxStatus, readonly initiationVia: { readonly __typename: 'InitiationViaIntraLedger' } | { readonly __typename: 'InitiationViaLn', readonly paymentHash: string, readonly paymentRequest: string } | { readonly __typename: 'InitiationViaOnChain' }, readonly settlementVia: { readonly __typename: 'SettlementViaIntraLedger', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaLn', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaOnChain' } } }> | null, readonly pageInfo: { readonly __typename: 'PageInfo', readonly hasNextPage: boolean, readonly hasPreviousPage: boolean, readonly startCursor?: string | null, readonly endCursor?: string | null } } | null } } } | null };
 
 
 
@@ -4220,6 +4231,20 @@ export type DirectiveResolvers<ContextType = any> = {
 };
 
 
+export const LnNoAmountInvoiceCreateOnBehalfOfRecipient = gql`
+    mutation lnNoAmountInvoiceCreateOnBehalfOfRecipient($input: LnNoAmountInvoiceCreateOnBehalfOfRecipientInput!) {
+  lnNoAmountInvoiceCreateOnBehalfOfRecipient(input: $input) {
+    invoice {
+      createdAt
+      paymentRequest
+      paymentHash
+    }
+    errors {
+      message
+    }
+  }
+}
+    `;
 export const LnInvoiceCreateOnBehalfOfRecipient = gql`
     mutation LnInvoiceCreateOnBehalfOfRecipient($input: LnInvoiceCreateOnBehalfOfRecipientInput!) {
   lnInvoiceCreateOnBehalfOfRecipient(input: $input) {
@@ -4240,60 +4265,6 @@ export const LnInvoiceCreateOnBehalfOfRecipient = gql`
   }
 }
     `;
-export const LnInvoicePaymentStatusByHash = gql`
-    query lnInvoicePaymentStatusByHash($input: LnInvoicePaymentStatusByHashInput!) {
-  lnInvoicePaymentStatusByHash(input: $input) {
-    paymentHash
-    paymentPreimage
-    paymentRequest
-    status
-  }
-}
-    `;
-export const LnInvoicePaymentStatusByPaymentRequest = gql`
-    query lnInvoicePaymentStatusByPaymentRequest($input: LnInvoicePaymentStatusByPaymentRequestInput!) {
-  lnInvoicePaymentStatusByPaymentRequest(input: $input) {
-    paymentHash
-    paymentPreimage
-    paymentRequest
-    status
-  }
-}
-    `;
-export const LnNoAmountInvoicePaymentSend = gql`
-    mutation lnNoAmountInvoicePaymentSend($input: LnNoAmountInvoicePaymentInput!) {
-  lnNoAmountInvoicePaymentSend(input: $input) {
-    errors {
-      message
-      code
-    }
-    status
-    transaction {
-      createdAt
-      direction
-      id
-      initiationVia {
-        ... on InitiationViaLn {
-          paymentHash
-          paymentRequest
-        }
-      }
-      memo
-      settlementAmount
-      settlementCurrency
-      settlementVia {
-        ... on SettlementViaLn {
-          preImage
-        }
-        ... on SettlementViaIntraLedger {
-          preImage
-        }
-      }
-      status
-    }
-  }
-}
-    `;
 export const LnInvoicePaymentSend = gql`
     mutation LnInvoicePaymentSend($input: LnInvoicePaymentInput!) {
   lnInvoicePaymentSend(input: $input) {
@@ -4308,6 +4279,7 @@ export const LnInvoicePaymentSend = gql`
         }
       }
       memo
+      settlementFee
       settlementAmount
       settlementCurrency
       settlementVia {
@@ -4337,6 +4309,46 @@ export const GetWallet = gql`
         walletCurrency
       }
     }
+  }
+}
+    `;
+export const InvoiceByPaymentHash = gql`
+    query InvoiceByPaymentHash($paymentHash: PaymentHash!, $walletId: WalletId!) {
+  me {
+    defaultAccount {
+      walletById(walletId: $walletId) {
+        invoiceByPaymentHash(paymentHash: $paymentHash) {
+          createdAt
+          paymentHash
+          paymentRequest
+          paymentSecret
+          paymentStatus
+          ... on LnInvoice {
+            satoshis
+          }
+        }
+      }
+    }
+  }
+}
+    `;
+export const LnInvoicePaymentStatusByHash = gql`
+    query lnInvoicePaymentStatusByHash($input: LnInvoicePaymentStatusByHashInput!) {
+  lnInvoicePaymentStatusByHash(input: $input) {
+    paymentHash
+    paymentPreimage
+    paymentRequest
+    status
+  }
+}
+    `;
+export const LnInvoicePaymentStatusByPaymentRequest = gql`
+    query lnInvoicePaymentStatusByPaymentRequest($input: LnInvoicePaymentStatusByPaymentRequestInput!) {
+  lnInvoicePaymentStatusByPaymentRequest(input: $input) {
+    paymentHash
+    paymentPreimage
+    paymentRequest
+    status
   }
 }
     `;
@@ -4374,11 +4386,11 @@ export const TransactionsByPaymentHash = gql`
 }
     `;
 export const TransactionsForWalletId = gql`
-    query TransactionsForWalletId($walletId: WalletId!) {
+    query TransactionsForWalletId($walletId: WalletId!, $first: Int, $before: String, $after: String) {
   me {
     defaultAccount {
       walletById(walletId: $walletId) {
-        transactions {
+        transactions(first: $first, before: $before, after: $after) {
           edges {
             node {
               createdAt
@@ -4393,6 +4405,8 @@ export const TransactionsForWalletId = gql`
               memo
               settlementAmount
               settlementCurrency
+              settlementFee
+              settlementDisplayFee
               settlementVia {
                 ... on SettlementViaLn {
                   preImage
@@ -4403,9 +4417,14 @@ export const TransactionsForWalletId = gql`
               }
               status
             }
-            __typename
+            cursor
           }
-          __typename
+          pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+          }
         }
       }
     }

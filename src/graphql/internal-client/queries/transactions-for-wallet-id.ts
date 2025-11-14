@@ -9,11 +9,16 @@ import {
 import { ApiKey } from "@/domain/index.types"
 
 gql`
-  query TransactionsForWalletId($walletId: WalletId!) {
+  query TransactionsForWalletId(
+    $walletId: WalletId!
+    $first: Int
+    $before: String
+    $after: String
+  ) {
     me {
       defaultAccount {
         walletById(walletId: $walletId) {
-          transactions {
+          transactions(first: $first, before: $before, after: $after) {
             edges {
               node {
                 createdAt
@@ -28,6 +33,8 @@ gql`
                 memo
                 settlementAmount
                 settlementCurrency
+                settlementFee
+                settlementDisplayFee
                 settlementVia {
                   ... on SettlementViaLn {
                     preImage
@@ -38,9 +45,14 @@ gql`
                 }
                 status
               }
-              __typename
+              cursor
             }
-            __typename
+            pageInfo {
+              hasNextPage
+              hasPreviousPage
+              startCursor
+              endCursor
+            }
           }
         }
       }
@@ -48,17 +60,27 @@ gql`
   }
 `
 
-async function transactionsForWalletId(
+export async function transactionsForWalletId(
   client: ApolloClient,
   apiKey: ApiKey,
   walletId: WalletId,
+  options?: {
+    first?: number
+    after?: string
+    before?: string
+  },
 ) {
   const { data } = await client.query<
     TransactionsForWalletIdQuery,
     TransactionsForWalletIdQueryVariables
   >({
     query: TransactionsForWalletId,
-    variables: { walletId },
+    variables: {
+      walletId,
+      first: options?.first,
+      after: options?.after,
+      before: options?.before,
+    },
     context: { apiKey },
     fetchPolicy: "no-cache",
   })

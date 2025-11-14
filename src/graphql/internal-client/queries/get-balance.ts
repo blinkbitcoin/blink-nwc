@@ -34,5 +34,5 @@ export async function getBalance(
     context: { apiKey },
     fetchPolicy: "no-cache",
   })
-  return (data?.me?.defaultAccount.walletById.balance as Satoshis) ?? (0 as Satoshis)
+  return data?.me?.defaultAccount.walletById.balance as Satoshis | null
 }

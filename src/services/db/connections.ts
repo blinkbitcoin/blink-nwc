@@ -1,6 +1,6 @@
 import { queryBuilder } from "@/services/db/query-builder"
 import type { NwcConnectionRecord } from "@/services/db/index.types"
-import {IConnectionsRepository, NwcConnection} from "@/domain/nwc-connection"
+import { IConnectionsRepository, NwcConnection } from "@/domain/nwc-connection"
 import type {
   NwcAppPubkey,
   NwcConnectionId,
@@ -16,7 +16,7 @@ import {
   CouldNotFindNwcConnectionFromWalletIdError,
   RepositoryError,
 } from "@/domain/errors"
-import {parseRepositoryError} from "@/services/db/index";
+import { parseRepositoryError } from "@/services/db/index"
 
 const TABLE_NAME = "nwc_connections"
 
@@ -97,7 +97,6 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
 
       if (updates.alias !== undefined) updateData.alias = updates.alias
       if (updates.permissions !== undefined) updateData.permissions = updates.permissions
-
 
       updateData.updated_at = queryBuilder.fn.now() as any
 
@@ -183,7 +182,6 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
     }
   },
 
-
   async updatePermissions(
     id: NwcConnectionId,
     permissions: Nip47Method[],
@@ -225,4 +223,3 @@ const translateConnection = (doc: NwcConnectionRecord): NwcConnection => {
     updatedAt: doc.updated_at,
   }
 }
-

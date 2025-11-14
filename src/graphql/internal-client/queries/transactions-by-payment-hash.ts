@@ -42,7 +42,7 @@ gql`
   }
 `
 
-async function transactionsByPaymentHash(
+export async function transactionsByPaymentHash(
   client: ApolloClient,
   apiKey: ApiKey,
   walletId: WalletId,

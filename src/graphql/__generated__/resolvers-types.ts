@@ -1,4 +1,4 @@
-import { Nip47Method } from '@/domain/methods';
+import { Nip47Method } from '@/domain/index.types';
 import { GraphQLResolveInfo, GraphQLScalarType, GraphQLScalarTypeConfig } from 'graphql';
 import { IError } from '@/graphql/index.types';
 export type Maybe<T> = T | null;
@@ -189,13 +189,17 @@ export type DirectiveResolverFn<TResult = {}, TParent = {}, TContext = {}, TArgs
 ) => TResult | Promise<TResult>;
 
 
+/** Mapping of interface types */
+export type ResolversInterfaceTypes<_RefType extends Record<string, unknown>> = ResolversObject<{
+  Error: ( IError );
+}>;
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
   AccountId: ResolverTypeWrapper<Scalars['AccountId']['output']>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
-  Error: ResolverTypeWrapper<IError>;
-  GraphQLApplicationError: ResolverTypeWrapper<GraphQlApplicationError>;
+  Error: ResolverTypeWrapper<ResolversInterfaceTypes<ResolversTypes>['Error']>;
+  GraphQLApplicationError: ResolverTypeWrapper<IError>;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   Mutation: ResolverTypeWrapper<{}>;
   Nip47Method: Nip47Method;
@@ -217,8 +221,8 @@ export type ResolversTypes = ResolversObject<{
 export type ResolversParentTypes = ResolversObject<{
   AccountId: Scalars['AccountId']['output'];
   Boolean: Scalars['Boolean']['output'];
-  Error: IError;
-  GraphQLApplicationError: GraphQlApplicationError;
+  Error: ResolversInterfaceTypes<ResolversParentTypes>['Error'];
+  GraphQLApplicationError: IError;
   ID: Scalars['ID']['output'];
   Mutation: {};
   NwcConnection: NwcConnection;

@@ -1,5 +1,5 @@
-import { Nip47Error } from "@/domain/nwc-errors"
 import { Nip47Method } from "@/domain/index.types"
+import {Nip47Error} from "@/domain/nip47-errors";
 
 export type Nip47MakeInvoiceRequest = {
   amount: number // value in msats
@@ -63,7 +63,10 @@ export type Nip47LookupInvoiceResult = Nip47Transaction & {
   settled_at?: number
 }
 
-export type Nip47PayInvoiceResult = { preimage: string }
+export type Nip47PayInvoiceResult = {
+  preimage: string
+  fees_paid: number
+}
 
 export type Nip47ListTransactionsResult = {
   transactions: Nip47LookupInvoiceResult[]

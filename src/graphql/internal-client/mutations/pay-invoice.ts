@@ -22,6 +22,7 @@ gql`
           }
         }
         memo
+        settlementFee
         settlementAmount
         settlementCurrency
         settlementVia {

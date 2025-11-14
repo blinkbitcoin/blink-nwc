@@ -32,19 +32,12 @@ export class CouldNotFindNwcConnectionFromWalletIdError extends CouldNotFindErro
 export class CouldNotFindNwcConnectionFromAccountIdError extends CouldNotFindError {}
 export class CouldNotFindNwcConnectionFromUserIdError extends CouldNotFindError {}
 
-export class BlinkServiceError extends DomainError {}
-export class CouldNotFetchNodeInfoError extends BlinkServiceError {}
-export class CouldNotGetBalanceError extends BlinkServiceError {}
-export class CouldNotCreateInvoiceError extends BlinkServiceError {}
-export class CouldNotPayInvoiceError extends BlinkServiceError {}
-
 export class CannotConnectToDbError extends RepositoryError {
   level = ErrorLevel.Critical
 }
 export class UnknownRepositoryError extends RepositoryError {
   level = ErrorLevel.Critical
 }
-
 export class NwcCreateConnectionError extends DomainError {}
 
 export const parseErrorFromUnknown = (error: unknown): Error => {
