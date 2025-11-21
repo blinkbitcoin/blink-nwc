@@ -10,7 +10,7 @@ import {
   checkedToNwcUpdates,
   checkedToApiKey,
 } from "@/domain/validation"
-import { getServerKeypair, NwcConnection, stringifyNwcUri } from "@/domain/nwc-connection"
+import { getServerKeypair, NwcConnection, stringifyNwcUri } from "@/domain/connection"
 import { ConnectionsRepository } from "@/services/db/connections"
 import { NOSTR_RELAY_URL } from "@/config"
 import { Account } from "@/domain/core/index.types"

@@ -35,6 +35,7 @@ import { invoiceStatusByPaymentRequest } from "@/graphql/internal-client/queries
 import { transactionsByPaymentHash } from "@/graphql/internal-client/queries/transactions-by-payment-hash"
 import { transactionsForWalletId } from "@/graphql/internal-client/queries/transactions-for-wallet-id"
 import { createInvoiceAmountless } from "@/graphql/internal-client/mutations/create-invoice-amountless"
+import {getBlockInfo} from "@/graphql/internal-client/queries/get-block-info";
 
 export interface IBlinkCoreService {
   getNodeInfo(): Promise<
@@ -128,13 +129,16 @@ export interface IBlinkCoreService {
 export const BlinkCoreService = (): IBlinkCoreService => ({
   async getNodeInfo() {
     try {
-      // todo - there will be a query returning these data from blinks lnd node
+      const blockInfo = await getBlockInfo(client)
+      if (!blockInfo) {
+        return new InvalidResponseError()
+      }
+      return {
+        blockHeight: blockInfo.blockHeight as BlockHeight,
+        blockHash: blockInfo.blockHash as BlockHash,
+      }
     } catch {
       return new CouldNotFetchNodeInfoError()
-    }
-    return {
-      blockHeight: 0 as BlockHeight,
-      blockHash: "unknown" as BlockHash,
     }
   },
 
@@ -450,9 +454,9 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
 //todo find a better place for this helper
 // quick "hack" allowing pagination by timestamp
 // first 4 bytes of objectid are timestamp, rest is just filler bytes
+
 const objectIdFromTimestamp = (timestamp: number, end?: boolean) => {
   const bytes = Buffer.alloc(12)
-  // if we're looking for $lt - let's fill it with 255 so it will be greater than any objectid with this timestamp
   if (end) {
     bytes.fill(0xff)
   }

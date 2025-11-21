@@ -1,6 +1,5 @@
 import { queryBuilder } from "@/services/db/query-builder"
 import type { NwcConnectionRecord } from "@/services/db/index.types"
-import { IConnectionsRepository, NwcConnection } from "@/domain/nwc-connection"
 import type {
   NwcAppPubkey,
   NwcConnectionId,
@@ -17,6 +16,7 @@ import {
   RepositoryError,
 } from "@/domain/errors"
 import { parseRepositoryError } from "@/services/db/index"
+import { IConnectionsRepository, NwcConnection } from "@/domain/connection"
 
 const TABLE_NAME = "nwc_connections"
 
