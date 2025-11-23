@@ -5,6 +5,7 @@ import { GetBlockInfo, GetBlockInfoQuery } from "@/graphql/internal-client/gener
 gql`
   query GetBlockInfo {
     globals {
+      network
       blockInfo {
         blockHash
         blockHeight
@@ -13,7 +14,7 @@ gql`
   }
 `
 
-export async function getBlockInfo(client: ApolloClient) {
+export async function getNodeInfo(client: ApolloClient) {
   const { data } = await client.query<GetBlockInfoQuery>({ query: GetBlockInfo })
-  return data?.globals?.blockInfo
+  return data?.globals
 }

@@ -5,8 +5,8 @@ import {
   LnInvoiceCreateOnBehalfOfRecipientMutation,
   LnInvoiceCreateOnBehalfOfRecipientMutationVariables,
 } from "@/graphql/internal-client/generated"
-import { DescriptionHash, Satoshis, WalletId } from "@/domain/core/index.types"
-import { ApiKey, Memo } from "@/domain/index.types"
+import { DescriptionHash, WalletId } from "@/domain/core/index.types"
+import { ApiKey, Memo, Satoshis } from "@/domain/index.types"
 import { Minutes } from "@/domain/units"
 
 gql`

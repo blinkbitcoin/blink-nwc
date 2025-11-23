@@ -6,7 +6,7 @@ import {
   TransactionsForWalletIdQuery,
   TransactionsForWalletIdQueryVariables,
 } from "@/graphql/internal-client/generated"
-import { ApiKey } from "@/domain/index.types"
+import {ApiKey, Cursor} from "@/domain/index.types"
 
 gql`
   query TransactionsForWalletId(
@@ -66,8 +66,8 @@ export async function transactionsForWalletId(
   walletId: WalletId,
   options?: {
     first?: number
-    after?: string
-    before?: string
+    after?: Cursor
+    before?: Cursor
   },
 ) {
   const { data } = await client.query<

@@ -14,7 +14,6 @@ export const env = createEnv({
     LOGLEVEL: z
       .enum(["fatal", "error", "warn", "info", "debug", "trace"])
       .default("info"),
-    NETWORK: z.enum(["mainnet", "testnet", "signet", "regtest"]),
 
     NOSTR_PRIVATE_KEY: z
       .string()
@@ -28,7 +27,6 @@ export const env = createEnv({
   runtimeEnvStrict: {
     COMMITHASH: process.env.COMMITHASH,
     LOGLEVEL: process.env.LOGLEVEL,
-    NETWORK: process.env.NETWORK,
     NOSTR_PRIVATE_KEY: process.env.NOSTR_PRIVATE_KEY,
     NOSTR_RELAY_URL: process.env.NOSTR_RELAY_URL,
     JWKS_URL: process.env.JWKS_URL,

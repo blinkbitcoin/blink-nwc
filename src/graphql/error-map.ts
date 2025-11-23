@@ -73,7 +73,7 @@ export const mapAndParseErrorForGqlResponse = (err: ApplicationError): IError =>
   const mappedError = mapError(err)
   return {
     message: mappedError.message,
-    path: mappedError.path,
+    path: mappedError.path as any,
     code: `${mappedError.extensions.code}`,
   }
 }

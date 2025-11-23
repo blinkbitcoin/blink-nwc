@@ -1,13 +1,13 @@
 import { ApolloClient, gql } from "@apollo/client"
 
-import { Satoshis, WalletId } from "@/domain/core/index.types"
+import { WalletId } from "@/domain/core/index.types"
 
 import {
   GetWallet,
   GetWalletQuery,
   GetWalletQueryVariables,
 } from "@/graphql/internal-client/generated"
-import { ApiKey } from "@/domain/index.types"
+import { ApiKey, Satoshis } from "@/domain/index.types"
 
 gql`
   query GetWallet($walletId: WalletId!) {

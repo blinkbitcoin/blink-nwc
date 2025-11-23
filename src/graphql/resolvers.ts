@@ -33,6 +33,8 @@ export const resolvers: Resolvers = {
     },
   },
   Mutation: {
+    //todo - instead of separate mutation, extend the apiKeyCreate mutation payload type, and create connection
+    // as side-effect (__resolveReference)
     nwcConnectionCreate: async (
       _,
       args,
@@ -77,6 +79,7 @@ export const resolvers: Resolvers = {
         connection,
       }
     },
+    // todo - same as with creation - delete nwc connection on api key revoke
     nwcConnectionDelete: async (
       _,
       args,

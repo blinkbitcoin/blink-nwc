@@ -5,7 +5,7 @@ import { PaymentHash, WalletId } from "@/domain/core/index.types"
 import {
   InvoiceByPaymentHash,
   InvoiceByPaymentHashQuery,
-  InvoiceByPaymentHashQueryVariables
+  InvoiceByPaymentHashQueryVariables,
 } from "@/graphql/internal-client/generated"
 
 gql`

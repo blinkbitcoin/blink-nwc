@@ -2366,7 +2366,7 @@ export type LnNoAmountInvoiceCreateOnBehalfOfRecipientMutationVariables = Exact<
 }>;
 
 
-export type LnNoAmountInvoiceCreateOnBehalfOfRecipientMutation = { readonly __typename: 'Mutation', readonly lnNoAmountInvoiceCreateOnBehalfOfRecipient: { readonly __typename: 'LnNoAmountInvoicePayload', readonly invoice?: { readonly __typename: 'LnNoAmountInvoice', readonly createdAt: number, readonly paymentRequest: string, readonly paymentHash: string } | null, readonly errors: ReadonlyArray<{ readonly __typename: 'GraphQLApplicationError', readonly message: string }> } };
+export type LnNoAmountInvoiceCreateOnBehalfOfRecipientMutation = { readonly __typename: 'Mutation', readonly lnNoAmountInvoiceCreateOnBehalfOfRecipient: { readonly __typename: 'LnNoAmountInvoicePayload', readonly invoice?: { readonly __typename: 'LnNoAmountInvoice', readonly createdAt: number, readonly paymentRequest: string, readonly paymentHash: string } | null, readonly errors: ReadonlyArray<{ readonly __typename: 'GraphQLApplicationError', readonly code?: string | null, readonly message: string, readonly path?: ReadonlyArray<string | null> | null }> } };
 
 export type LnInvoiceCreateOnBehalfOfRecipientMutationVariables = Exact<{
   input: LnInvoiceCreateOnBehalfOfRecipientInput;
@@ -2380,7 +2380,7 @@ export type LnInvoicePaymentSendMutationVariables = Exact<{
 }>;
 
 
-export type LnInvoicePaymentSendMutation = { readonly __typename: 'Mutation', readonly lnInvoicePaymentSend: { readonly __typename: 'PaymentSendPayload', readonly status?: PaymentSendResult | null, readonly transaction?: { readonly __typename: 'Transaction', readonly createdAt: number, readonly direction: TxDirection, readonly id: string, readonly memo?: string | null, readonly settlementFee: number, readonly settlementAmount: number, readonly settlementCurrency: WalletCurrency, readonly status: TxStatus, readonly initiationVia: { readonly __typename: 'InitiationViaIntraLedger' } | { readonly __typename: 'InitiationViaLn', readonly paymentHash: string, readonly paymentRequest: string } | { readonly __typename: 'InitiationViaOnChain' }, readonly settlementVia: { readonly __typename: 'SettlementViaIntraLedger', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaLn', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaOnChain' } } | null, readonly errors: ReadonlyArray<{ readonly __typename: 'GraphQLApplicationError', readonly message: string }> } };
+export type LnInvoicePaymentSendMutation = { readonly __typename: 'Mutation', readonly lnInvoicePaymentSend: { readonly __typename: 'PaymentSendPayload', readonly status?: PaymentSendResult | null, readonly transaction?: { readonly __typename: 'Transaction', readonly createdAt: number, readonly direction: TxDirection, readonly id: string, readonly memo?: string | null, readonly settlementFee: number, readonly settlementAmount: number, readonly settlementCurrency: WalletCurrency, readonly status: TxStatus, readonly initiationVia: { readonly __typename: 'InitiationViaIntraLedger' } | { readonly __typename: 'InitiationViaLn', readonly paymentHash: string, readonly paymentRequest: string } | { readonly __typename: 'InitiationViaOnChain' }, readonly settlementVia: { readonly __typename: 'SettlementViaIntraLedger', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaLn', readonly preImage?: string | null } | { readonly __typename: 'SettlementViaOnChain' } } | null, readonly errors: ReadonlyArray<{ readonly __typename: 'GraphQLApplicationError', readonly code?: string | null, readonly message: string, readonly path?: ReadonlyArray<string | null> | null }> } };
 
 export type GetWalletQueryVariables = Exact<{
   walletId: Scalars['WalletId']['input'];
@@ -2392,7 +2392,7 @@ export type GetWalletQuery = { readonly __typename: 'Query', readonly me?: { rea
 export type GetBlockInfoQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetBlockInfoQuery = { readonly __typename: 'Query', readonly globals?: { readonly __typename: 'Globals', readonly blockInfo?: { readonly __typename: 'BlockInfo', readonly blockHash?: string | null, readonly blockHeight?: number | null } | null } | null };
+export type GetBlockInfoQuery = { readonly __typename: 'Query', readonly globals?: { readonly __typename: 'Globals', readonly network: Network, readonly blockInfo?: { readonly __typename: 'BlockInfo', readonly blockHash?: string | null, readonly blockHeight?: number | null } | null } | null };
 
 export type InvoiceByPaymentHashQueryVariables = Exact<{
   paymentHash: Scalars['PaymentHash']['input'];
@@ -2415,6 +2415,16 @@ export type LnInvoicePaymentStatusByPaymentRequestQueryVariables = Exact<{
 
 
 export type LnInvoicePaymentStatusByPaymentRequestQuery = { readonly __typename: 'Query', readonly lnInvoicePaymentStatusByPaymentRequest: { readonly __typename: 'LnInvoicePaymentStatus', readonly paymentHash?: string | null, readonly paymentPreimage?: string | null, readonly paymentRequest?: string | null, readonly status?: InvoicePaymentStatus | null } };
+
+export type InvoicesForWalletIdQueryVariables = Exact<{
+  walletId: Scalars['WalletId']['input'];
+  first?: InputMaybe<Scalars['Int']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  after?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type InvoicesForWalletIdQuery = { readonly __typename: 'Query', readonly me?: { readonly __typename: 'User', readonly defaultAccount: { readonly __typename: 'ConsumerAccount', readonly walletById: { readonly __typename: 'BTCWallet', readonly invoices?: { readonly __typename: 'InvoiceConnection', readonly edges?: ReadonlyArray<{ readonly __typename: 'InvoiceEdge', readonly cursor: string, readonly node: { readonly __typename: 'LnInvoice', readonly satoshis: number, readonly createdAt: number, readonly paymentHash: string, readonly paymentRequest: string, readonly paymentSecret: string, readonly paymentStatus: InvoicePaymentStatus } | { readonly __typename: 'LnNoAmountInvoice', readonly createdAt: number, readonly paymentHash: string, readonly paymentRequest: string, readonly paymentSecret: string, readonly paymentStatus: InvoicePaymentStatus } }> | null, readonly pageInfo: { readonly __typename: 'PageInfo', readonly hasNextPage: boolean, readonly hasPreviousPage: boolean, readonly startCursor?: string | null, readonly endCursor?: string | null } } | null } | { readonly __typename: 'UsdWallet', readonly invoices?: { readonly __typename: 'InvoiceConnection', readonly edges?: ReadonlyArray<{ readonly __typename: 'InvoiceEdge', readonly cursor: string, readonly node: { readonly __typename: 'LnInvoice', readonly satoshis: number, readonly createdAt: number, readonly paymentHash: string, readonly paymentRequest: string, readonly paymentSecret: string, readonly paymentStatus: InvoicePaymentStatus } | { readonly __typename: 'LnNoAmountInvoice', readonly createdAt: number, readonly paymentHash: string, readonly paymentRequest: string, readonly paymentSecret: string, readonly paymentStatus: InvoicePaymentStatus } }> | null, readonly pageInfo: { readonly __typename: 'PageInfo', readonly hasNextPage: boolean, readonly hasPreviousPage: boolean, readonly startCursor?: string | null, readonly endCursor?: string | null } } | null } } } | null };
 
 export type TransactionsByPaymentHashQueryVariables = Exact<{
   paymentHash: Scalars['PaymentHash']['input'];
@@ -4263,7 +4273,9 @@ export const LnNoAmountInvoiceCreateOnBehalfOfRecipient = gql`
       paymentHash
     }
     errors {
+      code
       message
+      path
     }
   }
 }
@@ -4316,7 +4328,9 @@ export const LnInvoicePaymentSend = gql`
       status
     }
     errors {
+      code
       message
+      path
     }
     status
   }
@@ -4338,6 +4352,7 @@ export const GetWallet = gql`
 export const GetBlockInfo = gql`
     query GetBlockInfo {
   globals {
+    network
     blockInfo {
       blockHash
       blockHeight
@@ -4382,6 +4397,37 @@ export const LnInvoicePaymentStatusByPaymentRequest = gql`
     paymentPreimage
     paymentRequest
     status
+  }
+}
+    `;
+export const InvoicesForWalletId = gql`
+    query InvoicesForWalletId($walletId: WalletId!, $first: Int, $before: String, $after: String) {
+  me {
+    defaultAccount {
+      walletById(walletId: $walletId) {
+        invoices(first: $first, before: $before, after: $after) {
+          edges {
+            cursor
+            node {
+              createdAt
+              paymentHash
+              paymentRequest
+              paymentSecret
+              paymentStatus
+              ... on LnInvoice {
+                satoshis
+              }
+            }
+          }
+          pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+          }
+        }
+      }
+    }
   }
 }
     `;

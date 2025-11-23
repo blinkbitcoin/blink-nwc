@@ -20,7 +20,9 @@ gql`
         paymentHash
       }
       errors {
+        code
         message
+        path
       }
     }
   }

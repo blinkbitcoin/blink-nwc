@@ -1,4 +1,5 @@
 import { CombinedGraphQLErrors, ServerError } from "@apollo/client"
+import { GraphQLError } from "graphql"
 
 import client from "@/graphql/internal-client"
 import {
@@ -7,15 +8,12 @@ import {
   BlockHeight,
   InvoiceBolt11,
   Memo,
+  Network,
+  Satoshis,
   Preimage,
 } from "@/domain/index.types"
 import { createInvoice } from "@/graphql/internal-client/mutations/create-invoice"
-import {
-  DescriptionHash,
-  PaymentHash,
-  Satoshis,
-  WalletId,
-} from "@/domain/core/index.types"
+import { DescriptionHash, PaymentHash, WalletId } from "@/domain/core/index.types"
 import { Minutes } from "@/domain/units"
 import { payInvoice } from "@/graphql/internal-client/mutations/pay-invoice"
 import { IError } from "@/graphql/index.types"
@@ -24,22 +22,26 @@ import {
   BlinkServiceError,
   CouldNotAuthorizeError,
   CouldNotFetchNodeInfoError,
-  InsufficientBalanceError,
   InvalidResponseError,
   InvoiceNotFoundError,
   UnknownBlinkServiceError,
+  InvoiceAlreadyPaidError,
+  PaymentFailedError,
+  PaymentPendingError,
+  ServiceUnavailableError,
+  parseBlinkError,
 } from "@/services/core/errors"
-import { GraphQlApplicationError } from "@/graphql/internal-client/generated"
 import { invoiceByPaymentHash } from "@/graphql/internal-client/queries/invoice-by-payment-hash"
 import { invoiceStatusByPaymentRequest } from "@/graphql/internal-client/queries/invoice-status-by-payment-request"
 import { transactionsByPaymentHash } from "@/graphql/internal-client/queries/transactions-by-payment-hash"
 import { transactionsForWalletId } from "@/graphql/internal-client/queries/transactions-for-wallet-id"
 import { createInvoiceAmountless } from "@/graphql/internal-client/mutations/create-invoice-amountless"
-import {getBlockInfo} from "@/graphql/internal-client/queries/get-block-info";
+import { getNodeInfo } from "@/graphql/internal-client/queries/get-node-info"
 
 export interface IBlinkCoreService {
   getNodeInfo(): Promise<
-    { blockHeight: BlockHeight; blockHash: BlockHash } | BlinkServiceError
+    | { blockHeight: BlockHeight; blockHash: BlockHash; network: Network }
+    | BlinkServiceError
   >
   getBalance(
     apiKey: ApiKey,
@@ -129,13 +131,14 @@ export interface IBlinkCoreService {
 export const BlinkCoreService = (): IBlinkCoreService => ({
   async getNodeInfo() {
     try {
-      const blockInfo = await getBlockInfo(client)
-      if (!blockInfo) {
-        return new InvalidResponseError()
+      const nodeInfo = await getNodeInfo(client)
+      if (!nodeInfo?.network || !nodeInfo.blockInfo) {
+        return new CouldNotFetchNodeInfoError()
       }
       return {
-        blockHeight: blockInfo.blockHeight as BlockHeight,
-        blockHash: blockInfo.blockHash as BlockHash,
+        network: nodeInfo.network as Network,
+        blockHeight: nodeInfo.blockInfo.blockHeight as BlockHeight,
+        blockHash: nodeInfo.blockInfo.blockHash as BlockHash,
       }
     } catch {
       return new CouldNotFetchNodeInfoError()
@@ -145,7 +148,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
   async getBalance(apiKey: ApiKey, walletId: WalletId) {
     try {
       const balance = await getBalance(client, apiKey, walletId)
-      if (!balance) {
+      if (balance === null || balance === undefined) {
         return new InvalidResponseError()
       }
       return { balance }
@@ -173,8 +176,9 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
       if (!res) {
         return new InvalidResponseError()
       }
-      if (res.lnInvoiceCreateOnBehalfOfRecipient.errors.length > 0) {
-        return parseBlinkError(res.lnInvoiceCreateOnBehalfOfRecipient.errors[0])
+      const mutationErrors = res.lnInvoiceCreateOnBehalfOfRecipient.errors || []
+      if (mutationErrors.length > 0) {
+        return parseBlinkError(mutationErrors[0])
       }
       if (!res.lnInvoiceCreateOnBehalfOfRecipient.invoice) {
         return new InvalidResponseError()
@@ -201,10 +205,11 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     try {
       const res = await createInvoiceAmountless(client, apiKey, walletId, expiry, memo)
       if (!res) {
-        return new InvalidResponseError("")
+        return new InvalidResponseError()
       }
-      if (res.lnNoAmountInvoiceCreateOnBehalfOfRecipient.errors.length > 0) {
-        return parseBlinkError(res.lnNoAmountInvoiceCreateOnBehalfOfRecipient.errors[0])
+      const mutationErrors = res.lnNoAmountInvoiceCreateOnBehalfOfRecipient.errors || []
+      if (mutationErrors.length > 0) {
+        return parseBlinkError(mutationErrors[0])
       }
       if (!res.lnNoAmountInvoiceCreateOnBehalfOfRecipient.invoice) {
         return new InvalidResponseError()
@@ -231,22 +236,50 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
   ) {
     try {
       const res = await payInvoice(client, apiKey, invoice, walletId, memo)
-      if (!res) {
-        return new InvalidResponseError("")
+      const payload = res?.lnInvoicePaymentSend
+      if (!payload) {
+        return new InvalidResponseError()
       }
-      if (res.lnInvoicePaymentSend.errors.length > 0) {
-        return parseBlinkError(res.lnInvoicePaymentSend.errors[0])
+
+      const mutationErrors = payload.errors || []
+      if (mutationErrors.length > 0) {
+        return parseBlinkError(mutationErrors[0])
       }
-      const fee = res?.lnInvoicePaymentSend.transaction?.settlementFee ?? 0
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      const preimage = res?.lnInvoicePaymentSend.transaction?.settlementVia[
-        "preImage"
-      ] as Preimage | undefined | null
-      // there should be always a preimage - even with intraledger settlement
+
+      switch (payload.status) {
+        case undefined:
+        case null:
+        case "SUCCESS":
+          break
+        case "ALREADY_PAID":
+          return new InvoiceAlreadyPaidError()
+        case "PENDING":
+          return new PaymentPendingError()
+        case "FAILURE":
+          return new PaymentFailedError()
+        default:
+          return new InvalidResponseError()
+      }
+
+      const transaction = payload.transaction
+      if (!transaction) {
+        return new InvalidResponseError()
+      }
+
+      const settlementVia = transaction.settlementVia as
+        | { preImage?: string | null }
+        | undefined
+
+      const preimage =
+        settlementVia && typeof settlementVia.preImage === "string"
+          ? (settlementVia.preImage as Preimage)
+          : undefined
+
       if (preimage) {
-        return { preimage: preimage as Preimage, feesPaid: fee as Satoshis }
+        const fee = (transaction.settlementFee ?? 0) as Satoshis
+        return { preimage, feesPaid: fee }
       }
+
       return new InvalidResponseError()
     } catch (err) {
       return parseThrownError(err)
@@ -262,7 +295,6 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     try {
       if (paymentHash) {
         try {
-          // if there's no data, client will throw an error. ignore it and try check its status
           const invoiceRes = await invoiceByPaymentHash(
             client,
             apiKey,
@@ -423,12 +455,10 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
           amount: amount,
           fees_paid: feesPaid,
           created_at: createdAt,
-          // settled_at will be set if status is SUCCESS
           settled_at: node.status === "SUCCESS" ? createdAt : undefined,
         }
       })
 
-      // Apply filters
       if (options?.from) {
         transactions = transactions.filter((tx) => tx.created_at >= options.from!)
       }
@@ -455,6 +485,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
 // quick "hack" allowing pagination by timestamp
 // first 4 bytes of objectid are timestamp, rest is just filler bytes
 
+// nvm, it doesn't work (propably because of medici)
 const objectIdFromTimestamp = (timestamp: number, end?: boolean) => {
   const bytes = Buffer.alloc(12)
   if (end) {
@@ -465,9 +496,16 @@ const objectIdFromTimestamp = (timestamp: number, end?: boolean) => {
 }
 
 const parseThrownError = (err: unknown): BlinkServiceError => {
-  if (err instanceof ServerError && err.statusCode === 401) {
-    return new CouldNotAuthorizeError() // shouldn't happen because nwc connection should be revoked with api key
+  if (err instanceof ServerError) {
+    if (err.statusCode === 401) {
+      return new CouldNotAuthorizeError() // shouldn't happen because nwc connection should be revoked with api key
+    }
+    if (err.statusCode === 403) {
+      return new CouldNotAuthorizeError()
+    }
+    return new ServiceUnavailableError()
   }
+
   if (err instanceof CombinedGraphQLErrors) {
     if (err.errors && err.errors.length > 0) {
       const firstError = err.errors[0]
@@ -480,25 +518,33 @@ const parseThrownError = (err: unknown): BlinkServiceError => {
     }
     return new UnknownBlinkServiceError()
   }
+
+  if (
+    err &&
+    typeof err === "object" &&
+    ("graphQLErrors" in err || "networkError" in err)
+  ) {
+    const apolloErr = err as {
+      graphQLErrors?: readonly GraphQLError[]
+      networkError?: Error | null
+    }
+
+    if (apolloErr.graphQLErrors && apolloErr.graphQLErrors.length > 0) {
+      const firstError = apolloErr.graphQLErrors[0]
+      if (firstError.extensions?.code) {
+        return parseBlinkError({
+          code: firstError.extensions.code as string,
+          message: firstError.message,
+        } as IError)
+      }
+    }
+
+    if (apolloErr.networkError) {
+      return new ServiceUnavailableError()
+    }
+
+    return new UnknownBlinkServiceError()
+  }
+
   return new UnknownBlinkServiceError()
 }
-
-const parseBlinkError = (err: IError | GraphQlApplicationError) => {
-  switch (err.code) {
-    case KnownBlinkErrorCodes.InsufficientBalance:
-      return new InsufficientBalanceError()
-    case KnownBlinkErrorCodes.UnknownClientError:
-      return new UnknownBlinkServiceError()
-  }
-  switch (err.message) {
-    // couldnt find invoice => regexp - User tried to pay invoice with hash...
-    default:
-      return new UnknownBlinkServiceError()
-  }
-}
-
-export const KnownBlinkErrorDetails = {} as const
-export const KnownBlinkErrorCodes = {
-  InsufficientBalance: "InsufficientBalanceError",
-  UnknownClientError: "UnknownClientError",
-} as const

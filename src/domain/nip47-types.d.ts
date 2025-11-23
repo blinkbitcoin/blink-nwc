@@ -1,5 +1,5 @@
 import { Nip47Method } from "@/domain/index.types"
-import {Nip47Error} from "@/domain/nip47-errors";
+import { Nip47Error } from "@/domain/nip47-errors"
 
 export type Nip47MakeInvoiceRequest = {
   amount: number // value in msats
@@ -84,3 +84,43 @@ export type Nip47Result =
 export type Nip47Response =
   | { result: Nip47Result }
   | { error: { code: string; message: string } }
+
+export type Nip47PaymentReceivedNotification = {
+  notification_type: "payment_received"
+  notification: {
+    type: "incoming"
+    state?: string // optional
+    invoice: string // encoded invoice
+    description?: string // invoice's description, optional
+    description_hash?: string // invoice's description hash, optional
+    preimage?: string // payment's preimage
+    payment_hash: string // Payment hash for the payment
+    amount: number // value in msats
+    fees_paid: number // value in msats
+    created_at: number // invoice/payment creation time
+    expires_at?: number // invoice expiration time, optional if not applicable
+    settled_at: number // invoice/payment settlement time
+  }
+}
+
+export type Nip47PaymentSentNotification = {
+  notification_type: "payment_sent"
+  notification: {
+    type: "outgoing"
+    state?: string // optional
+    invoice: string // encoded invoice
+    description?: string // invoice's description, optional
+    description_hash?: string // invoice's description hash, optional
+    preimage: string // payment's preimage
+    payment_hash: string // Payment hash for the payment
+    amount: number // value in msats
+    fees_paid: number // value in msats
+    created_at: number // invoice/payment creation time
+    expires_at: number // invoice expiration time, optional if not applicable
+    settled_at: number // invoice/payment settlement time
+  }
+}
+
+export type Nip47Notification =
+  | Nip47PaymentReceivedNotification
+  | Nip47PaymentSentNotification

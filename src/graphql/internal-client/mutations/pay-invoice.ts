@@ -36,7 +36,9 @@ gql`
         status
       }
       errors {
+        code
         message
+        path
       }
       status
     }

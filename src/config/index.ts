@@ -2,12 +2,7 @@ import { env } from "@/config/env"
 import database from "@/config/db"
 export * from "@/config/error"
 
-import {
-  BitcoinNetwork,
-  Nip47Method,
-  NwcRelay,
-  ServerNostrPrivkey,
-} from "@/domain/index.types"
+import { Nip47Method, NwcRelay, ServerNostrPrivkey } from "@/domain/index.types"
 
 export const SUBGRAPH_PORT = process.env.SUBGRAPH_PORT
   ? parseInt(process.env.SUBGRAPH_PORT)
@@ -37,7 +32,6 @@ export const databaseClientConfig = database
 
 export const NOSTR_PRIVATE_KEY = env.NOSTR_PRIVATE_KEY as ServerNostrPrivkey
 export const NOSTR_RELAY_URL = env.NOSTR_RELAY_URL as NwcRelay
-export const NETWORK = env.NETWORK as BitcoinNetwork
 
 export const WALLET_ALIAS = "Blink"
 export const WALLET_COLOR = "Orange"
