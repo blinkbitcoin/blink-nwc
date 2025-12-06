@@ -1,6 +1,7 @@
 import {
   InvoiceBolt11,
   Memo,
+  Minutes,
   Nip47GetBalanceResult,
   Nip47GetInfoResult,
   Nip47ListTransactionsRequest,
@@ -13,37 +14,33 @@ import {
   Nip47PayInvoiceRequest,
   Nip47PayInvoiceResult,
   Nip47Result,
+  Satoshis,
 } from "@/domain/index.types"
+import { DescriptionHash, PaymentHash } from "@/domain/core/index.types"
 import { getServerKeypair, hasPermission, NwcConnection } from "@/domain/connection"
+
+import { BlinkCoreService } from "@/services"
+import { SUPPORTED_NWC_METHODS } from "@/config"
+import { BlinkServiceError } from "@/services/core/errors"
+import { mergeTxs } from "@/domain/utils"
 import {
   Nip47Error,
+  Nip47InsufficientBalanceError,
   Nip47InternalError,
   Nip47NotFoundError,
   Nip47NotImplementedError,
   Nip47OtherError,
-  Nip47RestrictedError,
-  Nip47InsufficientBalanceError,
-  Nip47RateLimitedError,
   Nip47PaymentFailedError,
-  Nip47UnauthorizedError,
   Nip47QuotaExceededError,
-} from "@/domain/nip47-errors"
-import { BlinkCoreService } from "@/services"
-import { SUPPORTED_NWC_METHODS } from "@/config"
-import { DescriptionHash, PaymentHash } from "@/domain/core/index.types"
-import { Minutes, Satoshis } from "@/domain/units"
-import { BlinkServiceError } from "@/services/core/errors"
+  Nip47RateLimitedError,
+  Nip47RestrictedError,
+  Nip47UnauthorizedError,
+} from "@/domain/nostr"
+import { ensureUnixSeconds, toMilliSatoshis, toUnixSeconds } from "@/domain/units"
+import { findFromIndex, findUntilIndex } from "@/domain"
 
 const DEFAULT_INVOICE_EXPIRY_SECONDS = 24 * 60 * 60
-
-const toMilliSatoshis = (value?: number | null): number =>
-  typeof value === "number" && Number.isFinite(value) ? Math.round(value * 1000) : 0
-
-const toUnixSeconds = (value?: number | null): number | undefined =>
-  typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : undefined
-
-const ensureUnixSeconds = (value?: number | null): number =>
-  toUnixSeconds(value) ?? Math.floor(Date.now() / 1000)
+const DEFAULT_BATCH_SIZE = 10
 
 const NwcEventHandler = () => {
   const getInfo = async (): Promise<Nip47Error | Nip47GetInfoResult> => {
@@ -156,9 +153,8 @@ const NwcEventHandler = () => {
     )
 
     if (res instanceof Error) {
-      // If invoice not found, return appropriate NIP-47 error
-      if (res.name === "InvalidResponseError") {
-        return new Nip47OtherError("Invoice not found")
+      if (res.name === "InvalidResponseError" || res.name === "InvoiceNotFoundError") {
+        return new Nip47NotFoundError("Invoice not found")
       }
       return parseErrorForNip47Response(res)
     }
@@ -177,45 +173,74 @@ const NwcEventHandler = () => {
       fees_paid: toMilliSatoshis(res.feesPaid),
       description: undefined,
       description_hash: undefined,
-      preimage: undefined,
+      preimage: res.preimage,
     }
   }
 
-  const listInvoices = async (
+  const listTransactions = async (
     req: Nip47ListTransactionsRequest,
     connection: NwcConnection,
   ): Promise<Nip47Error | Nip47ListTransactionsResult> => {
     const { apiKey, walletId } = connection
-    const { from, until, limit, offset, unpaid, type } = req
+    const { from, until, offset, unpaid, type } = req
+    const limit = req.limit || DEFAULT_BATCH_SIZE
 
-    const res = await BlinkCoreService().listTransactions(apiKey, walletId, {
+    const transactions = await BlinkCoreService().fetchTransactionsInRange(
+      apiKey,
+      walletId,
       from,
       until,
-      limit,
-      offset,
-      unpaid,
-      type,
-    })
-
-    if (res instanceof Error) {
-      return parseErrorForNip47Response(res)
+    )
+    if (transactions instanceof Error) {
+      return parseErrorForNip47Response(transactions)
     }
 
-    return {
-      transactions: res.map((tx) => ({
-        type: tx.type,
-        invoice: tx.invoice,
-        description: tx.description,
-        description_hash: tx.description_hash,
-        preimage: tx.preimage,
-        payment_hash: tx.payment_hash,
-        amount: tx.amount,
-        fees_paid: tx.fees_paid,
-        created_at: tx.created_at,
-        settled_at: tx.settled_at,
-        expires_at: tx.expires_at,
-      })),
+    let result: Nip47LookupInvoiceResult[]
+
+    if (unpaid) {
+      const invoices = await BlinkCoreService().fetchInvoicesInRange(
+        apiKey,
+        walletId,
+        from,
+      )
+      if (invoices instanceof Error) {
+        return parseErrorForNip47Response(invoices)
+      }
+      result = mergeTxs(invoices, transactions)
+    } else {
+      result = transactions
     }
+
+    // data is sorted DESC (newest first)
+    // use binary search to find the time range boundaries
+    let startIdx = 0
+    let endIdx = result.length
+
+    if (until !== undefined) {
+      // find first index where created_at <= until
+      startIdx = findUntilIndex(result, until)
+    }
+    if (from !== undefined) {
+      // find last index where created_at >= from
+      endIdx = findFromIndex(result, from)
+    }
+
+    result = result.slice(startIdx, endIdx)
+
+    // apply type filter
+    if (type) {
+      result = result.filter((tx) => tx.type === type)
+    }
+
+    // Apply offset and limit
+    if (offset !== undefined && offset > 0) {
+      result = result.slice(offset)
+    }
+    if (limit !== undefined && limit > 0) {
+      result = result.slice(0, limit)
+    }
+
+    return { transactions: result }
   }
 
   const parseErrorForNip47Response = (err: BlinkServiceError): Nip47Error => {
@@ -302,11 +327,15 @@ const NwcEventHandler = () => {
       case "lookup_invoice":
         return lookupInvoice(request.params as Nip47LookupInvoiceRequest, connection)
       case "list_transactions":
-        return listInvoices(request.params as Nip47ListTransactionsRequest, connection)
+        return listTransactions(
+          request.params as Nip47ListTransactionsRequest,
+          connection,
+        )
       default:
         return new Nip47NotImplementedError(`Unsupported method: ${request.method}`)
     }
   }
+
   return { handle }
 }
 

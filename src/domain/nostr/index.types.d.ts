@@ -1,5 +1,5 @@
 import { Nip47Method } from "@/domain/index.types"
-import { Nip47Error } from "@/domain/nip47-errors"
+import { Nip47Error } from "@/domain/nostr/errors"
 
 export type Nip47MakeInvoiceRequest = {
   amount: number // value in msats
@@ -124,3 +124,5 @@ export type Nip47PaymentSentNotification = {
 export type Nip47Notification =
   | Nip47PaymentReceivedNotification
   | Nip47PaymentSentNotification
+
+export type Nip47EncryptionType = "nip04" | "nip44_v2"

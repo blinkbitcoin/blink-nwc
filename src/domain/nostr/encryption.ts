@@ -1,6 +1,10 @@
 import { nip04, nip44 } from "nostr-tools"
 
-import { ServerNostrKeypair, NwcAppPubkey, Nip47EncryptionType } from "./index.types"
+import {
+  Nip47EncryptionType,
+  NwcAppPubkey,
+  ServerNostrKeypair,
+} from "@/domain/index.types"
 
 const hexToBytes = (hex: string): Uint8Array => {
   if (hex.length % 2 !== 0) {

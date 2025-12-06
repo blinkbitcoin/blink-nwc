@@ -1,17 +1,40 @@
-import { Nip47Response, Nip47Result } from "@/domain/index.types"
-import { Nip47Error } from "@/domain/nip47-errors"
+import { Nip47LookupInvoiceResult } from "@/domain/index.types"
 
-export * from "./connection"
-export * from "./nip47-errors"
-export * from "./nip47-types"
-export * from "./methods"
-export * from "./event-kinds"
-export * from "./validation"
-export * from "./encryption"
-
-export const parseNip47Response = (res: Nip47Result | Nip47Error): Nip47Response => {
-  if (res instanceof Nip47Error) {
-    return { error: { code: res.code, message: res.message } }
+/**
+ * binary search to find the first index where created_at <= target
+ * data is sorted DESC (newest first), so we look for upper bound of time range
+ */
+export const findUntilIndex = (
+  txs: Nip47LookupInvoiceResult[],
+  until: number,
+): number => {
+  let lo = 0
+  let hi = txs.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (txs[mid].created_at > until) {
+      lo = mid + 1
+    } else {
+      hi = mid
+    }
   }
-  return { result: res }
+  return lo
+}
+
+/**
+ * binary search to find the last index where created_at >= target
+ * data is sorted DESC, so we look for lower bound of time range
+ */
+export const findFromIndex = (txs: Nip47LookupInvoiceResult[], from: number): number => {
+  let lo = 0
+  let hi = txs.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (txs[mid].created_at >= from) {
+      lo = mid + 1
+    } else {
+      hi = mid
+    }
+  }
+  return lo
 }

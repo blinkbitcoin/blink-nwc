@@ -2361,6 +2361,20 @@ export const Link__Purpose = {
 } as const;
 
 export type Link__Purpose = typeof Link__Purpose[keyof typeof Link__Purpose];
+export type CallbackEndpointAddMutationVariables = Exact<{
+  input: CallbackEndpointAddInput;
+}>;
+
+
+export type CallbackEndpointAddMutation = { readonly __typename: 'Mutation', readonly callbackEndpointAdd: { readonly __typename: 'CallbackEndpointAddPayload', readonly id?: string | null, readonly errors: ReadonlyArray<{ readonly __typename: 'GraphQLApplicationError', readonly code?: string | null, readonly message: string, readonly path?: ReadonlyArray<string | null> | null }> } };
+
+export type CallbackEndpointDeleteMutationVariables = Exact<{
+  input: CallbackEndpointDeleteInput;
+}>;
+
+
+export type CallbackEndpointDeleteMutation = { readonly __typename: 'Mutation', readonly callbackEndpointDelete: { readonly __typename: 'SuccessPayload', readonly success?: boolean | null, readonly errors: ReadonlyArray<{ readonly __typename: 'GraphQLApplicationError', readonly code?: string | null, readonly message: string, readonly path?: ReadonlyArray<string | null> | null }> } };
+
 export type LnNoAmountInvoiceCreateOnBehalfOfRecipientMutationVariables = Exact<{
   input: LnNoAmountInvoiceCreateOnBehalfOfRecipientInput;
 }>;
@@ -4264,6 +4278,30 @@ export type DirectiveResolvers<ContextType = any> = {
 };
 
 
+export const CallbackEndpointAdd = gql`
+    mutation CallbackEndpointAdd($input: CallbackEndpointAddInput!) {
+  callbackEndpointAdd(input: $input) {
+    id
+    errors {
+      code
+      message
+      path
+    }
+  }
+}
+    `;
+export const CallbackEndpointDelete = gql`
+    mutation CallbackEndpointDelete($input: CallbackEndpointDeleteInput!) {
+  callbackEndpointDelete(input: $input) {
+    success
+    errors {
+      code
+      message
+      path
+    }
+  }
+}
+    `;
 export const LnNoAmountInvoiceCreateOnBehalfOfRecipient = gql`
     mutation lnNoAmountInvoiceCreateOnBehalfOfRecipient($input: LnNoAmountInvoiceCreateOnBehalfOfRecipientInput!) {
   lnNoAmountInvoiceCreateOnBehalfOfRecipient(input: $input) {

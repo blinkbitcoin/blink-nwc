@@ -2,7 +2,6 @@ import { finalizeEvent, EventTemplate, Relay } from "nostr-tools"
 import { Subscription } from "nostr-tools/lib/types/abstract-relay"
 
 import { NOSTR_RELAY_URL, SUPPORTED_NWC_METHODS } from "@/config"
-import { sleep } from "@/utils"
 import { getServerKeypair, NwcConnection } from "@/domain/connection"
 import {
   Nip47EncryptionType,
@@ -11,10 +10,15 @@ import {
   Nip47Result,
   NwcAppPubkey,
 } from "@/domain/index.types"
-import { decrypt, encrypt, hexToBytes } from "@/domain/encryption"
-import { parseNip47Response } from "@/domain"
-import { Nip47UnauthorizedError } from "@/domain/nip47-errors"
+import {
+  parseNip47Response,
+  decrypt,
+  encrypt,
+  hexToBytes,
+  Nip47UnauthorizedError,
+} from "@/domain/nostr"
 import { ConnectionsRepository } from "@/services/db"
+import { sleep } from "@/domain/utils"
 
 export const NwcSubscriber = () => {
   const r = new Relay(NOSTR_RELAY_URL)
@@ -79,7 +83,7 @@ export const NwcSubscriber = () => {
               }
 
               const userConnection = await ConnectionsRepository().findByPubkey(
-                event.pubkey,
+                event.pubkey as NwcAppPubkey,
               )
               if (userConnection instanceof Error) {
                 await sendNwcResponse(

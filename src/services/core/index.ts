@@ -6,15 +6,17 @@ import {
   ApiKey,
   BlockHash,
   BlockHeight,
+  Cursor,
   InvoiceBolt11,
   Memo,
+  Minutes,
   Network,
-  Satoshis,
   Preimage,
+  Satoshis,
+  WebhookId,
 } from "@/domain/index.types"
 import { createInvoice } from "@/graphql/internal-client/mutations/create-invoice"
 import { DescriptionHash, PaymentHash, WalletId } from "@/domain/core/index.types"
-import { Minutes } from "@/domain/units"
 import { payInvoice } from "@/graphql/internal-client/mutations/pay-invoice"
 import { IError } from "@/graphql/index.types"
 import { getBalance } from "@/graphql/internal-client/queries/get-balance"
@@ -23,13 +25,13 @@ import {
   CouldNotAuthorizeError,
   CouldNotFetchNodeInfoError,
   InvalidResponseError,
-  InvoiceNotFoundError,
-  UnknownBlinkServiceError,
   InvoiceAlreadyPaidError,
+  InvoiceNotFoundError,
+  parseBlinkError,
   PaymentFailedError,
   PaymentPendingError,
   ServiceUnavailableError,
-  parseBlinkError,
+  UnknownBlinkServiceError,
 } from "@/services/core/errors"
 import { invoiceByPaymentHash } from "@/graphql/internal-client/queries/invoice-by-payment-hash"
 import { invoiceStatusByPaymentRequest } from "@/graphql/internal-client/queries/invoice-status-by-payment-request"
@@ -37,96 +39,10 @@ import { transactionsByPaymentHash } from "@/graphql/internal-client/queries/tra
 import { transactionsForWalletId } from "@/graphql/internal-client/queries/transactions-for-wallet-id"
 import { createInvoiceAmountless } from "@/graphql/internal-client/mutations/create-invoice-amountless"
 import { getNodeInfo } from "@/graphql/internal-client/queries/get-node-info"
-
-export interface IBlinkCoreService {
-  getNodeInfo(): Promise<
-    | { blockHeight: BlockHeight; blockHash: BlockHash; network: Network }
-    | BlinkServiceError
-  >
-  getBalance(
-    apiKey: ApiKey,
-    walletId: WalletId,
-  ): Promise<{ balance: Satoshis } | BlinkServiceError>
-  createInvoice(
-    apiKey: ApiKey,
-    walletId: WalletId,
-    amount: Satoshis,
-    descriptionHash: DescriptionHash,
-    expiry?: Minutes,
-  ): Promise<
-    | {
-        createdAt: number
-        paymentHash: PaymentHash
-        paymentRequest: InvoiceBolt11
-        satoshis: Satoshis
-      }
-    | BlinkServiceError
-  >
-  createInvoiceAmountless(
-    apiKey: ApiKey,
-    walletId: WalletId,
-    memo?: Memo,
-    expiry?: Minutes,
-  ): Promise<
-    | {
-        createdAt: number
-        paymentHash: PaymentHash
-        paymentRequest: InvoiceBolt11
-        satoshis: Satoshis
-      }
-    | BlinkServiceError
-  >
-  payInvoice(
-    apiKey: ApiKey,
-    walletId: WalletId,
-    invoice: InvoiceBolt11,
-    memo?: Memo,
-  ): Promise<{ preimage: Preimage; feesPaid: Satoshis } | BlinkServiceError>
-  lookupInvoice(
-    apiKey: ApiKey,
-    walletId: WalletId,
-    paymentHash?: PaymentHash,
-    invoice?: InvoiceBolt11,
-  ): Promise<
-    | {
-        paymentHash: PaymentHash
-        paymentRequest?: InvoiceBolt11
-        paymentStatus: string
-        satoshis?: Satoshis
-        feesPaid?: Satoshis
-        createdAt?: number
-        settledAt?: number
-      }
-    | BlinkServiceError
-  >
-  listTransactions(
-    apiKey: ApiKey,
-    walletId: WalletId,
-    options?: {
-      from?: number
-      until?: number
-      limit?: number
-      offset?: number
-      unpaid?: boolean
-      type?: "incoming" | "outgoing"
-    },
-  ): Promise<
-    | Array<{
-        type: "incoming" | "outgoing"
-        invoice?: string
-        description?: string
-        description_hash?: string
-        preimage?: string
-        payment_hash: string
-        amount: number
-        fees_paid: number
-        created_at: number
-        settled_at?: number
-        expires_at?: number
-      }>
-    | BlinkServiceError
-  >
-}
+import { invoicesForWalletId } from "@/graphql/internal-client/queries/invoices-for-wallet-id"
+import callbackEndpointAdd from "@/graphql/internal-client/mutations/callback-endpoint-add"
+import callbackEndpointDelete from "@/graphql/internal-client/mutations/callback-endpoint-delete"
+import { IBlinkCoreService } from "@/domain/core"
 
 export const BlinkCoreService = (): IBlinkCoreService => ({
   async getNodeInfo() {
@@ -303,12 +219,15 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
           )
           if (invoiceRes?.me?.defaultAccount?.walletById?.invoiceByPaymentHash) {
             const inv = invoiceRes.me.defaultAccount.walletById.invoiceByPaymentHash
-            const createdAt = Math.floor(new Date(inv.createdAt).getTime() / 1000)
+            // Blink returns createdAt as Unix timestamp in seconds (Timestamp scalar)
+            const createdAt = inv.createdAt
             const isPaid = inv.paymentStatus === "PAID"
+            const satoshis = "satoshis" in inv ? inv.satoshis : 0
             return {
               paymentHash: inv.paymentHash as PaymentHash,
               paymentRequest: inv.paymentRequest as InvoiceBolt11,
               paymentStatus: inv.paymentStatus,
+              satoshis: satoshis as Satoshis,
               createdAt,
               settledAt: isPaid ? createdAt : undefined,
             }
@@ -333,27 +252,29 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
             )
             if (relevant.length > 0) {
               const tx = relevant[0]
-              const isOutgoing = tx.direction === "SEND"
               const paymentRequest =
                 tx.initiationVia && "paymentRequest" in tx.initiationVia
                   ? (tx.initiationVia.paymentRequest as InvoiceBolt11)
                   : undefined
               const preimage =
-                tx.settlementVia &&
-                ("preImage" in tx.settlementVia || "preImage" in tx.settlementVia)
-                  ? ((tx.settlementVia as any).preImage as Preimage)
+                tx.settlementVia && "preImage" in tx.settlementVia
+                  ? ((tx.settlementVia as { preImage?: string | null }).preImage as
+                      | Preimage
+                      | undefined)
                   : undefined
+              // Blink returns createdAt as Unix timestamp in seconds
+              const createdAt = tx.createdAt
+              const isSettled = tx.status === "SUCCESS"
 
               return {
-                paymentHash: paymentHash,
-                paymentRequest: paymentRequest,
-                paymentStatus: tx.status === "SUCCESS" ? "PAID" : "PENDING",
-                createdAt: Math.floor(new Date(tx.createdAt).getTime() / 1000),
-                settledAt:
-                  tx.status === "SUCCESS"
-                    ? Math.floor(new Date(tx.createdAt).getTime() / 1000)
-                    : undefined,
-                // for outgoing payments, we don't have invoice data
+                paymentHash,
+                paymentRequest,
+                paymentStatus: isSettled ? "PAID" : "PENDING",
+                satoshis: Math.abs(tx.settlementAmount) as Satoshis,
+                feesPaid: 0 as Satoshis,
+                preimage,
+                createdAt,
+                settledAt: isSettled ? createdAt : undefined,
               }
             }
           }
@@ -384,39 +305,30 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     }
   },
 
-  // todo - handle also unpaid invoices, fetch from me-query.
   async listTransactions(
     apiKey: ApiKey,
     walletId: WalletId,
     options?: {
-      from?: number
-      until?: number
-      limit?: number
-      offset?: number
-      unpaid?: boolean
-      type?: "incoming" | "outgoing"
+      after?: Cursor
+      first?: number
     },
   ) {
     try {
-      const after = options?.from ? objectIdFromTimestamp(options.from) : undefined
-      const before = options?.until
-        ? objectIdFromTimestamp(options.until, true)
-        : undefined
-      const limit = options?.limit ? Math.min(options.limit, 100) : 100
       const res = await transactionsForWalletId(client, apiKey, walletId, {
-        first: limit + (options?.offset || 0),
-        after,
-        before,
+        first: options?.first,
+        after: options?.after,
       })
 
-      if (!res?.me?.defaultAccount?.walletById?.transactions?.edges) {
+      const edges = res?.me?.defaultAccount?.walletById?.transactions?.edges
+      if (!edges) {
         return new InvalidResponseError()
       }
 
-      const edges = res.me.defaultAccount.walletById.transactions.edges
-      let transactions = edges.map((edge) => {
+      const txData = res.me.defaultAccount.walletById.transactions
+      const transactions = edges.map((edge) => {
         const node = edge.node
-        const direction = node.direction.toLowerCase() as "incoming" | "outgoing"
+        // Blink returns direction as SEND/RECEIVE, NIP-47 uses incoming/outgoing
+        const type = node.direction === "RECEIVE" ? "incoming" : "outgoing"
         const paymentHash =
           node.initiationVia &&
           "paymentHash" in node.initiationVia &&
@@ -432,68 +344,196 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
             : undefined
 
         const preimage =
-          node.settlementVia &&
-          ("preImage" in node.settlementVia || "preImage" in node.settlementVia)
-            ? (node.settlementVia as any).preImage
+          node.settlementVia && "preImage" in node.settlementVia
+            ? ((node.settlementVia as { preImage?: string | null }).preImage ?? undefined)
             : undefined
 
-        // convert satoshis to msats
-        //todo propably should be moved to nwc handler, as adapter property
-        const amount = Number(node.settlementAmount) * 1000
-        const feesPaid = Number((node as any).settlementFee || 0) * 1000
-        const createdAt = Math.floor(new Date(node.createdAt).getTime() / 1000)
-
-        // extract description from memo if available
-        const description = node.memo || undefined
+        // Blink returns createdAt as Unix timestamp in seconds (Timestamp scalar)
+        const createdAt = node.createdAt
+        // NIP-47 uses millisatoshis, Blink uses satoshis
+        const amount = Math.abs(node.settlementAmount) * 1000
+        const feesPaid = (node.settlementFee ?? 0) * 1000
 
         return {
-          type: direction,
+          type: type as "incoming" | "outgoing",
           invoice: paymentRequest,
-          description: description,
-          payment_hash: paymentHash || "",
-          preimage: preimage,
-          amount: amount,
+          description: node.memo ?? undefined,
+          payment_hash: paymentHash ?? "",
+          preimage,
+          amount,
           fees_paid: feesPaid,
           created_at: createdAt,
           settled_at: node.status === "SUCCESS" ? createdAt : undefined,
         }
       })
 
-      if (options?.from) {
-        transactions = transactions.filter((tx) => tx.created_at >= options.from!)
+      return {
+        transactions,
+        pageInfo: {
+          hasNextPage: txData.pageInfo.hasNextPage,
+          endCursor: txData.pageInfo.endCursor ?? undefined,
+        },
       }
-      if (options?.until) {
-        transactions = transactions.filter((tx) => tx.created_at <= options.until!)
-      }
-      if (options?.type) {
-        transactions = transactions.filter((tx) => tx.type === options.type)
-      }
-      if (options?.unpaid !== undefined) {
-        transactions = transactions.filter(
-          (tx) => (tx.settled_at === undefined) === options.unpaid,
-        )
+    } catch (err) {
+      return parseThrownError(err)
+    }
+  },
+
+  async listInvoices(
+    apiKey: ApiKey,
+    walletId: WalletId,
+    options?: {
+      first?: number
+      after?: Cursor
+    },
+  ) {
+    try {
+      const res = await invoicesForWalletId(client, apiKey, walletId, {
+        first: options?.first,
+        after: options?.after,
+      })
+
+      const edges = res?.me?.defaultAccount?.walletById?.invoices?.edges
+      if (!edges) {
+        return new InvalidResponseError()
       }
 
-      return transactions
+      const invData = res.me.defaultAccount.walletById.invoices
+      const invoices = edges.map((edge) => {
+        const node = edge.node
+        const satoshis = node.__typename === "LnInvoice" ? node.satoshis : 0
+        const isPaid = node.paymentStatus === "PAID"
+        // Blink returns createdAt as Unix timestamp in seconds
+        const createdAt = node.createdAt
+
+        return {
+          type: "incoming" as const,
+          invoice: node.paymentRequest,
+          description: undefined,
+          payment_hash: node.paymentHash,
+          preimage: undefined,
+          // NIP-47 uses millisatoshis
+          amount: satoshis * 1000,
+          fees_paid: 0,
+          created_at: createdAt,
+          settled_at: isPaid ? createdAt : undefined,
+        }
+      })
+
+      return {
+        invoices,
+        pageInfo: {
+          hasNextPage: invData.pageInfo.hasNextPage,
+          endCursor: invData.pageInfo.endCursor ?? undefined,
+        },
+      }
+    } catch (err) {
+      return parseThrownError(err)
+    }
+  },
+
+  async fetchTransactionsInRange(
+    apiKey: ApiKey,
+    walletId: WalletId,
+    from?: number,
+    until?: number,
+    batchSize?: number,
+  ) {
+    const allTxs = []
+    let cursor: Cursor | undefined
+
+    while (true) {
+      const res = await BlinkCoreService().listTransactions(apiKey, walletId, {
+        first: batchSize,
+        after: cursor,
+      })
+      if (res instanceof Error) return res
+
+      const { transactions, pageInfo } = res
+      if (transactions.length === 0) break
+
+      allTxs.push(...transactions)
+
+      const oldestInBatch = transactions[transactions.length - 1].created_at
+      if (from !== undefined && oldestInBatch < from) {
+        break
+      }
+
+      if (!pageInfo.hasNextPage || !pageInfo.endCursor) break
+      cursor = pageInfo.endCursor as Cursor
+    }
+
+    return allTxs
+  },
+
+  async fetchInvoicesInRange(
+    apiKey: ApiKey,
+    walletId: WalletId,
+    batchSize?: number,
+    from?: number,
+  ) {
+    const allInvoices = []
+    let cursor: Cursor | undefined
+
+    while (true) {
+      const res = await BlinkCoreService().listInvoices(apiKey, walletId, {
+        first: batchSize,
+        after: cursor,
+      })
+      if (res instanceof Error) return res
+
+      const { invoices, pageInfo } = res
+      if (invoices.length === 0) break
+
+      allInvoices.push(...invoices)
+
+      const oldestInBatch = invoices[invoices.length - 1].created_at
+      if (from !== undefined && oldestInBatch < from) {
+        break
+      }
+
+      if (!pageInfo.hasNextPage || !pageInfo.endCursor) break
+      cursor = pageInfo.endCursor as Cursor
+    }
+
+    return allInvoices
+  },
+
+  //TODO: there will be single global webhook
+  async createWebhook(apiKey: ApiKey): Promise<BlinkServiceError | WebhookId> {
+    try {
+      //todo add url of current microservice
+      const url = ""
+      const res = await callbackEndpointAdd(client, apiKey, url)
+      if (!res?.callbackEndpointAdd) {
+        return new InvalidResponseError()
+      }
+      if (res.callbackEndpointAdd.errors) {
+        return parseBlinkError(res.callbackEndpointAdd.errors[0])
+      }
+      return res.callbackEndpointAdd.id as WebhookId
+    } catch (err) {
+      return parseThrownError(err)
+    }
+  },
+  async deleteWebhook(
+    apiKey: ApiKey,
+    webhookId: WebhookId,
+  ): Promise<BlinkServiceError | boolean> {
+    try {
+      const res = await callbackEndpointDelete(client, apiKey, webhookId)
+      if (!res?.callbackEndpointDelete) {
+        return new InvalidResponseError()
+      }
+      if (res.callbackEndpointDelete.errors) {
+        return parseBlinkError(res.callbackEndpointDelete.errors[0])
+      }
+      return res.callbackEndpointDelete.success || false
     } catch (err) {
       return parseThrownError(err)
     }
   },
 })
-
-//todo find a better place for this helper
-// quick "hack" allowing pagination by timestamp
-// first 4 bytes of objectid are timestamp, rest is just filler bytes
-
-// nvm, it doesn't work (propably because of medici)
-const objectIdFromTimestamp = (timestamp: number, end?: boolean) => {
-  const bytes = Buffer.alloc(12)
-  if (end) {
-    bytes.fill(0xff)
-  }
-  bytes.writeUInt32BE(Math.floor(timestamp), 0)
-  return bytes.toString("hex")
-}
 
 const parseThrownError = (err: unknown): BlinkServiceError => {
   if (err instanceof ServerError) {

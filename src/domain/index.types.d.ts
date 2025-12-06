@@ -1,9 +1,13 @@
-export type * from "./nip47-types"
-export type * from "./units"
+import { WalletId } from "@/domain/core/index.types"
+
+export type * from "@/domain/core/index.types"
+export type * from "@/domain/nostr/index.types"
+export type * from "@/domain/units/index.types"
+
 export type ErrorLevel =
   (typeof import("./errors").ErrorLevel)[keyof typeof import("./errors").ErrorLevel]
 export type Nip47Method =
-  (typeof import("./methods").Nip47Method)[keyof typeof import("./methods").Nip47Method]
+  (typeof import("./nostr/methods").Nip47Method)[keyof typeof import("./nostr/methods").Nip47Method]
 
 export type Network = string & { readonly brand: unique symbol }
 export type BlockHeight = number & { readonly brand: unique symbol }
@@ -25,10 +29,17 @@ export type NwcAppPubkey = string & { readonly brand: unique symbol }
 export type NwcSecret = string & { readonly brand: unique symbol }
 export type NwcUri = string & { readonly brand: unique symbol }
 
-export type Nip47EncryptionType = "nip04" | "nip44_v2"
+
 
 export type Cursor = string & { readonly brand: unique symbol }
+
+export type WebhookId = string & { readonly brand: unique symbol }
+
 export type ServerNostrKeypair = {
   privkey: ServerNostrPrivkey
   pubkey: ServerNostrPubkey
+}
+export type WebhookConnection = {
+  walletId: WalletId
+  webhookId: WebhookId
 }

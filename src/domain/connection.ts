@@ -39,11 +39,11 @@ export interface IConnectionsRepository {
     >,
   ): Promise<NwcConnection | RepositoryError>
 
-  findByPubkey(pubkey: string): Promise<NwcConnection | RepositoryError>
+  findByPubkey(pubkey: NwcAppPubkey): Promise<NwcConnection | RepositoryError>
   findById(id: NwcConnectionId): Promise<NwcConnection | RepositoryError>
-  findByWalletId(walletId: string): Promise<NwcConnection[] | RepositoryError>
-  findByUserId(userId: string): Promise<NwcConnection[] | RepositoryError>
-  deleteByWalletId(walletId: string): Promise<number | RepositoryError>
+  findByWalletId(walletId: WalletId): Promise<NwcConnection[] | RepositoryError>
+  findByUserId(userId: UserId): Promise<NwcConnection[] | RepositoryError>
+  deleteByWalletId(walletId: WalletId): Promise<number | RepositoryError>
 
   updatePermissions(
     id: NwcConnectionId,
@@ -52,6 +52,8 @@ export interface IConnectionsRepository {
 
   softDelete(id: NwcConnectionId): Promise<boolean | RepositoryError>
   delete(id: NwcConnectionId): Promise<boolean | RepositoryError>
+
+  countActiveByWalletId(walletId: WalletId): Promise<number | RepositoryError>
 }
 
 export interface NwcConnection {
@@ -66,6 +68,7 @@ export interface NwcConnection {
   alias: NwcConnectionAlias | null
   appPubkey: NwcAppPubkey
   permissions: Nip47Method[]
+  notificationsEnabled: boolean
 
   revoked: boolean
 

@@ -52,11 +52,6 @@ export class Nip47OtherError extends Nip47Error {
     super(message, "OTHER")
   }
 }
-/*
-  ==================
-  specialized errors
-  ==================
- */
 
 // PAY_INVOICE
 // The payment failed. This may be due to a timeout, exhausting all routes, insufficient capacity or similar.

@@ -1,11 +1,11 @@
 import { queryBuilder } from "@/services/db/query-builder"
 import type { NwcConnectionRecord } from "@/services/db/index.types"
 import type {
-  NwcAppPubkey,
-  NwcConnectionId,
-  NwcConnectionAlias,
-  Nip47Method,
   ApiKey,
+  Nip47Method,
+  NwcAppPubkey,
+  NwcConnectionAlias,
+  NwcConnectionId,
 } from "@/domain/index.types"
 import { AccountId, UserId, WalletId } from "@/domain/core/index.types"
 import {
@@ -21,7 +21,7 @@ import { IConnectionsRepository, NwcConnection } from "@/domain/connection"
 const TABLE_NAME = "nwc_connections"
 
 export const ConnectionsRepository = (): IConnectionsRepository => ({
-  async findByPubkey(pubkey: string): Promise<NwcConnection | RepositoryError> {
+  async findByPubkey(pubkey: NwcAppPubkey): Promise<NwcConnection | RepositoryError> {
     try {
       const doc = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
         .where({ app_pubkey: pubkey })
@@ -138,7 +138,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
     }
   },
 
-  async findByWalletId(walletId: string): Promise<NwcConnection[] | RepositoryError> {
+  async findByWalletId(walletId: WalletId): Promise<NwcConnection[] | RepositoryError> {
     try {
       const docs = await queryBuilder<NwcConnectionRecord>(TABLE_NAME).where({
         wallet_id: walletId,
@@ -154,7 +154,22 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
     }
   },
 
-  async findByUserId(userId: string): Promise<NwcConnection[] | RepositoryError> {
+  async countActiveByWalletId(walletId: WalletId): Promise<number | RepositoryError> {
+    try {
+      const result = await queryBuilder("transactions")
+        .where({ revoked: false })
+        .where({ wallet_id: walletId })
+        .count<{ count: string }>("id as count")
+        .first()
+
+      // Knex zwraca count jako string, więc konwersja:
+      return Number(result?.count ?? 0)
+    } catch (err) {
+      return parseRepositoryError(err)
+    }
+  },
+
+  async findByUserId(userId: UserId): Promise<NwcConnection[] | RepositoryError> {
     try {
       const docs = await queryBuilder<NwcConnectionRecord>(TABLE_NAME).where({
         user_id: userId,
@@ -170,13 +185,11 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
     }
   },
 
-  async deleteByWalletId(walletId: string): Promise<number | RepositoryError> {
+  async deleteByWalletId(walletId: WalletId): Promise<number | RepositoryError> {
     try {
-      const deletedCount = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
+      return await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
         .where({ wallet_id: walletId })
         .delete()
-
-      return deletedCount
     } catch (err) {
       return parseRepositoryError(err)
     }
@@ -218,6 +231,7 @@ const translateConnection = (doc: NwcConnectionRecord): NwcConnection => {
     appPubkey: doc.app_pubkey as NwcAppPubkey,
     permissions: doc.permissions as Nip47Method[],
     apiKey: doc.api_key as ApiKey,
+    notificationsEnabled: doc.notifications,
     revoked: doc.revoked,
     createdAt: doc.created_at,
     updatedAt: doc.updated_at,

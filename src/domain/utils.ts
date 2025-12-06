@@ -1,4 +1,4 @@
-import { Nip47LookupInvoiceResult } from "@/domain/nip47-types"
+import { Nip47LookupInvoiceResult } from "@/domain/nostr/index.types"
 
 export const sleep = async (ms: number): Promise<void> => {
   await new Promise((resolve) => setTimeout(resolve, ms))
