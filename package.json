@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Nostr Wallet Connect GraphQL subgraph",
   "scripts": {
-    "start": "node -r ./lib/src/services/tracing.js ./lib/src/server/subgraph.js",
+    "start": "node -r ./lib/src/services/tracing.js ./lib/src/server/subgraph.js ./lib/src/server/nostr.js",
     "build": "tsc && tscpaths -p tsconfig.json -s . -o ./lib",
-    "dev": "tsnd --respawn --files -r tsconfig-paths/register -r src/services/tracing.ts src/server/subgraph.ts",
+    "dev": "tsnd --respawn --files -r tsconfig-paths/register -r src/services/tracing.ts src/server/subgraph.ts src/server/nostr.ts",
     "eslint-check": "eslint \"{src,test}/**/*.ts\"",
     "eslint-fix": "eslint \"{src,test}/**/*.ts\" --fix",
     "tsc-check": "tsc --noEmit",
@@ -84,6 +84,7 @@
     "jwks-rsa": "^3.2.0",
     "knex": "^3.1.0",
     "nostr-tools": "^2.17.0",
+    "pg": "^8.16.3",
     "pino": "^8.14.2",
     "pino-http": "^8.3.3",
     "zod": "^3.25.67"

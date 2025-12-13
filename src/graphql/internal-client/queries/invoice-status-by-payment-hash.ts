@@ -5,7 +5,7 @@ import {
   LnInvoicePaymentStatusByHashQuery,
   LnInvoicePaymentStatusByHashQueryVariables,
 } from "@/graphql/internal-client/generated"
-import { ApiKey } from "@/domain/index.types"
+import { ApiKey, PaymentHash } from "@/domain/index.types"
 
 gql`
   query lnInvoicePaymentStatusByHash($input: LnInvoicePaymentStatusByHashInput!) {
@@ -20,7 +20,7 @@ gql`
 export async function invoiceStatusByPaymentHash(
   client: ApolloClient,
   apiKey: ApiKey,
-  paymentHash: string,
+  paymentHash: PaymentHash,
 ) {
   const { data } = await client.query<
     LnInvoicePaymentStatusByHashQuery,

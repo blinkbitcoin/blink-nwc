@@ -45,6 +45,7 @@ export const mapError = (error: ApplicationError): CustomGraphQLError => {
     case "CouldNotFindNwcConnectionFromWalletIdError":
     case "CouldNotFindNwcConnectionFromAccountIdError":
     case "CouldNotFindNwcConnectionFromUserIdError":
+    case "CouldNotFindWebhookConnectionError":
       message = error.message
       return new NotFoundError({ message, logger: baseLogger })
 

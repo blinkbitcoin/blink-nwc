@@ -7,7 +7,7 @@ import {
 } from "@/graphql/internal-client/generated"
 import { DescriptionHash, WalletId } from "@/domain/core/index.types"
 import { ApiKey, Memo, Satoshis } from "@/domain/index.types"
-import { Minutes } from "@/domain/units"
+import { Minutes } from "@/domain/units/index.types"
 
 gql`
   mutation LnInvoiceCreateOnBehalfOfRecipient(

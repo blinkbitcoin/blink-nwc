@@ -20,7 +20,6 @@ export const env = createEnv({
       .regex(/^[a-f0-9]{64}$/i)
       .default("e96597ef1f21a03eaf62549ad66ac66fe7194732e1a68df61cb31bf15e661025"), //todo: absolutely remove after development
     NOSTR_RELAY_URL: z.string().url().default("wss://relay.getalby.com/v1"), //todo: we should get dedicated relay
-    JWKS_URL: z.string().url(),
     ROUTER_URL: z.string().url().default("http://galoy:4012/graphql"), //todo: ensure if same on prod
   },
 
@@ -29,7 +28,6 @@ export const env = createEnv({
     LOGLEVEL: process.env.LOGLEVEL,
     NOSTR_PRIVATE_KEY: process.env.NOSTR_PRIVATE_KEY,
     NOSTR_RELAY_URL: process.env.NOSTR_RELAY_URL,
-    JWKS_URL: process.env.JWKS_URL,
     ROUTER_URL: process.env.ROUTER_URL,
   },
 })

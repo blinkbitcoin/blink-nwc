@@ -29,8 +29,6 @@ export type NwcAppPubkey = string & { readonly brand: unique symbol }
 export type NwcSecret = string & { readonly brand: unique symbol }
 export type NwcUri = string & { readonly brand: unique symbol }
 
-
-
 export type Cursor = string & { readonly brand: unique symbol }
 
 export type WebhookId = string & { readonly brand: unique symbol }

@@ -1,71 +1,90 @@
-import { Nip47Method } from "@/domain/index.types"
+import {
+  BlockHash,
+  BlockHeight,
+  Description,
+  DescriptionHash,
+  InvoiceBolt11,
+  MilliSatoshis,
+  Network,
+  Nip47Method,
+  NwcConnectionAlias,
+  PaymentHash,
+  PaymentStatus,
+  Preimage,
+  Seconds,
+  ServerNostrPubkey,
+  UnixTimestamp,
+} from "@/domain/index.types"
 import { Nip47Error } from "@/domain/nostr/errors"
 
+export type PaymentDirection =
+  (typeof import("./payment-direction").PaymentDirection)[keyof typeof import("./payment-direction").PaymentDirection]
+
 export type Nip47MakeInvoiceRequest = {
-  amount: number // value in msats
-  description?: string // invoice's description, optional
-  description_hash?: string // invoice's description hash, optional
-  expiry?: number // expiry in seconds from time invoice is created, optional
+  amount: MilliSatoshis // value in msats
+  description?: Description // invoice's description, optional
+  description_hash?: DescriptionHash // invoice's description hash, optional
+  expiry?: Seconds // expiry in seconds from time invoice is created, optional
 }
 
 export type Nip47PayInvoiceRequest = {
-  invoice: string // bolt11 invoice
+  invoice: InvoiceBolt11 // bolt11 invoice
 }
 
 export type Nip47LookupInvoiceRequest = {
-  payment_hash?: string
-  invoice?: string
+  payment_hash?: PaymentHash
+  invoice?: InvoiceBolt11
 }
 
 export type Nip47ListTransactionsRequest = {
-  from?: number // starting timestamp in seconds since epoch (inclusive), optional
-  until?: number // ending timestamp in seconds since epoch (inclusive), optional
+  from?: UnixTimestamp // starting timestamp in seconds since epoch (inclusive), optional
+  until?: UnixTimestamp // ending timestamp in seconds since epoch (inclusive), optional
   limit?: number // maximum number of invoices to return, optional
   offset?: number // offset of the first invoice to return, optional
   unpaid?: true // include unpaid invoices, optional, default false
-  type?: "incoming" | "outgoing" // "incoming" for invoices, "outgoing" for payments, undefined for both
+  type: PaymentDirection // "incoming" for invoices, "outgoing" for payments, undefined for both
 }
 
 export type Nip47Transaction = {
-  type: "incoming" | "outgoing"
-  invoice?: string
-  description?: string
-  description_hash?: string
-  preimage?: string
-  payment_hash: string
-  amount: number // msats
-  fees_paid: number // msats
-  created_at: number // unix timestamp
+  type: PaymentDirection
+  invoice?: InvoiceBolt11
+  description?: Description
+  description_hash?: DescriptionHash
+  preimage?: Preimage
+  payment_hash: PaymentHash
+  amount: MilliSatoshis
+  fees_paid: MilliSatoshis
+  created_at: UnixTimestamp
   metadata?: object
 }
 
 export type Nip47GetInfoResult = {
-  alias: string
+  alias: NwcConnectionAlias
   color: string
-  pubkey: string
-  network: string
-  block_height: number
-  block_hash: string
+  pubkey: ServerNostrPubkey
+  network: Network
+  block_height: BlockHeight
+  block_hash: BlockHash
   methods: Nip47Method[]
 }
 
 export type Nip47GetBalanceResult = {
-  balance: number
+  balance: MilliSatoshis
 }
 
 export type Nip47MakeInvoiceResult = Nip47Transaction & {
   type: "incoming"
-  expires_at: number
+  expires_at: UnixTimestamp
 }
 
 export type Nip47LookupInvoiceResult = Nip47Transaction & {
-  expires_at?: number
-  settled_at?: number
+  expires_at?: UnixTimestamp
+  settled_at?: UnixTimestamp
 }
 
 export type Nip47PayInvoiceResult = {
-  preimage: string
-  fees_paid: number
+  preimage: Preimage
+  fees_paid: MilliSatoshis
 }
 
 export type Nip47ListTransactionsResult = {
@@ -89,17 +108,17 @@ export type Nip47PaymentReceivedNotification = {
   notification_type: "payment_received"
   notification: {
     type: "incoming"
-    state?: string // optional
-    invoice: string // encoded invoice
-    description?: string // invoice's description, optional
-    description_hash?: string // invoice's description hash, optional
-    preimage?: string // payment's preimage
-    payment_hash: string // Payment hash for the payment
-    amount: number // value in msats
-    fees_paid: number // value in msats
-    created_at: number // invoice/payment creation time
-    expires_at?: number // invoice expiration time, optional if not applicable
-    settled_at: number // invoice/payment settlement time
+    state?: PaymentStatus // optional
+    invoice: InvoiceBolt11 // encoded invoice
+    description?: Description // invoice's description, optional
+    description_hash?: DescriptionHash // invoice's description hash, optional
+    preimage?: Preimage // payment's preimage
+    payment_hash: PaymentHash // Payment hash for the payment
+    amount: MilliSatoshis // value in msats
+    fees_paid: MilliSatoshis // value in msats
+    created_at: UnixTimestamp // invoice/payment creation time
+    expires_at?: UnixTimestamp // invoice expiration time, optional if not applicable
+    settled_at: UnixTimestamp // invoice/payment settlement time
   }
 }
 
@@ -107,17 +126,17 @@ export type Nip47PaymentSentNotification = {
   notification_type: "payment_sent"
   notification: {
     type: "outgoing"
-    state?: string // optional
-    invoice: string // encoded invoice
-    description?: string // invoice's description, optional
-    description_hash?: string // invoice's description hash, optional
-    preimage: string // payment's preimage
-    payment_hash: string // Payment hash for the payment
-    amount: number // value in msats
-    fees_paid: number // value in msats
-    created_at: number // invoice/payment creation time
-    expires_at: number // invoice expiration time, optional if not applicable
-    settled_at: number // invoice/payment settlement time
+    state?: PaymentStatus // optional
+    invoice: InvoiceBolt11 // encoded invoice
+    description?: Description // invoice's description, optional
+    description_hash?: DescriptionHash // invoice's description hash, optional
+    preimage: Preimage // payment's preimage
+    payment_hash: PaymentHash // Payment hash for the payment
+    amount: MilliSatoshis // value in msats
+    fees_paid: MilliSatoshis // value in msats
+    created_at: UnixTimestamp // invoice/payment creation time
+    expires_at: UnixTimestamp // invoice expiration time, optional if not applicable
+    settled_at: UnixTimestamp // invoice/payment settlement time
   }
 }
 

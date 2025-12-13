@@ -5,7 +5,7 @@ import {
   TransactionsByPaymentHashQuery,
   TransactionsByPaymentHashQueryVariables,
 } from "@/graphql/internal-client/generated"
-import { WalletId } from "@/domain/core/index.types"
+import { PaymentHash, WalletId } from "@/domain/core/index.types"
 import { ApiKey } from "@/domain/index.types"
 
 gql`
@@ -46,7 +46,7 @@ export async function transactionsByPaymentHash(
   client: ApolloClient,
   apiKey: ApiKey,
   walletId: WalletId,
-  paymentHash: string,
+  paymentHash: PaymentHash,
 ) {
   const { data } = await client.query<
     TransactionsByPaymentHashQuery,

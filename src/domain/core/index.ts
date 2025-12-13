@@ -2,17 +2,19 @@ import {
   ApiKey,
   BlockHash,
   BlockHeight,
+  CoreServiceTx,
   Cursor,
   DescriptionHash,
   InvoiceBolt11,
   Memo,
   Minutes,
   Network,
+  PaymentDirection,
   PaymentHash,
   Preimage,
   Satoshis,
+  UnixTimestamp,
   WalletId,
-  WebhookId,
 } from "@/domain/index.types"
 import { BlinkServiceError } from "@/services/core/errors"
 
@@ -33,7 +35,7 @@ export interface IBlinkCoreService {
     expiry?: Minutes,
   ): Promise<
     | {
-        createdAt: number
+        createdAt: UnixTimestamp
         paymentHash: PaymentHash
         paymentRequest: InvoiceBolt11
         satoshis: Satoshis
@@ -47,7 +49,7 @@ export interface IBlinkCoreService {
     expiry?: Minutes,
   ): Promise<
     | {
-        createdAt: number
+        createdAt: UnixTimestamp
         paymentHash: PaymentHash
         paymentRequest: InvoiceBolt11
         satoshis: Satoshis
@@ -73,8 +75,8 @@ export interface IBlinkCoreService {
         satoshis?: Satoshis
         feesPaid?: Satoshis
         preimage?: Preimage
-        createdAt?: number
-        settledAt?: number
+        createdAt?: UnixTimestamp
+        settledAt?: UnixTimestamp
       }
     | BlinkServiceError
   >
@@ -87,22 +89,10 @@ export interface IBlinkCoreService {
     },
   ): Promise<
     | {
-        transactions: Array<{
-          type: "incoming" | "outgoing"
-          invoice?: string
-          description?: string
-          description_hash?: string
-          preimage?: string
-          payment_hash: string
-          amount: number
-          fees_paid: number
-          created_at: number
-          settled_at?: number
-          expires_at?: number
-        }>
+        transactions: Array<CoreServiceTx>
         pageInfo: {
           hasNextPage: boolean
-          endCursor?: string
+          endCursor?: Cursor
         }
       }
     | BlinkServiceError
@@ -116,22 +106,10 @@ export interface IBlinkCoreService {
     },
   ): Promise<
     | {
-        invoices: Array<{
-          type: "incoming" | "outgoing"
-          invoice?: string
-          description?: string
-          description_hash?: string
-          preimage?: string
-          payment_hash: string
-          amount: number
-          fees_paid: number
-          created_at: number
-          settled_at?: number
-          expires_at?: number
-        }>
+        invoices: Array<CoreServiceTx>
         pageInfo: {
           hasNextPage: boolean
-          endCursor?: string
+          endCursor?: Cursor
         }
       }
     | BlinkServiceError
@@ -139,21 +117,20 @@ export interface IBlinkCoreService {
   fetchTransactionsInRange(
     apiKey: ApiKey,
     walletId: WalletId,
-    from?: number,
-    until?: number,
-    batchSize?: number,
-  ): Promise<any>
+    from: UnixTimestamp,
+    until: Cursor,
+    offset: number,
+    limit: number,
+    type: PaymentDirection,
+  ): Promise<Array<CoreServiceTx> | BlinkServiceError>
 
   fetchInvoicesInRange(
     apiKey: ApiKey,
     walletId: WalletId,
-    batchSize?: number,
-    from?: number,
-  ): Promise<any>
-
-  createWebhook(apiKey: ApiKey): Promise<BlinkServiceError | WebhookId>
-  deleteWebhook(
-    apiKey: ApiKey,
-    webhookId: WebhookId,
-  ): Promise<BlinkServiceError | boolean>
+    from: UnixTimestamp,
+    until: Cursor,
+    offset: number,
+    limit: number,
+    type: PaymentDirection,
+  ): Promise<Array<CoreServiceTx> | BlinkServiceError>
 }

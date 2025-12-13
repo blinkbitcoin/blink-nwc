@@ -1,22 +1,20 @@
 import {
   InvoiceBolt11,
   Memo,
-  Minutes,
+  MilliSatoshis,
   Nip47GetBalanceResult,
   Nip47GetInfoResult,
-  Nip47ListTransactionsRequest,
   Nip47ListTransactionsResult,
-  Nip47LookupInvoiceRequest,
   Nip47LookupInvoiceResult,
-  Nip47MakeInvoiceRequest,
   Nip47MakeInvoiceResult,
   Nip47Method,
-  Nip47PayInvoiceRequest,
   Nip47PayInvoiceResult,
   Nip47Result,
-  Satoshis,
+  NwcConnectionAlias,
+  Seconds,
+  UnixTimestamp,
 } from "@/domain/index.types"
-import { DescriptionHash, PaymentHash } from "@/domain/core/index.types"
+import { CoreServiceTx, DescriptionHash } from "@/domain/core/index.types"
 import { getServerKeypair, hasPermission, NwcConnection } from "@/domain/connection"
 
 import { BlinkCoreService } from "@/services"
@@ -36,8 +34,20 @@ import {
   Nip47RestrictedError,
   Nip47UnauthorizedError,
 } from "@/domain/nostr"
-import { ensureUnixSeconds, toMilliSatoshis, toUnixSeconds } from "@/domain/units"
-import { findFromIndex, findUntilIndex } from "@/domain"
+import {
+  ensureUnixSeconds,
+  toCursor,
+  toMilliSatoshis,
+  toMinutes,
+  toSatoshis,
+  toUnixSeconds,
+} from "@/domain/units"
+import {
+  checkedToNip47ListTransactionsRequest,
+  checkedToNip47LookupInvoiceRequest,
+  checkedToNip47MakeInvoiceRequest,
+  checkedToNip47PayInvoiceRequest,
+} from "@/domain/validation"
 
 const DEFAULT_INVOICE_EXPIRY_SECONDS = 24 * 60 * 60
 const DEFAULT_BATCH_SIZE = 10
@@ -52,7 +62,7 @@ const NwcEventHandler = () => {
     }
 
     return {
-      alias: "Blink Wallet",
+      alias: "Blink Wallet" as NwcConnectionAlias,
       color: "F2A900",
       pubkey: serverPubkey,
       methods: SUPPORTED_NWC_METHODS,
@@ -75,20 +85,26 @@ const NwcEventHandler = () => {
   }
 
   const makeInvoice = async (
-    req: Nip47MakeInvoiceRequest,
+    req: unknown,
     connection: NwcConnection,
   ): Promise<Nip47Error | Nip47MakeInvoiceResult> => {
     const { apiKey, walletId } = connection
-    const { amount, description, description_hash, expiry } = req
-    const satoshis = Math.round(amount / 1000) as Satoshis
-    const expiry_minutes = expiry ? ((expiry / 60) as Minutes) : undefined
+
+    const request = checkedToNip47MakeInvoiceRequest(req)
+    if (request instanceof Error) {
+      return new Nip47OtherError(request.message)
+    }
+    const { amount, description, description_hash, expiry } = request
+
+    const satoshis = toSatoshis(amount)
+    const expiry_minutes = toMinutes(expiry)
 
     let invoice
     if (amount == 0) {
       invoice = await BlinkCoreService().createInvoiceAmountless(
         apiKey,
         walletId,
-        description as Memo,
+        description as Memo | undefined,
         expiry_minutes,
       )
     } else {
@@ -104,10 +120,14 @@ const NwcEventHandler = () => {
       return parseErrorForNip47Response(invoice)
     }
     const createdAt = ensureUnixSeconds(invoice.createdAt)
-    const expiresInSeconds =
+
+    const expiresIn = (
       typeof expiry_minutes === "number"
         ? Math.floor(expiry_minutes * 60)
         : DEFAULT_INVOICE_EXPIRY_SECONDS
+    ) as Seconds
+
+    const expires_at = (createdAt + expiresIn) as UnixTimestamp
 
     return {
       type: "incoming",
@@ -115,22 +135,26 @@ const NwcEventHandler = () => {
       created_at: createdAt,
       description: description,
       description_hash,
-      expires_at: createdAt + expiresInSeconds,
-      fees_paid: 0,
+      expires_at,
+      fees_paid: 0 as MilliSatoshis,
       invoice: invoice.paymentRequest,
       payment_hash: invoice.paymentHash,
     }
   }
 
   const payInvoice = async (
-    req: Nip47PayInvoiceRequest,
+    req: unknown,
     connection: NwcConnection,
   ): Promise<Nip47Error | Nip47PayInvoiceResult> => {
-    const { invoice } = req
+    const request = checkedToNip47PayInvoiceRequest(req)
+    if (request instanceof Error) {
+      return new Nip47OtherError(request.message)
+    }
+
     const res = await BlinkCoreService().payInvoice(
       connection.apiKey,
       connection.walletId,
-      invoice as InvoiceBolt11,
+      request.invoice as InvoiceBolt11,
     )
     if (res instanceof Error) {
       return parseErrorForNip47Response(res)
@@ -139,17 +163,21 @@ const NwcEventHandler = () => {
   }
 
   const lookupInvoice = async (
-    req: Nip47LookupInvoiceRequest,
+    req: unknown,
     connection: NwcConnection,
   ): Promise<Nip47Error | Nip47LookupInvoiceResult> => {
     const { apiKey, walletId } = connection
-    const { payment_hash, invoice } = req
+    const request = checkedToNip47LookupInvoiceRequest(req)
+    if (request instanceof Error) {
+      return new Nip47OtherError(request.message)
+    }
+    const { payment_hash, invoice } = request
 
     const res = await BlinkCoreService().lookupInvoice(
       apiKey,
       walletId,
-      payment_hash as PaymentHash | undefined,
-      invoice as InvoiceBolt11 | undefined,
+      payment_hash,
+      invoice,
     )
 
     if (res instanceof Error) {
@@ -178,30 +206,45 @@ const NwcEventHandler = () => {
   }
 
   const listTransactions = async (
-    req: Nip47ListTransactionsRequest,
+    req: unknown,
     connection: NwcConnection,
   ): Promise<Nip47Error | Nip47ListTransactionsResult> => {
     const { apiKey, walletId } = connection
-    const { from, until, offset, unpaid, type } = req
-    const limit = req.limit || DEFAULT_BATCH_SIZE
+    const request = checkedToNip47ListTransactionsRequest(req)
+    if (request instanceof Error) {
+      return new Nip47OtherError(request.message)
+    }
+
+    const { unpaid, type } = request
+    const limit = request.limit || DEFAULT_BATCH_SIZE
+    const offset = request.offset || 0
+    const from = request.from || (0 as UnixTimestamp)
+    const until = request.until || (Math.round(Date.now() / 1000) as UnixTimestamp)
 
     const transactions = await BlinkCoreService().fetchTransactionsInRange(
       apiKey,
       walletId,
       from,
-      until,
+      toCursor(until)!,
+      offset,
+      limit,
+      type,
     )
     if (transactions instanceof Error) {
       return parseErrorForNip47Response(transactions)
     }
 
-    let result: Nip47LookupInvoiceResult[]
+    let result: CoreServiceTx[]
 
     if (unpaid) {
       const invoices = await BlinkCoreService().fetchInvoicesInRange(
         apiKey,
         walletId,
         from,
+        toCursor(until)!,
+        offset,
+        limit,
+        type,
       )
       if (invoices instanceof Error) {
         return parseErrorForNip47Response(invoices)
@@ -211,36 +254,13 @@ const NwcEventHandler = () => {
       result = transactions
     }
 
-    // data is sorted DESC (newest first)
-    // use binary search to find the time range boundaries
-    let startIdx = 0
-    let endIdx = result.length
+    const convertedTransactions = result.map((tx) => ({
+      ...tx,
+      amount: toMilliSatoshis(tx.amount),
+      fees_paid: toMilliSatoshis(tx.fees_paid),
+    }))
 
-    if (until !== undefined) {
-      // find first index where created_at <= until
-      startIdx = findUntilIndex(result, until)
-    }
-    if (from !== undefined) {
-      // find last index where created_at >= from
-      endIdx = findFromIndex(result, from)
-    }
-
-    result = result.slice(startIdx, endIdx)
-
-    // apply type filter
-    if (type) {
-      result = result.filter((tx) => tx.type === type)
-    }
-
-    // Apply offset and limit
-    if (offset !== undefined && offset > 0) {
-      result = result.slice(offset)
-    }
-    if (limit !== undefined && limit > 0) {
-      result = result.slice(0, limit)
-    }
-
-    return { transactions: result }
+    return { transactions: convertedTransactions }
   }
 
   const parseErrorForNip47Response = (err: BlinkServiceError): Nip47Error => {
@@ -321,16 +341,13 @@ const NwcEventHandler = () => {
       case "get_balance":
         return getBalance(connection)
       case "make_invoice":
-        return makeInvoice(request.params as Nip47MakeInvoiceRequest, connection)
+        return makeInvoice(request.params, connection)
       case "pay_invoice":
-        return payInvoice(request.params as Nip47PayInvoiceRequest, connection)
+        return payInvoice(request.params, connection)
       case "lookup_invoice":
-        return lookupInvoice(request.params as Nip47LookupInvoiceRequest, connection)
+        return lookupInvoice(request.params, connection)
       case "list_transactions":
-        return listTransactions(
-          request.params as Nip47ListTransactionsRequest,
-          connection,
-        )
+        return listTransactions(request.params, connection)
       default:
         return new Nip47NotImplementedError(`Unsupported method: ${request.method}`)
     }

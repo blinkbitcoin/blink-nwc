@@ -1,5 +1,5 @@
 import { env } from "@/config/env"
-import database from "@/config/db"
+import database, { databaseConfig as dbConfig } from "@/config/db"
 export * from "@/config/error"
 
 import { Nip47Method, NwcRelay, ServerNostrPrivkey } from "@/domain/index.types"
@@ -17,17 +17,7 @@ export const LOGLEVEL = env.LOGLEVEL
 
 export const ROUTER_URL = env.ROUTER_URL
 
-export const databaseConfig = {
-  host: process.env.DB_HOST || "localhost",
-  port: parseInt(process.env.DB_PORT || "", 10) || 5432,
-  user: process.env.DB_USER || "blink-nwc-usr",
-  password: process.env.DB_PWD || "blink-nwc-pwd",
-  database: process.env.DB_DB || "blink-nwc",
-  poolMin: parseInt(process.env.DB_POOL_MIN || "", 10) || 1,
-  poolMax: parseInt(process.env.DB_POOL_MAX || "", 10) || 5,
-  debug: process.env.DB_DEBUG === "true",
-}
-
+export const databaseConfig = dbConfig
 export const databaseClientConfig = database
 
 export const NOSTR_PRIVATE_KEY = env.NOSTR_PRIVATE_KEY as ServerNostrPrivkey

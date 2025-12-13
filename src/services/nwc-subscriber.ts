@@ -16,6 +16,7 @@ import {
   encrypt,
   hexToBytes,
   Nip47UnauthorizedError,
+  EventKind,
 } from "@/domain/nostr"
 import { ConnectionsRepository } from "@/services/db"
 import { sleep } from "@/domain/utils"
@@ -56,7 +57,7 @@ export const NwcSubscriber = () => {
           sub = r.subscribe(
             [
               {
-                "kinds": [23194],
+                "kinds": [EventKind.Request],
                 "#p": [serverKeypair.pubkey],
               },
             ],
@@ -158,7 +159,7 @@ export const NwcSubscriber = () => {
 
   const publishInfoEvent = async () => {
     const infoEventTemplate: EventTemplate = {
-      kind: 13194,
+      kind: EventKind.InfoEvent,
       created_at: Math.floor(Date.now() / 1000),
       tags: [
         ["encryption", "nip44_v2 nip04"],
@@ -182,7 +183,7 @@ export const NwcSubscriber = () => {
     response: Nip47Response,
   ) => {
     const responseEventTemplate: EventTemplate = {
-      kind: 23195,
+      kind: EventKind.Response,
       created_at: Math.floor(Date.now() / 1000),
       tags: [["e", eventId]],
       content: encrypt(

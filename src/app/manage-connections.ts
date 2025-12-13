@@ -55,6 +55,7 @@ export const createNwcConnection = async (
     apiKey: checkedApiKey,
     appPubkey,
     permissions: checkedPermissions,
+    notificationsEnabled: false,
   }
   const connectionObj = await ConnectionsRepository().create(connection)
   if (connectionObj instanceof Error) {
@@ -81,6 +82,7 @@ export const updateNwcConnection = async (
   updates: {
     alias?: string | null
     permissions?: string[]
+    notificationsEnabled?: boolean
   },
 ): Promise<NwcConnection | ApplicationError> => {
   const checkedConnectionId = checkedToConnectionId(connectionId)

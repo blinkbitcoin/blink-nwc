@@ -6,16 +6,19 @@ import {
   ApiKey,
   BlockHash,
   BlockHeight,
+  CoreServiceTx,
   Cursor,
+  Description,
   InvoiceBolt11,
   Memo,
   Minutes,
   Network,
+  PaymentDirection,
   Preimage,
   Satoshis,
-  WebhookId,
+  UnixTimestamp,
 } from "@/domain/index.types"
-import { createInvoice } from "@/graphql/internal-client/mutations/create-invoice"
+import { createInvoice as createInv } from "@/graphql/internal-client/mutations/create-invoice"
 import { DescriptionHash, PaymentHash, WalletId } from "@/domain/core/index.types"
 import { payInvoice } from "@/graphql/internal-client/mutations/pay-invoice"
 import { IError } from "@/graphql/index.types"
@@ -37,17 +40,15 @@ import { invoiceByPaymentHash } from "@/graphql/internal-client/queries/invoice-
 import { invoiceStatusByPaymentRequest } from "@/graphql/internal-client/queries/invoice-status-by-payment-request"
 import { transactionsByPaymentHash } from "@/graphql/internal-client/queries/transactions-by-payment-hash"
 import { transactionsForWalletId } from "@/graphql/internal-client/queries/transactions-for-wallet-id"
-import { createInvoiceAmountless } from "@/graphql/internal-client/mutations/create-invoice-amountless"
-import { getNodeInfo } from "@/graphql/internal-client/queries/get-node-info"
+import { getNodeInfo as fetchNodeInfo } from "@/graphql/internal-client/queries/get-node-info"
 import { invoicesForWalletId } from "@/graphql/internal-client/queries/invoices-for-wallet-id"
-import callbackEndpointAdd from "@/graphql/internal-client/mutations/callback-endpoint-add"
-import callbackEndpointDelete from "@/graphql/internal-client/mutations/callback-endpoint-delete"
 import { IBlinkCoreService } from "@/domain/core"
-
+import { createInvoiceAmountless } from "@/graphql/internal-client/mutations/create-invoice-amountless"
+import { PaymentDirection as PD } from "@/domain/nostr/payment-direction"
 export const BlinkCoreService = (): IBlinkCoreService => ({
   async getNodeInfo() {
     try {
-      const nodeInfo = await getNodeInfo(client)
+      const nodeInfo = await fetchNodeInfo(client)
       if (!nodeInfo?.network || !nodeInfo.blockInfo) {
         return new CouldNotFetchNodeInfoError()
       }
@@ -81,7 +82,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     expiry?: Minutes,
   ) {
     try {
-      const res = await createInvoice(
+      const res = await createInv(
         client,
         apiKey,
         walletId,
@@ -102,7 +103,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
       const { createdAt, paymentHash, paymentRequest, satoshis } =
         res.lnInvoiceCreateOnBehalfOfRecipient.invoice
       return {
-        createdAt,
+        createdAt: createdAt as UnixTimestamp,
         paymentHash: paymentHash as PaymentHash,
         paymentRequest: paymentRequest as InvoiceBolt11,
         satoshis: satoshis as Satoshis,
@@ -134,7 +135,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
         res.lnNoAmountInvoiceCreateOnBehalfOfRecipient.invoice
 
       return {
-        createdAt,
+        createdAt: createdAt as UnixTimestamp,
         paymentHash: paymentHash as PaymentHash,
         paymentRequest: paymentRequest as InvoiceBolt11,
         satoshis: 0 as Satoshis,
@@ -163,8 +164,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
       }
 
       switch (payload.status) {
-        case undefined:
-        case null:
+        case null: // we don't know the payment state but it may be paid
         case "SUCCESS":
           break
         case "ALREADY_PAID":
@@ -220,7 +220,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
           if (invoiceRes?.me?.defaultAccount?.walletById?.invoiceByPaymentHash) {
             const inv = invoiceRes.me.defaultAccount.walletById.invoiceByPaymentHash
             // Blink returns createdAt as Unix timestamp in seconds (Timestamp scalar)
-            const createdAt = inv.createdAt
+            const createdAt = inv.createdAt as UnixTimestamp
             const isPaid = inv.paymentStatus === "PAID"
             const satoshis = "satoshis" in inv ? inv.satoshis : 0
             return {
@@ -228,7 +228,9 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
               paymentRequest: inv.paymentRequest as InvoiceBolt11,
               paymentStatus: inv.paymentStatus,
               satoshis: satoshis as Satoshis,
-              createdAt,
+              feesPaid: 0 as Satoshis,
+              createdAt: createdAt,
+              //todo is there a settledAt in blink?
               settledAt: isPaid ? createdAt : undefined,
             }
           }
@@ -262,8 +264,8 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
                       | Preimage
                       | undefined)
                   : undefined
-              // Blink returns createdAt as Unix timestamp in seconds
-              const createdAt = tx.createdAt
+
+              const createdAt = tx.createdAt as UnixTimestamp | undefined
               const isSettled = tx.status === "SUCCESS"
 
               return {
@@ -274,6 +276,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
                 feesPaid: 0 as Satoshis,
                 preimage,
                 createdAt,
+                //todo is there a settledAt in blink?
                 settledAt: isSettled ? createdAt : undefined,
               }
             }
@@ -292,6 +295,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
           return {
             paymentHash: status.paymentHash as PaymentHash,
             paymentRequest: status.paymentRequest as InvoiceBolt11,
+            //todo handle status properly. check in nip47 spec, if not, don't care
             paymentStatus: status.status || "UNKNOWN",
           }
         }
@@ -345,25 +349,27 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
 
         const preimage =
           node.settlementVia && "preImage" in node.settlementVia
-            ? ((node.settlementVia as { preImage?: string | null }).preImage ?? undefined)
+            ? ((node.settlementVia as { preImage?: Preimage | null }).preImage ??
+              undefined)
             : undefined
 
-        // Blink returns createdAt as Unix timestamp in seconds (Timestamp scalar)
         const createdAt = node.createdAt
-        // NIP-47 uses millisatoshis, Blink uses satoshis
-        const amount = Math.abs(node.settlementAmount) * 1000
-        const feesPaid = (node.settlementFee ?? 0) * 1000
+
+        const amount = Math.abs(node.settlementAmount) as Satoshis
+        const feesPaid = (node.settlementFee ?? 0) as Satoshis
 
         return {
           type: type as "incoming" | "outgoing",
           invoice: paymentRequest,
-          description: node.memo ?? undefined,
-          payment_hash: paymentHash ?? "",
+          description: (node.memo as Description) ?? undefined,
+          payment_hash: paymentHash ?? ("" as PaymentHash),
           preimage,
           amount,
           fees_paid: feesPaid,
-          created_at: createdAt,
-          settled_at: node.status === "SUCCESS" ? createdAt : undefined,
+          created_at: createdAt as UnixTimestamp,
+          //todo the same problem as in todos above
+          settled_at:
+            node.status === "SUCCESS" ? (createdAt as UnixTimestamp) : undefined,
         }
       })
 
@@ -371,7 +377,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
         transactions,
         pageInfo: {
           hasNextPage: txData.pageInfo.hasNextPage,
-          endCursor: txData.pageInfo.endCursor ?? undefined,
+          endCursor: (txData.pageInfo.endCursor as Cursor) ?? undefined,
         },
       }
     } catch (err) {
@@ -403,19 +409,18 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
         const node = edge.node
         const satoshis = node.__typename === "LnInvoice" ? node.satoshis : 0
         const isPaid = node.paymentStatus === "PAID"
-        // Blink returns createdAt as Unix timestamp in seconds
-        const createdAt = node.createdAt
+        const createdAt = node.createdAt as UnixTimestamp
 
         return {
           type: "incoming" as const,
-          invoice: node.paymentRequest,
+          invoice: node.paymentRequest as InvoiceBolt11,
           description: undefined,
-          payment_hash: node.paymentHash,
+          payment_hash: node.paymentHash as PaymentHash,
           preimage: undefined,
-          // NIP-47 uses millisatoshis
-          amount: satoshis * 1000,
-          fees_paid: 0,
+          amount: satoshis as Satoshis,
+          fees_paid: 0 as Satoshis,
           created_at: createdAt,
+          //todo
           settled_at: isPaid ? createdAt : undefined,
         }
       })
@@ -424,7 +429,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
         invoices,
         pageInfo: {
           hasNextPage: invData.pageInfo.hasNextPage,
-          endCursor: invData.pageInfo.endCursor ?? undefined,
+          endCursor: (invData.pageInfo.endCursor as Cursor) ?? undefined,
         },
       }
     } catch (err) {
@@ -432,106 +437,141 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     }
   },
 
+  /*
+    ==================
+    Blink:
+    *after* means younger invoices than X cursor, in backwards pagination.
+    ==================
+
+    ==================
+    NWC:
+    *Until* means upper bound of these txs, so before x moment in time. Defaults to Math.Round(Date.now()/1000)
+    *From* means lower bound of these txs, so before x moment in time. Defaults to 0
+    ==================
+     */
+
   async fetchTransactionsInRange(
     apiKey: ApiKey,
     walletId: WalletId,
-    from?: number,
-    until?: number,
-    batchSize?: number,
+    from: UnixTimestamp,
+    until: Cursor,
+    offset: number,
+    limit: number,
+    type: PaymentDirection,
   ) {
-    const allTxs = []
-    let cursor: Cursor | undefined
+    const allTxs: CoreServiceTx[] = []
+    let cursor: Cursor = until
+    const totalLimit = offset + limit
 
-    while (true) {
+    while (allTxs.length < totalLimit) {
+      const remaining = totalLimit - allTxs.length
+      const batchSize = Math.min(remaining, 100)
+      const fetchSize = allTxs.length < offset ? 100 : batchSize
+
+      /*
+       * fetch txs older than "after", so in this case in first iteration - until,
+       * on next iterations, it's oldest tx cursor
+       */
       const res = await BlinkCoreService().listTransactions(apiKey, walletId, {
-        first: batchSize,
+        first: fetchSize,
         after: cursor,
       })
-      if (res instanceof Error) return res
+      if (res instanceof Error) {
+        return res
+      }
 
       const { transactions, pageInfo } = res
-      if (transactions.length === 0) break
+      if (transactions.length === 0) {
+        break
+      }
 
-      allTxs.push(...transactions)
+      /*
+       * Before any conditions, check PaymentDirection
+       */
+      let txsToPush: CoreServiceTx[] = [...transactions]
+      if (type !== PD.Both) {
+        txsToPush = transactions.filter((tx) => tx.type === type)
+      }
+      allTxs.push(...txsToPush)
 
-      const oldestInBatch = transactions[transactions.length - 1].created_at
-      if (from !== undefined && oldestInBatch < from) {
+      /*
+       * if oldest tx in batch is older than "from" - return
+       */
+      const oldestTxTimestamp = transactions[transactions.length - 1].created_at
+      if (from !== undefined && oldestTxTimestamp < from) {
         break
       }
 
       if (!pageInfo.hasNextPage || !pageInfo.endCursor) break
       cursor = pageInfo.endCursor as Cursor
-    }
 
-    return allTxs
+      /*
+       * if we have already more than offset + limit - we can safely slice it and return.
+       */
+      if (allTxs.length >= totalLimit) {
+        return allTxs.slice(offset, totalLimit)
+      }
+    }
+    /*
+     * filter out txs older than "from" and apply offset
+     */
+    return allTxs.filter((tx) => tx.created_at > from).slice(offset, totalLimit)
   },
 
   async fetchInvoicesInRange(
     apiKey: ApiKey,
     walletId: WalletId,
-    batchSize?: number,
-    from?: number,
+    from: UnixTimestamp,
+    until: Cursor,
+    offset: number,
+    limit: number,
+    type: PaymentDirection,
   ) {
-    const allInvoices = []
-    let cursor: Cursor | undefined
+    const allInvoices: CoreServiceTx[] = []
+    let cursor: Cursor = until
+    const totalLimit = offset + limit
 
-    while (true) {
+    while (allInvoices.length < totalLimit) {
+      const remaining = totalLimit - allInvoices.length
+      const batchSize = Math.min(remaining, 100)
+      const fetchSize = allInvoices.length < offset ? 100 : batchSize
+
       const res = await BlinkCoreService().listInvoices(apiKey, walletId, {
-        first: batchSize,
+        first: fetchSize,
         after: cursor,
       })
-      if (res instanceof Error) return res
+      if (res instanceof Error) {
+        return res
+      }
 
       const { invoices, pageInfo } = res
-      if (invoices.length === 0) break
-
+      if (invoices.length === 0) {
+        break
+      }
       allInvoices.push(...invoices)
 
-      const oldestInBatch = invoices[invoices.length - 1].created_at
-      if (from !== undefined && oldestInBatch < from) {
+      let txsToPush: CoreServiceTx[] = [...invoices]
+      if (type !== PD.Both) {
+        txsToPush = invoices.filter((inv) => inv.type === type)
+      }
+      allInvoices.push(...txsToPush)
+
+      const oldestInvTimestamp = invoices[invoices.length - 1].created_at
+      if (from !== undefined && oldestInvTimestamp <= from) {
         break
       }
 
-      if (!pageInfo.hasNextPage || !pageInfo.endCursor) break
+      if (!pageInfo.hasNextPage || !pageInfo.endCursor) {
+        break
+      }
       cursor = pageInfo.endCursor as Cursor
+
+      if (allInvoices.length >= totalLimit) {
+        return allInvoices.slice(offset, totalLimit)
+      }
     }
 
-    return allInvoices
-  },
-
-  //TODO: there will be single global webhook
-  async createWebhook(apiKey: ApiKey): Promise<BlinkServiceError | WebhookId> {
-    try {
-      //todo add url of current microservice
-      const url = ""
-      const res = await callbackEndpointAdd(client, apiKey, url)
-      if (!res?.callbackEndpointAdd) {
-        return new InvalidResponseError()
-      }
-      if (res.callbackEndpointAdd.errors) {
-        return parseBlinkError(res.callbackEndpointAdd.errors[0])
-      }
-      return res.callbackEndpointAdd.id as WebhookId
-    } catch (err) {
-      return parseThrownError(err)
-    }
-  },
-  async deleteWebhook(
-    apiKey: ApiKey,
-    webhookId: WebhookId,
-  ): Promise<BlinkServiceError | boolean> {
-    try {
-      const res = await callbackEndpointDelete(client, apiKey, webhookId)
-      if (!res?.callbackEndpointDelete) {
-        return new InvalidResponseError()
-      }
-      if (res.callbackEndpointDelete.errors) {
-        return parseBlinkError(res.callbackEndpointDelete.errors[0])
-      }
-      return res.callbackEndpointDelete.success || false
-    } catch (err) {
-      return parseThrownError(err)
-    }
+    return allInvoices.filter((inv) => inv.created_at > from).slice(offset, totalLimit)
   },
 })
 

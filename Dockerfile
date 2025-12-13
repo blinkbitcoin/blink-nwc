@@ -33,5 +33,5 @@ ARG COMMITHASH
 ENV BUILDTIME ${BUILDTIME}
 ENV COMMITHASH ${COMMITHASH}
 
-CMD ["node", "-r", "./lib/src/services/tracing.js", "./lib/src/server/subgraph.js"]
+CMD ["node", "-r", "./lib/src/services/tracing.js", "./lib/src/server/subgraph.js", "./lib/src/server/nwc.js"]
 

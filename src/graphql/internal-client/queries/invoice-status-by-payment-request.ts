@@ -5,7 +5,7 @@ import {
   LnInvoicePaymentStatusByPaymentRequestQuery,
   LnInvoicePaymentStatusByPaymentRequestQueryVariables,
 } from "@/graphql/internal-client/generated"
-import { ApiKey } from "@/domain/index.types"
+import { ApiKey, InvoiceBolt11 } from "@/domain/index.types"
 
 gql`
   query lnInvoicePaymentStatusByPaymentRequest(
@@ -23,7 +23,7 @@ gql`
 export async function invoiceStatusByPaymentRequest(
   client: ApolloClient,
   apiKey: ApiKey,
-  bolt11: string,
+  bolt11: InvoiceBolt11,
 ) {
   const { data } = await client.query<
     LnInvoicePaymentStatusByPaymentRequestQuery,

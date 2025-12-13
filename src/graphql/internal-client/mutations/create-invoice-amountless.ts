@@ -7,7 +7,7 @@ import {
   LnNoAmountInvoiceCreateOnBehalfOfRecipientMutation,
   LnNoAmountInvoiceCreateOnBehalfOfRecipientMutationVariables,
 } from "@/graphql/internal-client/generated"
-import { Minutes } from "@/domain/units"
+import { Minutes } from "@/domain/units/index.types"
 
 gql`
   mutation lnNoAmountInvoiceCreateOnBehalfOfRecipient(

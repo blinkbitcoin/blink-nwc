@@ -6,7 +6,7 @@ import {
   TransactionsForWalletIdQuery,
   TransactionsForWalletIdQueryVariables,
 } from "@/graphql/internal-client/generated"
-import {ApiKey, Cursor} from "@/domain/index.types"
+import { ApiKey, Cursor } from "@/domain/index.types"
 
 gql`
   query TransactionsForWalletId(
