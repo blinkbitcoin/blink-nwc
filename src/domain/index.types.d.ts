@@ -1,13 +1,9 @@
-import { WalletId } from "@/domain/core/index.types"
-
 export type * from "@/domain/core/index.types"
 export type * from "@/domain/nostr/index.types"
 export type * from "@/domain/units/index.types"
 
 export type ErrorLevel =
   (typeof import("./errors").ErrorLevel)[keyof typeof import("./errors").ErrorLevel]
-export type Nip47Method =
-  (typeof import("./nostr/methods").Nip47Method)[keyof typeof import("./nostr/methods").Nip47Method]
 
 export type Network = string & { readonly brand: unique symbol }
 export type BlockHeight = number & { readonly brand: unique symbol }
@@ -22,6 +18,8 @@ export type Memo = string & { readonly brand: unique symbol }
 export type ServerNostrPubkey = string & { readonly brand: unique symbol }
 export type ServerNostrPrivkey = string & { readonly brand: unique symbol }
 export type NwcRelay = string & { readonly brand: unique symbol }
+export type NwcServerAlias = string & { readonly brand: unique symbol }
+export type NwcServerColor = string & { readonly brand: unique symbol }
 
 export type NwcConnectionId = string & { readonly brand: unique symbol }
 export type NwcConnectionAlias = string & { readonly brand: unique symbol }
@@ -36,8 +34,4 @@ export type WebhookId = string & { readonly brand: unique symbol }
 export type ServerNostrKeypair = {
   privkey: ServerNostrPrivkey
   pubkey: ServerNostrPubkey
-}
-export type WebhookConnection = {
-  walletId: WalletId
-  webhookId: WebhookId
 }

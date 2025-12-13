@@ -1,22 +1,22 @@
-import { finalizeEvent, EventTemplate, Relay } from "nostr-tools"
+import { EventTemplate, finalizeEvent, Relay } from "nostr-tools"
 import { Subscription } from "nostr-tools/lib/types/abstract-relay"
 
 import { NOSTR_RELAY_URL, SUPPORTED_NWC_METHODS } from "@/config"
 import { getServerKeypair, NwcConnection } from "@/domain/connection"
 import {
   Nip47EncryptionType,
-  Nip47Method,
+  Nip47MethodType,
   Nip47Response,
   Nip47Result,
   NwcAppPubkey,
 } from "@/domain/index.types"
 import {
-  parseNip47Response,
   decrypt,
   encrypt,
+  EventKind,
   hexToBytes,
   Nip47UnauthorizedError,
-  EventKind,
+  parseNip47Response,
 } from "@/domain/nostr"
 import { ConnectionsRepository } from "@/services/db"
 import { sleep } from "@/domain/utils"
@@ -28,17 +28,14 @@ export const NwcSubscriber = () => {
   const subscribe = (
     handle: (
       request: {
-        method: Nip47Method
+        method: Nip47MethodType
         params: unknown
       },
       connection: NwcConnection,
     ) => Promise<Nip47Result>,
   ) => {
     let isRunning = true
-    let endPromise: (() => void) | undefined
-    let onRelayDisconnect: (() => void) | undefined
     let sub: Subscription | undefined
-
     let retries = 0
 
     const run = async () => {
@@ -46,6 +43,7 @@ export const NwcSubscriber = () => {
         try {
           if (sub) {
             sub.close()
+            sub = undefined
           }
           console.info("checking connection to relay")
           await checkConnected()
@@ -66,84 +64,111 @@ export const NwcSubscriber = () => {
           console.info("subscribed to relay")
           retries = 0
 
-          sub.onevent = async (event) => {
-            try {
-              const encryptionType = (event.tags.find(
-                (t) => t[0] === "encryption",
-              )?.[1] || "nip04") as Nip47EncryptionType
-
-              const decryptedContent = await decrypt(
-                serverKeypair,
-                event.pubkey as NwcAppPubkey,
-                event.content,
-                encryptionType,
-              )
-              const request = JSON.parse(decryptedContent) as {
-                method: Nip47Method
-                params: unknown
-              }
-
-              const userConnection = await ConnectionsRepository().findByPubkey(
-                event.pubkey as NwcAppPubkey,
-              )
-              if (userConnection instanceof Error) {
-                await sendNwcResponse(
-                  event.id,
-                  event.pubkey as NwcAppPubkey,
-                  request.method,
-                  encryptionType,
-                  parseNip47Response(
-                    new Nip47UnauthorizedError(
-                      "No connection found with provided pubkey ",
-                    ),
-                  ),
-                )
-                return
-              }
-
-              const response = await handle(request, userConnection)
-              await sendNwcResponse(
-                event.id,
-                event.pubkey as NwcAppPubkey,
-                request.method,
-                encryptionType,
-                parseNip47Response(response),
-              )
-            } catch (e) {
-              console.error("Failed to parse decrypted event content", e)
-              return
-            }
+          // handle
+          sub.onevent = (event) => {
+            // process event asynchronously, catch errors (nothing should be thrown anyway)
+            handleEvent(event, handle).catch((e) => {
+              console.error("Failed to handle event", event.id, e)
+            })
           }
 
+          // wait for disconnection or manual stop
           await new Promise<void>((resolve) => {
-            endPromise = () => {
+            r.onclose = () => {
+              console.error("relay disconnected")
               resolve()
             }
-            onRelayDisconnect = () => {
-              console.error("relay disconnected")
-              endPromise?.()
-            }
-            r.onclose = onRelayDisconnect
           })
-          if (onRelayDisconnect !== undefined) {
-            r.onclose = null
-          }
+
+          // clear the handler
+          r.onclose = null
         } catch (error) {
           console.error("error subscribing to requests", error || "unknown relay error")
         }
+
+        // backoff before retry
         if (isRunning) {
           await backoff(retries++)
         }
       }
-    }
 
-    const stop = async () => {
-      isRunning = false
+      // cleanup on exit
+      console.info("subscriber loop ended, cleaning up")
       if (sub) {
         sub.close()
       }
-      r.close()
     }
+
+    const handleEvent = async (
+      event: any,
+      handle: (
+        request: { method: Nip47MethodType; params: unknown },
+        connection: NwcConnection,
+      ) => Promise<Nip47Result>,
+    ) => {
+      const encryptionType = (event.tags.find(
+        (t: string[]) => t[0] === "encryption",
+      )?.[1] || "nip04") as Nip47EncryptionType
+
+      const decryptedContent = await decrypt(
+        serverKeypair,
+        event.pubkey as NwcAppPubkey,
+        event.content,
+        encryptionType,
+      )
+
+      const request = JSON.parse(decryptedContent) as {
+        method: Nip47MethodType
+        params: unknown
+      }
+
+      const userConnection = await ConnectionsRepository().findByPubkey(
+        event.pubkey as NwcAppPubkey,
+      )
+
+      if (userConnection instanceof Error || userConnection.revoked) {
+        await sendNwcResponse(
+          event.id,
+          event.pubkey as NwcAppPubkey,
+          request.method,
+          encryptionType,
+          parseNip47Response(
+            new Nip47UnauthorizedError("No connection found with provided pubkey"),
+          ),
+        )
+        return
+      }
+
+      const response = await handle(request, userConnection)
+      await sendNwcResponse(
+        event.id,
+        event.pubkey as NwcAppPubkey,
+        request.method,
+        encryptionType,
+        parseNip47Response(response),
+      )
+    }
+
+    const stop = async () => {
+      console.info("stopping subscriber")
+      isRunning = false
+
+      if (sub) {
+        sub.close()
+        sub = undefined
+      }
+
+      // close relay connection
+      r.close()
+
+      console.info("subscriber stopped")
+    }
+
+    run().catch((e) => {
+      console.error("Fatal error in subscriber run loop:", e)
+    })
+
+    return stop
   }
 
   const checkConnected = async () => {
@@ -151,9 +176,9 @@ export const NwcSubscriber = () => {
       if (!r.connected) {
         await r.connect()
       }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (_) {
-      console.error("failed to connect to relay", NOSTR_RELAY_URL)
+    } catch (error) {
+      console.error("failed to connect to relay", NOSTR_RELAY_URL, error)
+      throw error
     }
   }
 
@@ -161,16 +186,11 @@ export const NwcSubscriber = () => {
     const infoEventTemplate: EventTemplate = {
       kind: EventKind.InfoEvent,
       created_at: Math.floor(Date.now() / 1000),
-      tags: [
-        ["encryption", "nip44_v2 nip04"],
-        //todo add notifications when implemented
-        // ["notifications"]
-      ],
+      tags: [["encryption", "nip44_v2 nip04"]],
       content: SUPPORTED_NWC_METHODS.join(" "),
     }
 
     const infoEvent = finalizeEvent(infoEventTemplate, hexToBytes(serverKeypair.privkey))
-
     await r.publish(infoEvent)
     console.info("Published info event to relay")
   }
@@ -178,23 +198,28 @@ export const NwcSubscriber = () => {
   const sendNwcResponse = async (
     eventId: string,
     appPk: NwcAppPubkey,
-    resultType: Nip47Method,
+    resultType: Nip47MethodType,
     encryptionType: Nip47EncryptionType,
     response: Nip47Response,
   ) => {
+    const encryptedContent = encrypt(
+      serverKeypair,
+      appPk,
+      JSON.stringify({
+        result_type: resultType,
+        ...response,
+      }),
+      encryptionType,
+    )
+
     const responseEventTemplate: EventTemplate = {
       kind: EventKind.Response,
       created_at: Math.floor(Date.now() / 1000),
-      tags: [["e", eventId]],
-      content: encrypt(
-        serverKeypair,
-        appPk,
-        JSON.stringify({
-          result_type: resultType,
-          ...response,
-        }),
-        encryptionType,
-      ),
+      tags: [
+        ["e", eventId],
+        ["p", appPk],
+      ],
+      content: encryptedContent,
     }
 
     const responseEvent = finalizeEvent(
@@ -211,8 +236,11 @@ export const NwcSubscriber = () => {
     const delay = Math.min(SECOND * Math.pow(2, retries), MAX_BACKOFF_MS)
 
     const jitter = Math.random() * delay * 0.1
+    console.info(
+      `Backing off for ${Math.round((delay + jitter) / 1000)}s (retry ${retries})`,
+    )
     await sleep(Math.round(delay + jitter))
   }
 
-  return { subscribe, stop }
+  return { subscribe }
 }

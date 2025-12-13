@@ -2,7 +2,7 @@ import { queryBuilder } from "@/services/db/query-builder"
 import type { NwcConnectionRecord } from "@/services/db/index.types"
 import type {
   ApiKey,
-  Nip47Method,
+  Nip47MethodType,
   NwcAppPubkey,
   NwcConnectionAlias,
   NwcConnectionId,
@@ -17,11 +17,14 @@ import {
 } from "@/domain/errors"
 import { parseRepositoryError } from "@/services/db/index"
 import { IConnectionsRepository, NwcConnection } from "@/domain/connection"
+import { wrapAsyncFunctionsToRunInSpan } from "@/services/tracing"
 
 const TABLE_NAME = "nwc_connections"
 
-export const ConnectionsRepository = (): IConnectionsRepository => ({
-  async findByPubkey(pubkey: NwcAppPubkey): Promise<NwcConnection | RepositoryError> {
+export const ConnectionsRepository = (): IConnectionsRepository => {
+  const findByPubkey = async (
+    pubkey: NwcAppPubkey,
+  ): Promise<NwcConnection | RepositoryError> => {
     try {
       const doc = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
         .where({ app_pubkey: pubkey })
@@ -34,9 +37,11 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
     } catch (err) {
       return parseRepositoryError(err)
     }
-  },
+  }
 
-  async findById(id: NwcConnectionId): Promise<NwcConnection | RepositoryError> {
+  const findById = async (
+    id: NwcConnectionId,
+  ): Promise<NwcConnection | RepositoryError> => {
     try {
       const doc = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
         .where({ id })
@@ -49,11 +54,11 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
     } catch (err) {
       return parseRepositoryError(err)
     }
-  },
+  }
 
-  async create(
+  const create = async (
     data: Omit<NwcConnection, "id" | "createdAt" | "updatedAt" | "revoked">,
-  ): Promise<NwcConnection | RepositoryError> {
+  ): Promise<NwcConnection | RepositoryError> => {
     try {
       const insertData = {
         alias: data.alias,
@@ -73,9 +78,9 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
     } catch (err) {
       return parseRepositoryError(err)
     }
-  },
+  }
 
-  async update(
+  const update = async (
     id: NwcConnectionId,
     updates: Partial<
       Omit<
@@ -91,7 +96,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
         | "revoked"
       >
     >,
-  ): Promise<NwcConnection | RepositoryError> {
+  ): Promise<NwcConnection | RepositoryError> => {
     try {
       const updateData: Partial<NwcConnectionRecord> = {}
 
@@ -113,9 +118,9 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
     } catch (err) {
       return parseRepositoryError(err)
     }
-  },
+  }
 
-  async delete(id: NwcConnectionId): Promise<boolean | RepositoryError> {
+  const deleteById = async (id: NwcConnectionId): Promise<boolean | RepositoryError> => {
     try {
       const deletedCount = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
         .where({ id })
@@ -125,9 +130,9 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
     } catch (err) {
       return parseRepositoryError(err)
     }
-  },
+  }
 
-  async softDelete(id: NwcConnectionId): Promise<boolean | RepositoryError> {
+  const softDelete = async (id: NwcConnectionId): Promise<boolean | RepositoryError> => {
     try {
       const affectedRows = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
         .where({ id })
@@ -136,9 +141,11 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
     } catch (err) {
       return parseRepositoryError(err)
     }
-  },
+  }
 
-  async findByWalletId(walletId: WalletId): Promise<NwcConnection[] | RepositoryError> {
+  const findByWalletId = async (
+    walletId: WalletId,
+  ): Promise<NwcConnection[] | RepositoryError> => {
     try {
       const docs = await queryBuilder<NwcConnectionRecord>(TABLE_NAME).where({
         wallet_id: walletId,
@@ -152,9 +159,11 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
     } catch (err) {
       return parseRepositoryError(err)
     }
-  },
+  }
 
-  async countActiveByWalletId(walletId: WalletId): Promise<number | RepositoryError> {
+  const countActiveByWalletId = async (
+    walletId: WalletId,
+  ): Promise<number | RepositoryError> => {
     try {
       const result = await queryBuilder("transactions")
         .where({ revoked: false })
@@ -162,14 +171,15 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
         .count<{ count: string }>("id as count")
         .first()
 
-      // Knex zwraca count jako string, więc konwersja:
       return Number(result?.count ?? 0)
     } catch (err) {
       return parseRepositoryError(err)
     }
-  },
+  }
 
-  async findByUserId(userId: UserId): Promise<NwcConnection[] | RepositoryError> {
+  const findByUserId = async (
+    userId: UserId,
+  ): Promise<NwcConnection[] | RepositoryError> => {
     try {
       const docs = await queryBuilder<NwcConnectionRecord>(TABLE_NAME).where({
         user_id: userId,
@@ -183,9 +193,11 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
     } catch (err) {
       return parseRepositoryError(err)
     }
-  },
+  }
 
-  async deleteByWalletId(walletId: WalletId): Promise<number | RepositoryError> {
+  const deleteByWalletId = async (
+    walletId: WalletId,
+  ): Promise<number | RepositoryError> => {
     try {
       return await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
         .where({ wallet_id: walletId })
@@ -193,12 +205,12 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
     } catch (err) {
       return parseRepositoryError(err)
     }
-  },
+  }
 
-  async updatePermissions(
+  const updatePermissions = async (
     id: NwcConnectionId,
-    permissions: Nip47Method[],
-  ): Promise<NwcConnection | RepositoryError> {
+    permissions: Nip47MethodType[],
+  ): Promise<NwcConnection | RepositoryError> => {
     try {
       const [doc] = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
         .where({ id })
@@ -218,8 +230,25 @@ export const ConnectionsRepository = (): IConnectionsRepository => ({
     } catch (err) {
       return parseRepositoryError(err)
     }
-  },
-})
+  }
+
+  return wrapAsyncFunctionsToRunInSpan({
+    namespace: "services.db.connections",
+    fns: {
+      findByPubkey,
+      findById,
+      create,
+      update,
+      delete: deleteById,
+      softDelete,
+      findByWalletId,
+      countActiveByWalletId,
+      findByUserId,
+      deleteByWalletId,
+      updatePermissions,
+    },
+  })
+}
 
 const translateConnection = (doc: NwcConnectionRecord): NwcConnection => {
   return {
@@ -229,7 +258,7 @@ const translateConnection = (doc: NwcConnectionRecord): NwcConnection => {
     alias: (doc.alias as NwcConnectionAlias) ?? null,
     walletId: doc.wallet_id as WalletId,
     appPubkey: doc.app_pubkey as NwcAppPubkey,
-    permissions: doc.permissions as Nip47Method[],
+    permissions: doc.permissions as Nip47MethodType[],
     apiKey: doc.api_key as ApiKey,
     notificationsEnabled: doc.notifications,
     revoked: doc.revoked,

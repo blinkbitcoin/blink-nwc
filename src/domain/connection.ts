@@ -10,7 +10,7 @@ import {
   ServerNostrKeypair,
   ServerNostrPubkey,
   ApiKey,
-  Nip47Method,
+  Nip47MethodType,
 } from "./index.types"
 
 import { NOSTR_PRIVATE_KEY } from "@/config"
@@ -47,7 +47,7 @@ export interface IConnectionsRepository {
 
   updatePermissions(
     id: NwcConnectionId,
-    permissions: Nip47Method[],
+    permissions: Nip47MethodType[],
   ): Promise<NwcConnection | RepositoryError>
 
   softDelete(id: NwcConnectionId): Promise<boolean | RepositoryError>
@@ -67,7 +67,7 @@ export interface NwcConnection {
 
   alias: NwcConnectionAlias | null
   appPubkey: NwcAppPubkey
-  permissions: Nip47Method[]
+  permissions: Nip47MethodType[]
   notificationsEnabled: boolean
 
   revoked: boolean
@@ -102,6 +102,6 @@ export const stringifyNwcUri = ({ pubkey, relay, secret }: NwcUriParams): NwcUri
   return `nostr+walletconnect://${pubkey}?${params.toString()}` as NwcUri
 }
 
-export const hasPermission = (method: Nip47Method, connection: NwcConnection) => {
+export const hasPermission = (method: Nip47MethodType, connection: NwcConnection) => {
   return connection.permissions.includes(method)
 }

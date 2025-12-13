@@ -31,7 +31,7 @@ export const toMinutes = (value?: Seconds | null): Minutes | undefined => {
   if (!value) {
     return undefined
   }
-  return (value * 60) as Minutes
+  return (value / 60) as Minutes
 }
 
 export const toCursor = (value: UnixTimestamp): Cursor | undefined => {

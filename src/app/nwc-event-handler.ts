@@ -7,10 +7,9 @@ import {
   Nip47ListTransactionsResult,
   Nip47LookupInvoiceResult,
   Nip47MakeInvoiceResult,
-  Nip47Method,
+  Nip47MethodType as Nip47MethodType,
   Nip47PayInvoiceResult,
   Nip47Result,
-  NwcConnectionAlias,
   Seconds,
   UnixTimestamp,
 } from "@/domain/index.types"
@@ -18,13 +17,20 @@ import { CoreServiceTx, DescriptionHash } from "@/domain/core/index.types"
 import { getServerKeypair, hasPermission, NwcConnection } from "@/domain/connection"
 
 import { BlinkCoreService } from "@/services"
-import { SUPPORTED_NWC_METHODS } from "@/config"
+import { SUPPORTED_NWC_METHODS, WALLET_ALIAS, WALLET_COLOR } from "@/config"
 import { BlinkServiceError } from "@/services/core/errors"
 import { mergeTxs } from "@/domain/utils"
+import {
+  addAttributesToCurrentSpan,
+  recordExceptionInCurrentSpan,
+  wrapAsyncToRunInSpan,
+} from "@/services/tracing"
+import { ErrorLevel } from "@/domain/errors"
 import {
   Nip47Error,
   Nip47InsufficientBalanceError,
   Nip47InternalError,
+  Nip47Method,
   Nip47NotFoundError,
   Nip47NotImplementedError,
   Nip47OtherError,
@@ -62,8 +68,8 @@ const NwcEventHandler = () => {
     }
 
     return {
-      alias: "Blink Wallet" as NwcConnectionAlias,
-      color: "F2A900",
+      alias: WALLET_ALIAS,
+      color: WALLET_COLOR,
       pubkey: serverPubkey,
       methods: SUPPORTED_NWC_METHODS,
       // todo notifications
@@ -77,8 +83,17 @@ const NwcEventHandler = () => {
     connection: NwcConnection,
   ): Promise<Nip47Error | Nip47GetBalanceResult> => {
     const { apiKey, walletId } = connection
+
+    addAttributesToCurrentSpan({
+      walletId,
+      userId: connection.userId,
+      connectionId: connection.id,
+    })
+
     const res = await BlinkCoreService().getBalance(apiKey, walletId)
     if (res instanceof Error) {
+      recordExceptionInCurrentSpan({ error: res, level: ErrorLevel.Warn })
+
       return parseErrorForNip47Response(res)
     }
     return { balance: toMilliSatoshis(res.balance) }
@@ -92,9 +107,19 @@ const NwcEventHandler = () => {
 
     const request = checkedToNip47MakeInvoiceRequest(req)
     if (request instanceof Error) {
+      recordExceptionInCurrentSpan({ error: request, level: ErrorLevel.Warn })
       return new Nip47OtherError(request.message)
     }
     const { amount, description, description_hash, expiry } = request
+
+    addAttributesToCurrentSpan({
+      walletId,
+      "userId": connection.userId,
+      "connectionId": connection.id,
+      "invoice.amount": amount,
+      "invoice.hasDescription": !!description,
+      "invoice.hasDescriptionHash": !!description_hash,
+    })
 
     const satoshis = toSatoshis(amount)
     const expiry_minutes = toMinutes(expiry)
@@ -148,8 +173,16 @@ const NwcEventHandler = () => {
   ): Promise<Nip47Error | Nip47PayInvoiceResult> => {
     const request = checkedToNip47PayInvoiceRequest(req)
     if (request instanceof Error) {
+      recordExceptionInCurrentSpan({ error: request, level: ErrorLevel.Warn })
       return new Nip47OtherError(request.message)
     }
+
+    addAttributesToCurrentSpan({
+      "walletId": connection.walletId,
+      "userId": connection.userId,
+      "connectionId": connection.id,
+      "payment.invoice": request.invoice,
+    })
 
     const res = await BlinkCoreService().payInvoice(
       connection.apiKey,
@@ -157,8 +190,15 @@ const NwcEventHandler = () => {
       request.invoice as InvoiceBolt11,
     )
     if (res instanceof Error) {
+      recordExceptionInCurrentSpan({ error: res, level: ErrorLevel.Warn })
       return parseErrorForNip47Response(res)
     }
+
+    addAttributesToCurrentSpan({
+      "payment.preimage": res.preimage,
+      "payment.feesPaid": res.feesPaid,
+    })
+
     return { preimage: res.preimage, fees_paid: toMilliSatoshis(res.feesPaid) }
   }
 
@@ -327,33 +367,48 @@ const NwcEventHandler = () => {
   }
 
   const handle = async (
-    request: { method: Nip47Method; params?: unknown },
+    request: { method: Nip47MethodType; params?: unknown },
     connection: NwcConnection,
   ): Promise<Nip47Result> => {
+    addAttributesToCurrentSpan({
+      "nwc.method": request.method,
+      "nwc.connectionId": connection.id,
+      "nwc.userId": connection.userId,
+      "nwc.walletId": connection.walletId,
+      "nwc.appPubkey": connection.appPubkey,
+    })
+
     if (!hasPermission(request.method, connection)) {
-      return new Nip47RestrictedError(
+      const error = new Nip47RestrictedError(
         `Connection does not have permission for requested operation: ${request.method}`,
       )
+      recordExceptionInCurrentSpan({ error, level: ErrorLevel.Warn })
+      return error
     }
     switch (request.method) {
-      case "get_info":
+      case Nip47Method.GetInfo:
         return getInfo()
-      case "get_balance":
+      case Nip47Method.GetBalance:
         return getBalance(connection)
-      case "make_invoice":
+      case Nip47Method.MakeInvoice:
         return makeInvoice(request.params, connection)
-      case "pay_invoice":
+      case Nip47Method.PayInvoice:
         return payInvoice(request.params, connection)
-      case "lookup_invoice":
+      case Nip47Method.LookupInvoice:
         return lookupInvoice(request.params, connection)
-      case "list_transactions":
+      case Nip47Method.ListTransactions:
         return listTransactions(request.params, connection)
       default:
         return new Nip47NotImplementedError(`Unsupported method: ${request.method}`)
     }
   }
 
-  return { handle }
+  return {
+    handle: wrapAsyncToRunInSpan({
+      namespace: "app.nwc",
+      fn: handle,
+    }),
+  }
 }
 
 export default NwcEventHandler

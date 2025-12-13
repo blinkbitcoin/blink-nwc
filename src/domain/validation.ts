@@ -6,7 +6,7 @@ import {
   MilliSatoshis,
   Nip47ListTransactionsRequest,
   Nip47LookupInvoiceRequest,
-  Nip47Method,
+  Nip47MethodType,
   Nip47PayInvoiceRequest,
   NwcConnectionAlias,
   NwcConnectionId,
@@ -26,6 +26,7 @@ import { UserId, WalletId } from "@/domain/core/index.types"
 
 import { Nip47MakeInvoiceRequest } from "@/domain/nostr/index.types"
 import { PaymentDirection as pt } from "@/domain/nostr/payment-direction"
+import { SUPPORTED_NWC_METHODS } from "@/config"
 
 const UuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -66,27 +67,18 @@ export const checkedToApiKey = (apiKey: string): ApiKey | InvalidApiKey => {
 
 export const checkedToPermissions = (
   permissions: string[],
-): Nip47Method[] | ValidationError => {
-  const validMethods: Nip47Method[] = [
-    "get_info",
-    "get_balance",
-    "make_invoice",
-    "pay_invoice",
-    "lookup_invoice",
-    "list_transactions",
-  ]
-
+): Nip47MethodType[] | ValidationError => {
   if (!Array.isArray(permissions)) {
     return new ValidationError("Permissions must be an array")
   }
 
   for (const permission of permissions) {
-    if (!validMethods.includes(permission as Nip47Method)) {
+    if (!SUPPORTED_NWC_METHODS.includes(permission as Nip47MethodType)) {
       return new ValidationError(`Invalid permission: ${permission}`)
     }
   }
 
-  return permissions as Nip47Method[]
+  return permissions as Nip47MethodType[]
 }
 
 export const checkedToConnectionId = (
@@ -108,7 +100,7 @@ export const checkedToNwcUpdates = (updates: {
 }) => {
   const checkedUpdates: Partial<{
     alias: NwcConnectionAlias | null
-    permissions: Nip47Method[]
+    permissions: Nip47MethodType[]
   }> = {}
 
   if ("alias" in updates) {
@@ -193,7 +185,7 @@ export const checkedToMsatAmount = (amount: unknown): MilliSatoshis | Validation
 export const checkedToUnixTimestamp = (
   timestamp: unknown,
 ): UnixTimestamp | ValidationError => {
-  if (!isPositiveInteger(timestamp)) {
+  if (isPositiveInteger(timestamp)) {
     return timestamp as UnixTimestamp
   }
   return new ValidationError("Invalid timestamp input")

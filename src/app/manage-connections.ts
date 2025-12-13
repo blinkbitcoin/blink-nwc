@@ -12,7 +12,7 @@ import {
 } from "@/domain/validation"
 import { getServerKeypair, NwcConnection, stringifyNwcUri } from "@/domain/connection"
 import { ConnectionsRepository } from "@/services/db/connections"
-import { NOSTR_RELAY_URL } from "@/config"
+import { NOSTR_RELAY_PUBLIC_URL } from "@/config"
 import { Account } from "@/domain/core/index.types"
 
 export const createNwcConnection = async (
@@ -67,7 +67,7 @@ export const createNwcConnection = async (
   const connectionUri = stringifyNwcUri({
     pubkey: serverPubkey,
     secret,
-    relay: NOSTR_RELAY_URL,
+    relay: NOSTR_RELAY_PUBLIC_URL,
   })
 
   return {

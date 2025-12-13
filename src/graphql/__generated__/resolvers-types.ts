@@ -1,4 +1,4 @@
-import { Nip47Method } from '@/domain/index.types';
+import { Nip47MethodType } from '@/domain/index.types';
 import { GraphQLResolveInfo, GraphQLScalarType, GraphQLScalarTypeConfig } from 'graphql';
 import { IError } from '@/graphql/index.types';
 export type Maybe<T> = T | null;
@@ -58,7 +58,7 @@ export type MutationNwcConnectionUpdateArgs = {
   input: NwcConnectionUpdateInput;
 };
 
-export { Nip47Method };
+export { Nip47MethodType };
 
 export type NwcConnection = {
   __typename?: 'NwcConnection';
@@ -67,7 +67,7 @@ export type NwcConnection = {
   appPubkey: Scalars['String']['output'];
   createdAt: Scalars['Timestamp']['output'];
   id: Scalars['ID']['output'];
-  permissions: Array<Nip47Method>;
+  permissions: Array<Nip47MethodType>;
   updatedAt: Scalars['Timestamp']['output'];
   walletId: Scalars['WalletId']['output'];
 };
@@ -75,7 +75,7 @@ export type NwcConnection = {
 export type NwcConnectionCreateInput = {
   alias?: InputMaybe<Scalars['String']['input']>;
   apiKey: Scalars['String']['input'];
-  permissions: Array<Nip47Method>;
+  permissions: Array<Nip47MethodType>;
   walletId: Scalars['WalletId']['input'];
 };
 
@@ -99,7 +99,7 @@ export type NwcConnectionDeletePayload = {
 export type NwcConnectionUpdateInput = {
   alias?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
-  permissions?: InputMaybe<Array<Nip47Method>>;
+  permissions?: InputMaybe<Array<Nip47MethodType>>;
 };
 
 export type NwcConnectionUpdatePayload = {
@@ -202,7 +202,7 @@ export type ResolversTypes = ResolversObject<{
   GraphQLApplicationError: ResolverTypeWrapper<IError>;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   Mutation: ResolverTypeWrapper<{}>;
-  Nip47Method: Nip47Method;
+  Nip47Method: Nip47MethodType;
   NwcConnection: ResolverTypeWrapper<NwcConnection>;
   NwcConnectionCreateInput: NwcConnectionCreateInput;
   NwcConnectionCreatePayload: ResolverTypeWrapper<Omit<NwcConnectionCreatePayload, 'errors'> & { errors: Array<ResolversTypes['Error']> }>;

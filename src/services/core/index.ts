@@ -20,9 +20,9 @@ import {
 } from "@/domain/index.types"
 import { createInvoice as createInv } from "@/graphql/internal-client/mutations/create-invoice"
 import { DescriptionHash, PaymentHash, WalletId } from "@/domain/core/index.types"
-import { payInvoice } from "@/graphql/internal-client/mutations/pay-invoice"
+import { payInvoice as payInvoiceGql } from "@/graphql/internal-client/mutations/pay-invoice"
 import { IError } from "@/graphql/index.types"
-import { getBalance } from "@/graphql/internal-client/queries/get-balance"
+import { getBalance as getBalanceGql } from "@/graphql/internal-client/queries/get-balance"
 import {
   BlinkServiceError,
   CouldNotAuthorizeError,
@@ -43,10 +43,12 @@ import { transactionsForWalletId } from "@/graphql/internal-client/queries/trans
 import { getNodeInfo as fetchNodeInfo } from "@/graphql/internal-client/queries/get-node-info"
 import { invoicesForWalletId } from "@/graphql/internal-client/queries/invoices-for-wallet-id"
 import { IBlinkCoreService } from "@/domain/core"
-import { createInvoiceAmountless } from "@/graphql/internal-client/mutations/create-invoice-amountless"
+import { createInvoiceAmountless as createInvoiceAmountlessGql } from "@/graphql/internal-client/mutations/create-invoice-amountless"
 import { PaymentDirection as PD } from "@/domain/nostr/payment-direction"
-export const BlinkCoreService = (): IBlinkCoreService => ({
-  async getNodeInfo() {
+import { wrapAsyncFunctionsToRunInSpan } from "@/services/tracing"
+
+export const BlinkCoreService = (): IBlinkCoreService => {
+  const getNodeInfo = async () => {
     try {
       const nodeInfo = await fetchNodeInfo(client)
       if (!nodeInfo?.network || !nodeInfo.blockInfo) {
@@ -60,11 +62,11 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     } catch {
       return new CouldNotFetchNodeInfoError()
     }
-  },
+  }
 
-  async getBalance(apiKey: ApiKey, walletId: WalletId) {
+  const getBalance = async (apiKey: ApiKey, walletId: WalletId) => {
     try {
-      const balance = await getBalance(client, apiKey, walletId)
+      const balance = await getBalanceGql(client, apiKey, walletId)
       if (balance === null || balance === undefined) {
         return new InvalidResponseError()
       }
@@ -72,15 +74,15 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     } catch (err) {
       return parseThrownError(err)
     }
-  },
+  }
 
-  async createInvoice(
+  const createInvoice = async (
     apiKey: ApiKey,
     walletId: WalletId,
     amount: Satoshis,
     descriptionHash: DescriptionHash,
     expiry?: Minutes,
-  ) {
+  ) => {
     try {
       const res = await createInv(
         client,
@@ -111,16 +113,16 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     } catch (err) {
       return parseThrownError(err)
     }
-  },
+  }
 
-  async createInvoiceAmountless(
+  const createInvoiceAmountless = async (
     apiKey: ApiKey,
     walletId: WalletId,
     memo: Memo,
     expiry: Minutes,
-  ) {
+  ) => {
     try {
-      const res = await createInvoiceAmountless(client, apiKey, walletId, expiry, memo)
+      const res = await createInvoiceAmountlessGql(client, apiKey, walletId, expiry, memo)
       if (!res) {
         return new InvalidResponseError()
       }
@@ -143,16 +145,16 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     } catch (e) {
       return parseThrownError(e)
     }
-  },
+  }
 
-  async payInvoice(
+  const payInvoice = async (
     apiKey: ApiKey,
     walletId: WalletId,
     invoice: InvoiceBolt11,
     memo?: Memo,
-  ) {
+  ) => {
     try {
-      const res = await payInvoice(client, apiKey, invoice, walletId, memo)
+      const res = await payInvoiceGql(client, apiKey, invoice, walletId, memo)
       const payload = res?.lnInvoicePaymentSend
       if (!payload) {
         return new InvalidResponseError()
@@ -200,14 +202,14 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     } catch (err) {
       return parseThrownError(err)
     }
-  },
+  }
 
-  async lookupInvoice(
+  const lookupInvoice = async (
     apiKey: ApiKey,
     walletId: WalletId,
     paymentHash?: PaymentHash,
     invoice?: InvoiceBolt11,
-  ) {
+  ) => {
     try {
       if (paymentHash) {
         try {
@@ -307,16 +309,16 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     } catch (err) {
       return parseThrownError(err)
     }
-  },
+  }
 
-  async listTransactions(
+  const listTransactions = async (
     apiKey: ApiKey,
     walletId: WalletId,
     options?: {
       after?: Cursor
       first?: number
     },
-  ) {
+  ) => {
     try {
       const res = await transactionsForWalletId(client, apiKey, walletId, {
         first: options?.first,
@@ -383,16 +385,16 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     } catch (err) {
       return parseThrownError(err)
     }
-  },
+  }
 
-  async listInvoices(
+  const listInvoices = async (
     apiKey: ApiKey,
     walletId: WalletId,
     options?: {
       first?: number
       after?: Cursor
     },
-  ) {
+  ) => {
     try {
       const res = await invoicesForWalletId(client, apiKey, walletId, {
         first: options?.first,
@@ -435,7 +437,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     } catch (err) {
       return parseThrownError(err)
     }
-  },
+  }
 
   /*
     ==================
@@ -450,7 +452,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     ==================
      */
 
-  async fetchTransactionsInRange(
+  const fetchTransactionsInRange = async (
     apiKey: ApiKey,
     walletId: WalletId,
     from: UnixTimestamp,
@@ -458,7 +460,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     offset: number,
     limit: number,
     type: PaymentDirection,
-  ) {
+  ) => {
     const allTxs: CoreServiceTx[] = []
     let cursor: Cursor = until
     const totalLimit = offset + limit
@@ -516,9 +518,9 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
      * filter out txs older than "from" and apply offset
      */
     return allTxs.filter((tx) => tx.created_at > from).slice(offset, totalLimit)
-  },
+  }
 
-  async fetchInvoicesInRange(
+  const fetchInvoicesInRange = async (
     apiKey: ApiKey,
     walletId: WalletId,
     from: UnixTimestamp,
@@ -526,7 +528,7 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     offset: number,
     limit: number,
     type: PaymentDirection,
-  ) {
+  ) => {
     const allInvoices: CoreServiceTx[] = []
     let cursor: Cursor = until
     const totalLimit = offset + limit
@@ -572,8 +574,24 @@ export const BlinkCoreService = (): IBlinkCoreService => ({
     }
 
     return allInvoices.filter((inv) => inv.created_at > from).slice(offset, totalLimit)
-  },
-})
+  }
+
+  return wrapAsyncFunctionsToRunInSpan({
+    namespace: "services.blinkCore",
+    fns: {
+      getNodeInfo,
+      getBalance,
+      createInvoice,
+      createInvoiceAmountless,
+      payInvoice,
+      lookupInvoice,
+      listTransactions,
+      listInvoices,
+      fetchTransactionsInRange,
+      fetchInvoicesInRange,
+    },
+  })
+}
 
 const parseThrownError = (err: unknown): BlinkServiceError => {
   if (err instanceof ServerError) {

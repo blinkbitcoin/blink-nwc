@@ -14,8 +14,8 @@ export interface NwcConnectionRecord {
   updated_at: Date
 }
 
-export interface WebhookRecord {
-  id: string
-  webhook_id: string
-  wallet_id: string
-}
+// export interface WebhookRecord {
+//   id: string
+//   webhook_id: string
+//   wallet_id: string
+// }

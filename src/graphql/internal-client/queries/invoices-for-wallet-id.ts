@@ -1,7 +1,7 @@
 import { gql } from "graphql-tag"
 import { ApolloClient } from "@apollo/client"
 
-import {ApiKey, Cursor} from "@/domain/index.types"
+import { ApiKey, Cursor } from "@/domain/index.types"
 import { WalletId } from "@/domain/core/index.types"
 import {
   InvoicesForWalletId,

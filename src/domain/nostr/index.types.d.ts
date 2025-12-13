@@ -6,8 +6,8 @@ import {
   InvoiceBolt11,
   MilliSatoshis,
   Network,
-  Nip47Method,
-  NwcConnectionAlias,
+  NwcServerAlias,
+  NwcServerColor,
   PaymentHash,
   PaymentStatus,
   Preimage,
@@ -19,16 +19,18 @@ import { Nip47Error } from "@/domain/nostr/errors"
 
 export type PaymentDirection =
   (typeof import("./payment-direction").PaymentDirection)[keyof typeof import("./payment-direction").PaymentDirection]
+export type Nip47MethodType =
+  (typeof import("./nip47-method").Nip47Method)[keyof typeof import("./nip47-method").Nip47Method]
 
 export type Nip47MakeInvoiceRequest = {
-  amount: MilliSatoshis // value in msats
-  description?: Description // invoice's description, optional
-  description_hash?: DescriptionHash // invoice's description hash, optional
-  expiry?: Seconds // expiry in seconds from time invoice is created, optional
+  amount: MilliSatoshis
+  description?: Description
+  description_hash?: DescriptionHash
+  expiry?: Seconds
 }
 
 export type Nip47PayInvoiceRequest = {
-  invoice: InvoiceBolt11 // bolt11 invoice
+  invoice: InvoiceBolt11
 }
 
 export type Nip47LookupInvoiceRequest = {
@@ -59,13 +61,13 @@ export type Nip47Transaction = {
 }
 
 export type Nip47GetInfoResult = {
-  alias: NwcConnectionAlias
-  color: string
+  alias: NwcServerAlias
+  color: NwcServerColor
   pubkey: ServerNostrPubkey
   network: Network
   block_height: BlockHeight
   block_hash: BlockHash
-  methods: Nip47Method[]
+  methods: Nip47MethodType[]
 }
 
 export type Nip47GetBalanceResult = {
