@@ -19,7 +19,7 @@ export const env = createEnv({
       .string()
       .regex(/^[a-f0-9]{64}$/i)
       .default("e96597ef1f21a03eaf62549ad66ac66fe7194732e1a68df61cb31bf15e661025"), //todo: absolutely remove after development
-    NOSTR_RELAY_URL: z.string().url().default("wss://relay.getalby.com/v1"), //todo: we should get dedicated relay
+    NOSTR_RELAY_URL: z.string().url().default("ws://relay:7777"), // todo create a separate public relay env for nip47 connection strings
     ROUTER_URL: z.string().url().default("http://galoy:4012/graphql"), //todo: ensure if same on prod
   },
 

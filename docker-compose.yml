@@ -18,9 +18,9 @@ services:
   nwc-pg:
     image: postgres:15.1
     environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=pg
+      - POSTGRES_USER=blink-nwc-usr
+      - POSTGRES_PASSWORD=blink-nwc-pwd
+      - POSTGRES_DB=blink-nwc
     ports:
       - "5431:5432"
 
