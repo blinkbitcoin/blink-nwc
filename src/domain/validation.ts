@@ -28,8 +28,12 @@ import { Nip47MakeInvoiceRequest } from "@/domain/nostr/index.types"
 import { PaymentDirection as pt } from "@/domain/nostr/payment-direction"
 import { SUPPORTED_NWC_METHODS } from "@/config"
 
+// borrowed from
+// https://github.com/blinkbitcoin/blink/blob/3c8841395f94346024c85c0137236ac4ca4d8d70/core/api/src/domain/shared/validation.ts
+
 const UuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 const HEX256_REGEX = /^[0-9a-fA-F]{64}$/
 
 const isPositiveInteger = (value: unknown): value is number => {
@@ -266,7 +270,7 @@ export const checkedToPaymentDirection = (
 }
 
 export const checkedToNip47MakeInvoiceRequest = (
-  req: any, // albo unknown
+  req: any,
 ): Nip47MakeInvoiceRequest | ValidationError => {
   const amount = checkedToMsatAmount(req?.amount ?? 0)
   if (amount instanceof ValidationError) return amount
@@ -304,8 +308,8 @@ export const checkedToNip47ListTransactionsRequest = (
     return until
   }
 
-  if ((from ? from : 0) < (until ? until : Math.round(Date.now() / 1000))) {
-    return new ValidationError("From can't be smaller than until!")
+  if ((from ? from : 0) > (until ? until : Math.round(Date.now() / 1000))) {
+    return new ValidationError("Until can't be smaller than from!")
   }
 
   const limit =

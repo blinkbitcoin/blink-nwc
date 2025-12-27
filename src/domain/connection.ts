@@ -89,7 +89,7 @@ export const getServerKeypair: () => ServerNostrKeypair = () => {
   const priv = NOSTR_PRIVATE_KEY
   const bytes = Buffer.from(priv, "hex")
   return {
-    pubkey: Buffer.from(getPublicKey(bytes)).toString("hex") as ServerNostrPubkey,
+    pubkey: getPublicKey(bytes) as ServerNostrPubkey,
     privkey: priv,
   }
 }

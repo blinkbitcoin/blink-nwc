@@ -21,7 +21,7 @@ export const env = createEnv({
       .default("e96597ef1f21a03eaf62549ad66ac66fe7194732e1a68df61cb31bf15e661025"), //todo: absolutely remove after development
     ROUTER_URL: z.string().url().default("http://galoy:4012/graphql"), //todo: ensure if same on prod
     NOSTR_RELAY_URL: z.string().url().default("ws://relay:7777"),
-    NOSTR_RELAY_PUBLIC_URL: z.string().url().default("ws://relay:7777"),
+    NOSTR_RELAY_PUBLIC_URL: z.string().url().default("ws://relay:7777"), // todo change on prod
   },
 
   runtimeEnvStrict: {

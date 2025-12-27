@@ -34,12 +34,18 @@ export const toMinutes = (value?: Seconds | null): Minutes | undefined => {
   return (value / 60) as Minutes
 }
 
-export const toCursor = (value: UnixTimestamp): Cursor | undefined => {
+export const toCursor = (
+  value: UnixTimestamp,
+  end: boolean = false,
+): Cursor | undefined => {
   if (!value) {
     return
   }
   const bytes = Buffer.alloc(12)
-  bytes.writeUInt8(Math.floor(value), 0)
+  if (end) {
+    bytes.fill(0xff)
+  }
+  bytes.writeUInt32BE(Math.floor(value), 0)
   return bytes.toString("hex") as Cursor
 }
 
