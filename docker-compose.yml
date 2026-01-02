@@ -15,6 +15,7 @@ services:
     volumes:
       - strfry-data:/app/strfry-db
     restart: unless-stopped
+
   nwc-pg:
     image: postgres:15.1
     environment:

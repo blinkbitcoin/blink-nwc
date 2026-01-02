@@ -21,6 +21,7 @@ services:
     - stablesats
     - svix
     - hydra
+    - api-keys
     restart: on-failure:10
   apollo-router:
     image: ghcr.io/apollographql/router:v1.25.0
@@ -98,7 +99,7 @@ services:
     - POSTGRES_PASSWORD=secret
     - POSTGRES_DB=hydra
   galoy:
-    image: us.gcr.io/galoy-org/galoy-api@sha256:578ec0ece545fdc756d73620cd92525940f888738e03d57c9e042852a81c9e03
+    image: us.gcr.io/galoy-org/galoy-api@sha256:4c20b4db1f4e1d76053c691df1d2cc76055441af708bbfa75ff862db94345327
     environment:
     - HELMREVISION=dev
     - NETWORK=regtest
@@ -157,7 +158,7 @@ services:
         aliases:
         - bats-tests
   trigger:
-    image: us.gcr.io/galoy-org/galoy-api-trigger@sha256:3d363bba49d64cbe59edf8f1f7a20084678d6c614cca8c6503afdbf04bf43c81
+    image: us.gcr.io/galoy-org/galoy-api-trigger@sha256:c2517b118a1d6b363e54b89b533f4d87beda0eb4d4689eb804929b6b719e1d76
     environment:
     - HELMREVISION=dev
     - NETWORK=regtest
@@ -228,6 +229,32 @@ services:
       interval: 5s
       timeout: 30s
       retries: 5
+  api-keys:
+    image: us.gcr.io/galoy-org/galoy-api-keys@sha256:4b0b7bee8441dfaf623a1693dd60e24669db0b9e37baa30ecd8925cbe6590a1e
+    environment:
+    - PG_CON=postgres://user:password@api-keys-pg:5432/pg
+    - API_KEYS_CONFIG=/config/api-keys/api-keys.yml
+    ports:
+    - 5397:5397
+    volumes:
+    - ${HOST_PROJECT_PATH:-.}/${GALOY_QUICKSTART_PATH:-vendor/blink-quickstart}/dev/config/api-keys/api-keys.yml:/config/api-keys/api-keys.yml
+    depends_on:
+    - api-keys-pg
+    - otel-agent
+    - kratos
+    - oathkeeper
+    networks:
+      default:
+        aliases:
+        - bats-tests
+  api-keys-pg:
+    image: postgres:15.1
+    environment:
+    - POSTGRES_USER=user
+    - POSTGRES_PASSWORD=password
+    - POSTGRES_DB=pg
+    ports:
+    - 5431:5432
   redis:
     image: redis:7.0.8
     ports:
@@ -242,7 +269,7 @@ services:
     environment:
     - MONGO_INITDB_DATABASE=galoy
   mongodb-migrate:
-    image: us.gcr.io/galoy-org/galoy-api-migrate@sha256:4129a4b2acdd322aed9fb0b960d618293e0d9947a35556a1251ed56e57e7ecc2
+    image: us.gcr.io/galoy-org/galoy-api-migrate@sha256:bd658a4c663c4f7d8258873204739462fd652c3f25cbfd126383c16026be9c58
     depends_on:
     - mongodb
     environment:
@@ -318,7 +345,7 @@ services:
     - |
       bitcoind -connect=bitcoind:18444
   lnd1:
-    image: lightninglabs/lnd:v0.18.5-beta
+    image: lightninglabs/lnd:v0.19.3-beta
     ports:
     - 10009:10009
     volumes:
@@ -341,7 +368,7 @@ services:
       cp /root/.lnd/admin.macaroon /root/.lnd/data/chain/bitcoin/regtest/admin.macaroon
       /bin/lnd
   lnd-outside-1:
-    image: lightninglabs/lnd:v0.18.5-beta
+    image: lightninglabs/lnd:v0.19.3-beta
     ports:
     - 10012:10009
     volumes:

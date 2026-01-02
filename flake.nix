@@ -15,12 +15,13 @@
       overlays = [
         (self: super: {
           nodejs = super.nodejs_20;
-          pnpm = super.nodePackages.pnpm;
+#          pnpm = super.nodePackages.pnpm;
         })
       ];
       pkgs = import nixpkgs {inherit overlays system;};
       nativeBuildInputs = with pkgs;
         [
+          git
           nodejs
           pnpm
           alejandra

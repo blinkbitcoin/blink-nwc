@@ -232,6 +232,13 @@ type AuthTokenPayload
   totpRequired: Boolean
 }
 
+type BlockInfo
+  @join__type(graph: PUBLIC)
+{
+  blockHash: String
+  blockHeight: Int
+}
+
 """
 A wallet belonging to an account which contains a BTC balance and a list of transactions.
 """
@@ -628,6 +635,8 @@ Provides global settings for the application which might have an impact for the 
 type Globals
   @join__type(graph: PUBLIC)
 {
+  """Current block height and block hash"""
+  blockInfo: BlockInfo
   buildInformation: BuildInformation!
   feesInformation: FeesInformation!
 
@@ -1405,6 +1414,7 @@ type Mutation
   userEmailRegistrationValidate(input: UserEmailRegistrationValidateInput!): UserEmailRegistrationValidatePayload! @join__field(graph: PUBLIC)
   userLogin(input: UserLoginInput!): AuthTokenPayload! @join__field(graph: PUBLIC)
   userLoginUpgrade(input: UserLoginUpgradeInput!): UpgradePayload! @join__field(graph: PUBLIC)
+  userLoginUpgradeTelegram(input: UserLoginUpgradeTelegramInput!): UpgradePayload! @join__field(graph: PUBLIC)
   userLogout(input: UserLogoutInput): SuccessPayload! @join__field(graph: PUBLIC)
   userPhoneDelete: UserPhoneDeletePayload! @join__field(graph: PUBLIC)
   userPhoneRegistrationInitiate(input: UserPhoneRegistrationInitiateInput!): SuccessPayload! @join__field(graph: PUBLIC)
@@ -2019,6 +2029,10 @@ enum SupportRole
   USER @join__enumValue(graph: PUBLIC)
 }
 
+"""Nonce provided by Telegram Passport to validate the login/upgrade flow"""
+scalar TelegramPassportNonce
+  @join__type(graph: PUBLIC)
+
 """
 Timestamp field, serialized as Unix time (the number of seconds since the Unix epoch)
 """
@@ -2346,6 +2360,13 @@ input UserLoginUpgradeInput
   @join__type(graph: PUBLIC)
 {
   code: OneTimeAuthCode!
+  phone: Phone!
+}
+
+input UserLoginUpgradeTelegramInput
+  @join__type(graph: PUBLIC)
+{
+  nonce: TelegramPassportNonce!
   phone: Phone!
 }
 
