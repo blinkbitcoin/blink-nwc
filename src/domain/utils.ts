@@ -1,5 +1,4 @@
 import { CoreServiceTx } from "@/domain/core/index.types"
-import { UnixTimestamp } from "@/domain/units/index.types"
 
 export const sleep = async (ms: number): Promise<void> => {
   await new Promise((resolve) => setTimeout(resolve, ms))
@@ -9,33 +8,44 @@ function mergeField<T>(a: T | undefined, b: T | undefined): T | undefined {
   return a !== undefined && a !== null ? a : b
 }
 
+/**
+ * merges invoices and transactions by payment_hash.
+ *
+ * for incoming payments: `created_at` comes from invoice (when invoice was created),
+ * `settled_at` comes from transaction (tx was created == payment was received)
+ * for outgoing payments: `created_at = settled_at` (user paid, not created the invoice, so this is quite the same)
+ *
+ */
 export function mergeTxs(
-  first: CoreServiceTx[],
-  second: CoreServiceTx[],
+  invoices: CoreServiceTx[],
+  transactions: CoreServiceTx[],
 ): CoreServiceTx[] {
   const map = new Map<string, CoreServiceTx>()
 
-  for (const tx of first) {
-    map.set(tx.payment_hash, tx)
+  // add all invoices - they have the real created_at
+  for (const inv of invoices) {
+    map.set(inv.payment_hash, inv)
   }
 
-  for (const tx of second) {
-    const existing = map.get(tx.payment_hash)
-    if (existing) {
+  // then merge with transactions
+  for (const tx of transactions) {
+    const invoice = map.get(tx.payment_hash)
+    if (invoice) {
       map.set(tx.payment_hash, {
-        type: existing.type,
-        payment_hash: existing.payment_hash,
-        invoice: mergeField(existing.invoice, tx.invoice),
-        description: mergeField(existing.description, tx.description),
-        description_hash: mergeField(existing.description_hash, tx.description_hash),
-        preimage: mergeField(existing.preimage, tx.preimage),
-        amount: existing.amount || tx.amount,
-        fees_paid: existing.fees_paid || tx.fees_paid,
-        created_at: Math.min(existing.created_at, tx.created_at) as UnixTimestamp,
-        expires_at: mergeField(existing.expires_at, tx.expires_at),
-        settled_at: mergeField(existing.settled_at, tx.settled_at),
+        type: tx.type,
+        payment_hash: tx.payment_hash,
+        invoice: mergeField(tx.invoice, invoice.invoice),
+        description: mergeField(tx.description, invoice.description),
+        description_hash: mergeField(tx.description_hash, invoice.description_hash),
+        preimage: mergeField(tx.preimage, invoice.preimage),
+        amount: tx.amount || invoice.amount,
+        fees_paid: tx.fees_paid || invoice.fees_paid,
+        created_at: invoice.created_at,
+        expires_at: mergeField(tx.expires_at, invoice.expires_at),
+        settled_at: tx.settled_at,
       })
     } else {
+      // outgoing tx or incoming without invoice - use tx as-is
       map.set(tx.payment_hash, tx)
     }
   }

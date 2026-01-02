@@ -46,6 +46,7 @@ import { IBlinkCoreService } from "@/domain/core"
 import { createInvoiceAmountless as createInvoiceAmountlessGql } from "@/graphql/internal-client/mutations/create-invoice-amountless"
 import { PaymentDirection as PD } from "@/domain/nostr/payment-direction"
 import { wrapAsyncFunctionsToRunInSpan } from "@/services/tracing"
+import { mergeTxs } from "@/domain/utils"
 
 export const BlinkCoreService = (): IBlinkCoreService => {
   const getNodeInfo = async () => {
@@ -212,6 +213,11 @@ export const BlinkCoreService = (): IBlinkCoreService => {
   ) => {
     try {
       if (paymentHash) {
+        // fetch both invoice and transaction, then merge
+        let invoiceTx: CoreServiceTx | null = null
+        let transactionTx: CoreServiceTx | null = null
+
+        // try to get invoice data (has real created_at)
         try {
           const invoiceRes = await invoiceByPaymentHash(
             client,
@@ -221,24 +227,26 @@ export const BlinkCoreService = (): IBlinkCoreService => {
           )
           if (invoiceRes?.me?.defaultAccount?.walletById?.invoiceByPaymentHash) {
             const inv = invoiceRes.me.defaultAccount.walletById.invoiceByPaymentHash
-            // Blink returns createdAt as Unix timestamp in seconds (Timestamp scalar)
-            const createdAt = inv.createdAt as UnixTimestamp
-            const isPaid = inv.paymentStatus === "PAID"
             const satoshis = "satoshis" in inv ? inv.satoshis : 0
-            return {
-              paymentHash: inv.paymentHash as PaymentHash,
-              paymentRequest: inv.paymentRequest as InvoiceBolt11,
-              paymentStatus: inv.paymentStatus,
-              satoshis: satoshis as Satoshis,
-              feesPaid: 0 as Satoshis,
-              createdAt: createdAt,
-              //todo is there a settledAt in blink?
-              settledAt: isPaid ? createdAt : undefined,
+            invoiceTx = {
+              type: "incoming",
+              payment_hash: inv.paymentHash as PaymentHash,
+              invoice: inv.paymentRequest as InvoiceBolt11,
+              description: undefined,
+              description_hash: undefined,
+              preimage: undefined,
+              amount: satoshis as Satoshis,
+              fees_paid: 0 as Satoshis,
+              created_at: inv.createdAt as UnixTimestamp, // real invoice creation time
+              expires_at: undefined,
+              settled_at: undefined, // invoice doesn't know settlement time
             }
           }
-        } catch {}
+        } catch {
+          // invoice not found - might be outgoing payment
+        }
 
-        // if not found, try transactionsByPaymentHash (might be outgoing payment)
+        // try to get transaction data
         try {
           const txnRes = await transactionsByPaymentHash(
             client,
@@ -250,12 +258,12 @@ export const BlinkCoreService = (): IBlinkCoreService => {
             txnRes?.me?.defaultAccount?.walletById?.transactionsByPaymentHash
 
           if (transactions && transactions.length > 0) {
-            // filter out non-relevant transactions (fees, etc.)
             const relevant = transactions.filter(
               (tx) => tx.direction === "SEND" || tx.direction === "RECEIVE",
             )
             if (relevant.length > 0) {
               const tx = relevant[0]
+              const type = tx.direction === "RECEIVE" ? "incoming" : "outgoing"
               const paymentRequest =
                 tx.initiationVia && "paymentRequest" in tx.initiationVia
                   ? (tx.initiationVia.paymentRequest as InvoiceBolt11)
@@ -266,46 +274,70 @@ export const BlinkCoreService = (): IBlinkCoreService => {
                       | Preimage
                       | undefined)
                   : undefined
-
-              const createdAt = tx.createdAt as UnixTimestamp | undefined
+              const txCreatedAt = tx.createdAt as UnixTimestamp
               const isSettled = tx.status === "SUCCESS"
 
-              return {
-                paymentHash,
-                paymentRequest,
-                paymentStatus: isSettled ? "PAID" : "PENDING",
-                satoshis: Math.abs(tx.settlementAmount) as Satoshis,
-                feesPaid: 0 as Satoshis,
+              transactionTx = {
+                type,
+                payment_hash: paymentHash,
+                invoice: paymentRequest,
+                description: (tx.memo as Description) ?? undefined,
+                description_hash: undefined,
                 preimage,
-                createdAt,
-                //todo is there a settledAt in blink?
-                settledAt: isSettled ? createdAt : undefined,
+                amount: Math.abs(tx.settlementAmount) as Satoshis,
+                fees_paid: 0 as Satoshis,
+                created_at: txCreatedAt,
+                expires_at: undefined,
+                settled_at: isSettled ? txCreatedAt : undefined,
               }
             }
           }
-          return new InvoiceNotFoundError()
-        } catch (err) {
-          return parseThrownError(err)
+        } catch {}
+
+        // merge invoice and transaction
+        if (invoiceTx || transactionTx) {
+          const invoiceArr = invoiceTx ? [invoiceTx] : []
+          const txArr = transactionTx ? [transactionTx] : []
+          const merged = mergeTxs(invoiceArr, txArr)
+
+          if (merged.length > 0) {
+            const result = merged[0]
+            const isPaid = result.settled_at !== undefined
+            return {
+              paymentHash: result.payment_hash,
+              paymentRequest: result.invoice,
+              paymentStatus: isPaid ? "PAID" : "PENDING",
+              satoshis: result.amount,
+              feesPaid: result.fees_paid,
+              preimage: result.preimage,
+              createdAt: result.created_at,
+              settledAt: result.settled_at,
+            }
+          }
         }
+
+        return new InvoiceNotFoundError()
       }
 
-      // try by invoice (bolt11)
+      // try by invoice (bolt11) - get paymentHash first, then recurse
       if (invoice) {
         const statusRes = await invoiceStatusByPaymentRequest(client, apiKey, invoice)
         if (statusRes?.lnInvoicePaymentStatusByPaymentRequest) {
           const status = statusRes.lnInvoicePaymentStatusByPaymentRequest
-          return {
-            paymentHash: status.paymentHash as PaymentHash,
-            paymentRequest: status.paymentRequest as InvoiceBolt11,
-            //todo handle status properly. check in nip47 spec, if not, don't care
-            paymentStatus: status.status || "UNKNOWN",
+          if (status.paymentHash) {
+            return BlinkCoreService().lookupInvoice(
+              apiKey,
+              walletId,
+              status.paymentHash as PaymentHash,
+            )
           }
+          return new InvalidResponseError("Tx doesn't contain payment hash!")
         }
-        return new InvalidResponseError()
+        return new InvoiceNotFoundError("Invoice not found!")
       }
 
-      // neither paymentHash nor invoice provided
-      return new InvalidResponseError()
+      // todo better error = neither paymentHash nor invoice provided
+      return new InvoiceNotFoundError()
     } catch (err) {
       return parseThrownError(err)
     }
@@ -333,7 +365,6 @@ export const BlinkCoreService = (): IBlinkCoreService => {
       const txData = res.me.defaultAccount.walletById.transactions
       const transactions = edges.map((edge) => {
         const node = edge.node
-        // Blink returns direction as SEND/RECEIVE, NIP-47 uses incoming/outgoing
         const type = node.direction === "RECEIVE" ? "incoming" : "outgoing"
         const paymentHash =
           node.initiationVia &&
@@ -369,7 +400,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
           amount,
           fees_paid: feesPaid,
           created_at: createdAt as UnixTimestamp,
-          //todo the same problem as in todos above
+          // tx entry in db is created after settlement
           settled_at:
             node.status === "SUCCESS" ? (createdAt as UnixTimestamp) : undefined,
         }
@@ -410,20 +441,20 @@ export const BlinkCoreService = (): IBlinkCoreService => {
       const invoices = edges.map((edge) => {
         const node = edge.node
         const satoshis = node.__typename === "LnInvoice" ? node.satoshis : 0
-        const isPaid = node.paymentStatus === "PAID"
         const createdAt = node.createdAt as UnixTimestamp
 
         return {
           type: "incoming" as const,
           invoice: node.paymentRequest as InvoiceBolt11,
           description: undefined,
+          description_hash: undefined,
           payment_hash: node.paymentHash as PaymentHash,
           preimage: undefined,
           amount: satoshis as Satoshis,
           fees_paid: 0 as Satoshis,
           created_at: createdAt,
-          //todo
-          settled_at: isPaid ? createdAt : undefined,
+          settled_at: undefined, // invoice itself doesn't contain settled_at
+          expires_at: undefined,
         }
       })
 
