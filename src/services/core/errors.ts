@@ -1,6 +1,7 @@
 import { DomainError, ErrorLevel } from "@/domain/errors"
 import { IError } from "@/graphql/index.types"
 import { GraphQlApplicationError } from "@/graphql/internal-client/generated"
+import { recordExceptionInCurrentSpan } from "@/services/tracing"
 
 export class BlinkServiceError extends DomainError {}
 
@@ -50,7 +51,8 @@ export class ServiceUnavailableError extends BlinkServiceError {}
 export class PriceServiceOfflineError extends BlinkServiceError {}
 export class DealerOfflineError extends BlinkServiceError {}
 
-//TODO Add api limit errors
+export class QuotaExceededError extends BlinkServiceError {}
+
 export const parseBlinkError = (err: IError | GraphQlApplicationError) => {
   const code = err.code || undefined
   const message = err.message.toLowerCase() || "Unknown error"
@@ -76,56 +78,59 @@ export const parseBlinkError = (err: IError | GraphQlApplicationError) => {
     case KnownBlinkErrorCodes.UnauthorizedIpForQuizzes:
     case KnownBlinkErrorCodes.UnauthorizedCountryIpForQuizzes:
     case KnownBlinkErrorCodes.UnauthorizedVpnIpForQuizzes:
-      return new CouldNotAuthorizeError()
+      return new CouldNotAuthorizeError(message)
 
     // balance errors
     case KnownBlinkErrorCodes.InsufficientBalance:
-      return new InsufficientBalanceError()
+      return new InsufficientBalanceError(message)
 
     // payment errors
     case KnownBlinkErrorCodes.LightningPaymentError:
-      return new PaymentFailedError()
+      return new PaymentFailedError(message)
     case KnownBlinkErrorCodes.RouteFindingError:
-      return new RouteNotFoundError()
+      return new RouteNotFoundError(message)
     case KnownBlinkErrorCodes.SelfPayment:
-      return new SelfPaymentError()
+      return new SelfPaymentError(message)
 
     // invoice errors
     case KnownBlinkErrorCodes.InvoiceDecodeError:
-      return new InvoiceDecodeError()
+      return new InvoiceDecodeError(message)
     case KnownBlinkErrorCodes.NotFound:
-      return new InvoiceNotFoundError()
+      return new InvoiceNotFoundError(message)
 
     // rate limiting
     case KnownBlinkErrorCodes.TooManyRequests:
-      return new RateLimitError()
+      return new RateLimitError(message)
 
     // transaction restrictions
     case KnownBlinkErrorCodes.TransactionRestricted:
     case KnownBlinkErrorCodes.OperationRestricted:
-      return new TransactionRestrictedError()
+      if (message.startsWith('{"daily"')) {
+        return new QuotaExceededError(message)
+      }
+      return new TransactionRestrictedError(message)
 
     // validation errors
     case KnownBlinkErrorCodes.InvalidInput:
-      return new ValidationError()
+      return new ValidationError(message)
 
     // service availability
     case KnownBlinkErrorCodes.LndOffline:
     case KnownBlinkErrorCodes.OnchainServiceUnavailable:
-      return new ServiceUnavailableError()
+      return new ServiceUnavailableError(message)
     case KnownBlinkErrorCodes.PriceServiceOffline:
-      return new PriceServiceOfflineError()
+      return new PriceServiceOfflineError(message)
     case KnownBlinkErrorCodes.DealerOffline:
-      return new DealerOfflineError()
+      return new DealerOfflineError(message)
 
     // database errors
     case KnownBlinkErrorCodes.DbError:
-      return new ServiceUnavailableError()
+      return new ServiceUnavailableError(message)
 
     // unknown/unexpected errors
     case KnownBlinkErrorCodes.UnknownClientError:
     case KnownBlinkErrorCodes.UnexpectedClientError:
-      return new UnknownBlinkServiceError()
+      return new UnknownBlinkServiceError(message)
   }
   if (
     message.includes("not authenticated") ||
@@ -138,53 +143,53 @@ export const parseBlinkError = (err: IError | GraphQlApplicationError) => {
     message.includes("401") ||
     message.includes("403")
   ) {
-    return new CouldNotAuthorizeError()
+    return new CouldNotAuthorizeError(message)
   }
 
   if (message.includes("too many") || message.includes("rate limit")) {
-    return new RateLimitError()
+    return new RateLimitError(message)
   }
 
   if (
     message.includes("user tried to pay invoice with hash") &&
     message.includes("does not exist")
   ) {
-    return new InvoiceNotFoundError()
+    return new InvoiceNotFoundError(message)
   }
   if (message.includes("invoice already expired")) {
-    return new InvoiceExpiredError()
+    return new InvoiceExpiredError(message)
   }
   if (
     message.includes("invoice is already paid") ||
     message.includes("alreadyPaidError")
   ) {
-    return new InvoiceAlreadyPaidError()
+    return new InvoiceAlreadyPaidError(message)
   }
   if (message.includes("invalid invoice amount")) {
-    return new InvalidInvoiceAmountError()
+    return new InvalidInvoiceAmountError(message)
   }
 
   if (message.includes("payment was rejected by destination")) {
-    return new PaymentRejectedError()
+    return new PaymentRejectedError(message)
   }
   if (
     message.includes("temporary failure when trying to pay") ||
     message.includes("timed out")
   ) {
-    return new PaymentTimedOutError()
+    return new PaymentTimedOutError(message)
   }
   if (message.includes("unable to find a route")) {
-    return new RouteNotFoundError()
+    return new RouteNotFoundError(message)
   }
   if (
     message.includes("insufficient balance") ||
     message.includes("balance is too low")
   ) {
-    return new InsufficientBalanceError()
+    return new InsufficientBalanceError(message)
   }
 
   if (message.includes("invalid walletid")) {
-    return new InvalidWalletIdError()
+    return new InvalidWalletIdError(message)
   }
 
   if (
@@ -194,12 +199,15 @@ export const parseBlinkError = (err: IError | GraphQlApplicationError) => {
     message.includes("connection") ||
     message.includes("timeout")
   ) {
-    return new ServiceUnavailableError()
+    return new ServiceUnavailableError(message)
   }
 
-  return new UnknownBlinkServiceError()
+  recordExceptionInCurrentSpan({
+    error: `Unknown core service error ocurred. Code: ${err.code} Message: ${err.message}`,
+    level: ErrorLevel.Warn,
+  })
+  return new UnknownBlinkServiceError(message)
 }
-//todo api keys spending limit!!!
 export const KnownBlinkErrorCodes = {
   NotAuthenticated: "NOT_AUTHENTICATED",
   NotAuthorized: "NOT_AUTHORIZED",
