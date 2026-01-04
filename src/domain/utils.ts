@@ -38,7 +38,7 @@ export function mergeTxs(
       map.set(tx.paymentHash, {
         type: tx.type,
         paymentHash: tx.paymentHash,
-        status: mergeField(tx.status, invoice.status),
+        state: mergeField(tx.state, invoice.state),
         invoice: mergeField(tx.invoice, invoice.invoice),
         description: mergeField(tx.description, invoice.description),
         descriptionHash: mergeField(tx.descriptionHash, invoice.descriptionHash),
