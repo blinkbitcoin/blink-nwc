@@ -13,7 +13,7 @@ export async function up(knex: Knex): Promise<void> {
       .notNullable()
       .defaultTo(knex.raw("ARRAY[]::text[]"))
     table.string("api_key").notNullable()
-    table.boolean("notifications").notNullable().defaultTo(true)
+    table.boolean("notifications").notNullable().defaultTo(false)
     table.boolean("revoked").notNullable().defaultTo(false)
     table.timestamp("created_at").notNullable().defaultTo(knex.fn.now())
     table.timestamp("updated_at").notNullable().defaultTo(knex.fn.now())

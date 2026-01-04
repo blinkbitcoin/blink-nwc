@@ -1,3 +1,5 @@
+import * as path from "node:path"
+
 import { Knex } from "knex"
 
 export const databaseConfig = {
@@ -29,10 +31,10 @@ const config: Knex.Config = {
   },
   migrations: {
     tableName: "knex_migrations",
-    directory: "./database/migrations",
+    directory: path.resolve(__dirname, "./database/migrations"),
   },
   seeds: {
-    directory: "./database/seeds",
+    directory: path.resolve(__dirname, "./database/seeds"),
   },
 }
 

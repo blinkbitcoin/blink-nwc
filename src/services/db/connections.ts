@@ -62,12 +62,13 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
     try {
       const insertData = {
         alias: data.alias,
-        userId: data.userId,
-        accountId: data.accountId,
+        user_id: data.userId,
+        account_id: data.accountId,
         wallet_id: data.walletId,
         api_key: data.apiKey,
         app_pubkey: data.appPubkey,
         permissions: data.permissions,
+        notifications: data.notificationsEnabled,
       }
 
       const [doc] = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
@@ -90,6 +91,8 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
         | "userId"
         | "walletId"
         | "apiKey"
+        // todo i'm not sure how one click flow should look like on the backend side. Maybe it would be the best to just
+        // create the connection normally, but allow user to modify the app pubkey.
         | "appPubkey"
         | "createdAt"
         | "updatedAt"
@@ -100,8 +103,15 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
     try {
       const updateData: Partial<NwcConnectionRecord> = {}
 
-      if (updates.alias !== undefined) updateData.alias = updates.alias
-      if (updates.permissions !== undefined) updateData.permissions = updates.permissions
+      if (updates.alias !== undefined) {
+        updateData.alias = updates.alias
+      }
+      if (updates.permissions !== undefined) {
+        updateData.permissions = updates.permissions
+      }
+      if (updates.notificationsEnabled !== undefined) {
+        updateData.notifications = updates.notificationsEnabled
+      }
 
       updateData.updated_at = queryBuilder.fn.now() as any
 
@@ -165,7 +175,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
     walletId: WalletId,
   ): Promise<number | RepositoryError> => {
     try {
-      const result = await queryBuilder("transactions")
+      const result = await queryBuilder(TABLE_NAME)
         .where({ revoked: false })
         .where({ wallet_id: walletId })
         .count<{ count: string }>("id as count")

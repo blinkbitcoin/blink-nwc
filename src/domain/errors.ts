@@ -32,6 +32,11 @@ export class CouldNotFindNwcConnectionFromWalletIdError extends CouldNotFindErro
 export class CouldNotFindNwcConnectionFromAccountIdError extends CouldNotFindError {}
 export class CouldNotFindNwcConnectionFromUserIdError extends CouldNotFindError {}
 
+export class ConstraintViolationError extends RepositoryError {}
+export class UniqueConstraintViolationError extends ConstraintViolationError {}
+export class NotNullConstraintViolationError extends ConstraintViolationError {}
+export class ForeignKeyViolationError extends ConstraintViolationError {}
+
 export class CouldNotFindWebhookConnectionError extends CouldNotFindError {}
 
 export class CannotConnectToDbError extends RepositoryError {
