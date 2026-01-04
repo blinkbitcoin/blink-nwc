@@ -1,6 +1,5 @@
 import {
   InvoiceBolt11,
-  Memo,
   MilliSatoshis,
   Nip47GetBalanceResult,
   Nip47GetInfoResult,
@@ -19,7 +18,7 @@ import { getServerKeypair, hasPermission, NwcConnection } from "@/domain/connect
 import { BlinkCoreService } from "@/services"
 import { SUPPORTED_NWC_METHODS, WALLET_ALIAS, WALLET_COLOR } from "@/config"
 import { BlinkServiceError } from "@/services/core/errors"
-import { mergeTxs } from "@/domain/utils"
+import { mergeTxs, toNwcTx } from "@/domain/utils"
 import {
   addAttributesToCurrentSpan,
   recordExceptionInCurrentSpan,
@@ -46,7 +45,6 @@ import {
   toMilliSatoshis,
   toMinutes,
   toSatoshis,
-  toUnixSeconds,
 } from "@/domain/units"
 import {
   checkedToNip47ListTransactionsRequest,
@@ -129,7 +127,7 @@ const NwcEventHandler = () => {
       invoice = await BlinkCoreService().createInvoiceAmountless(
         apiKey,
         walletId,
-        description as Memo | undefined,
+        description,
         expiry_minutes,
       )
     } else {
@@ -137,10 +135,12 @@ const NwcEventHandler = () => {
         apiKey,
         walletId,
         satoshis,
+        description,
         description_hash as DescriptionHash,
         expiry_minutes,
       )
     }
+
     if (invoice instanceof Error) {
       return parseErrorForNip47Response(invoice)
     }
@@ -157,6 +157,7 @@ const NwcEventHandler = () => {
     return {
       type: "incoming",
       amount: toMilliSatoshis(satoshis),
+      state: "pending",
       created_at: createdAt,
       description: description,
       description_hash,
@@ -227,21 +228,13 @@ const NwcEventHandler = () => {
       return parseErrorForNip47Response(res)
     }
 
-    const createdAt = ensureUnixSeconds(res.createdAt)
-    const settledAt = toUnixSeconds(res.settledAt)
+    const expires_at = res.expiresAt
+    const settled_at = res.settledAt
 
     return {
-      type: "incoming",
-      payment_hash: res.paymentHash,
-      invoice: res.paymentRequest,
-      created_at: createdAt,
-      settled_at: settledAt,
-      expires_at: undefined,
-      amount: toMilliSatoshis(res.satoshis),
-      fees_paid: toMilliSatoshis(res.feesPaid),
-      description: undefined,
-      description_hash: undefined,
-      preimage: res.preimage,
+      ...toNwcTx(res),
+      expires_at,
+      settled_at,
     }
   }
 
@@ -294,12 +287,7 @@ const NwcEventHandler = () => {
       result = transactions
     }
 
-    const convertedTransactions = result.map((tx) => ({
-      ...tx,
-      amount: toMilliSatoshis(tx.amount),
-      fees_paid: toMilliSatoshis(tx.fees_paid),
-    }))
-
+    const convertedTransactions = result.map((tx) => toNwcTx(tx))
     return { transactions: convertedTransactions }
   }
 
@@ -378,6 +366,9 @@ const NwcEventHandler = () => {
       "nwc.appPubkey": connection.appPubkey,
     })
 
+    if (!SUPPORTED_NWC_METHODS.includes(request.method)) {
+      return new Nip47NotImplementedError(`Unsupported method: ${request.method}`)
+    }
     if (!hasPermission(request.method, connection)) {
       const error = new Nip47RestrictedError(
         `Connection does not have permission for requested operation: ${request.method}`,
@@ -399,6 +390,7 @@ const NwcEventHandler = () => {
       case Nip47Method.ListTransactions:
         return listTransactions(request.params, connection)
       default:
+        // unreachable
         return new Nip47NotImplementedError(`Unsupported method: ${request.method}`)
     }
   }

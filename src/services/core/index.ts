@@ -10,7 +10,6 @@ import {
   Cursor,
   Description,
   InvoiceBolt11,
-  Memo,
   Minutes,
   Network,
   PaymentDirection,
@@ -46,7 +45,7 @@ import { IBlinkCoreService } from "@/domain/core"
 import { createInvoiceAmountless as createInvoiceAmountlessGql } from "@/graphql/internal-client/mutations/create-invoice-amountless"
 import { PaymentDirection as PD } from "@/domain/nostr/payment-direction"
 import { wrapAsyncFunctionsToRunInSpan } from "@/services/tracing"
-import { mergeTxs } from "@/domain/utils"
+import { mergeTxs, translateStatus } from "@/domain/utils"
 
 export const BlinkCoreService = (): IBlinkCoreService => {
   const getNodeInfo = async () => {
@@ -81,6 +80,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
     apiKey: ApiKey,
     walletId: WalletId,
     amount: Satoshis,
+    memo: Description,
     descriptionHash: DescriptionHash,
     expiry?: Minutes,
   ) => {
@@ -90,9 +90,11 @@ export const BlinkCoreService = (): IBlinkCoreService => {
         apiKey,
         walletId,
         amount,
+        memo,
         descriptionHash,
         expiry,
       )
+
       if (!res) {
         return new InvalidResponseError()
       }
@@ -119,11 +121,11 @@ export const BlinkCoreService = (): IBlinkCoreService => {
   const createInvoiceAmountless = async (
     apiKey: ApiKey,
     walletId: WalletId,
-    memo: Memo,
+    memo: Description,
     expiry: Minutes,
   ) => {
     try {
-      const res = await createInvoiceAmountlessGql(client, apiKey, walletId, expiry, memo)
+      const res = await createInvoiceAmountlessGql(client, apiKey, walletId, memo, expiry)
       if (!res) {
         return new InvalidResponseError()
       }
@@ -152,7 +154,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
     apiKey: ApiKey,
     walletId: WalletId,
     invoice: InvoiceBolt11,
-    memo?: Memo,
+    memo?: Description,
   ) => {
     try {
       const res = await payInvoiceGql(client, apiKey, invoice, walletId, memo)
@@ -230,16 +232,17 @@ export const BlinkCoreService = (): IBlinkCoreService => {
             const satoshis = "satoshis" in inv ? inv.satoshis : 0
             invoiceTx = {
               type: "incoming",
-              payment_hash: inv.paymentHash as PaymentHash,
+              state: translateStatus(inv.paymentStatus),
+              paymentHash: inv.paymentHash as PaymentHash,
               invoice: inv.paymentRequest as InvoiceBolt11,
               description: undefined,
-              description_hash: undefined,
+              descriptionHash: undefined,
               preimage: undefined,
               amount: satoshis as Satoshis,
-              fees_paid: 0 as Satoshis,
-              created_at: inv.createdAt as UnixTimestamp, // real invoice creation time
-              expires_at: undefined,
-              settled_at: undefined, // invoice doesn't know settlement time
+              feesPaid: 0 as Satoshis,
+              createdAt: inv.createdAt as UnixTimestamp, // real invoice creation time
+              expiresAt: undefined,
+              settledAt: undefined, // invoice doesn't know settlement time
             }
           }
         } catch {
@@ -279,16 +282,17 @@ export const BlinkCoreService = (): IBlinkCoreService => {
 
               transactionTx = {
                 type,
-                payment_hash: paymentHash,
+                paymentHash: paymentHash,
+                state: translateStatus(tx.status),
                 invoice: paymentRequest,
                 description: (tx.memo as Description) ?? undefined,
-                description_hash: undefined,
+                descriptionHash: undefined,
                 preimage,
                 amount: Math.abs(tx.settlementAmount) as Satoshis,
-                fees_paid: 0 as Satoshis,
-                created_at: txCreatedAt,
-                expires_at: undefined,
-                settled_at: isSettled ? txCreatedAt : undefined,
+                feesPaid: 0 as Satoshis,
+                createdAt: txCreatedAt,
+                expiresAt: undefined,
+                settledAt: isSettled ? txCreatedAt : undefined,
               }
             }
           }
@@ -301,18 +305,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
           const merged = mergeTxs(invoiceArr, txArr)
 
           if (merged.length > 0) {
-            const result = merged[0]
-            const isPaid = result.settled_at !== undefined
-            return {
-              paymentHash: result.payment_hash,
-              paymentRequest: result.invoice,
-              paymentStatus: isPaid ? "PAID" : "PENDING",
-              satoshis: result.amount,
-              feesPaid: result.fees_paid,
-              preimage: result.preimage,
-              createdAt: result.created_at,
-              settledAt: result.settled_at,
-            }
+            return merged[0]
           }
         }
 
@@ -390,19 +383,20 @@ export const BlinkCoreService = (): IBlinkCoreService => {
 
         const amount = Math.abs(node.settlementAmount) as Satoshis
         const feesPaid = (node.settlementFee ?? 0) as Satoshis
+        const state = translateStatus(node.status)
 
         return {
           type: type as "incoming" | "outgoing",
+          state,
           invoice: paymentRequest,
           description: (node.memo as Description) ?? undefined,
-          payment_hash: paymentHash ?? ("" as PaymentHash),
+          paymentHash: paymentHash ?? ("" as PaymentHash),
           preimage,
           amount,
-          fees_paid: feesPaid,
-          created_at: createdAt as UnixTimestamp,
+          feesPaid,
+          createdAt: createdAt as UnixTimestamp,
           // tx entry in db is created after settlement
-          settled_at:
-            node.status === "SUCCESS" ? (createdAt as UnixTimestamp) : undefined,
+          settledAt: node.status === "SUCCESS" ? (createdAt as UnixTimestamp) : undefined,
         }
       })
 
@@ -442,19 +436,20 @@ export const BlinkCoreService = (): IBlinkCoreService => {
         const node = edge.node
         const satoshis = node.__typename === "LnInvoice" ? node.satoshis : 0
         const createdAt = node.createdAt as UnixTimestamp
-
+        const state = translateStatus(node.paymentStatus)
         return {
           type: "incoming" as const,
           invoice: node.paymentRequest as InvoiceBolt11,
+          state,
           description: undefined,
-          description_hash: undefined,
-          payment_hash: node.paymentHash as PaymentHash,
+          descriptionHash: undefined,
+          paymentHash: node.paymentHash as PaymentHash,
           preimage: undefined,
           amount: satoshis as Satoshis,
-          fees_paid: 0 as Satoshis,
-          created_at: createdAt,
-          settled_at: undefined, // invoice itself doesn't contain settled_at
-          expires_at: undefined,
+          feesPaid: 0 as Satoshis,
+          createdAt,
+          settledAt: undefined, // invoice itself doesn't contain settled_at
+          expiresAt: undefined,
         }
       })
 
@@ -530,7 +525,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
       /*
        * if oldest tx in batch is older than "from" - return
        */
-      const oldestTxTimestamp = transactions[transactions.length - 1].created_at
+      const oldestTxTimestamp = transactions[transactions.length - 1].createdAt
       if (from !== undefined && oldestTxTimestamp < from) {
         break
       }
@@ -548,7 +543,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
     /*
      * filter out txs older than "from" and apply offset
      */
-    return allTxs.filter((tx) => tx.created_at > from).slice(offset, totalLimit)
+    return allTxs.filter((tx) => tx.createdAt > from).slice(offset, totalLimit)
   }
 
   const fetchInvoicesInRange = async (
@@ -589,7 +584,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
       }
       allInvoices.push(...txsToPush)
 
-      const oldestInvTimestamp = invoices[invoices.length - 1].created_at
+      const oldestInvTimestamp = invoices[invoices.length - 1].createdAt
       if (from !== undefined && oldestInvTimestamp <= from) {
         break
       }
@@ -604,7 +599,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
       }
     }
 
-    return allInvoices.filter((inv) => inv.created_at > from).slice(offset, totalLimit)
+    return allInvoices.filter((inv) => inv.createdAt > from).slice(offset, totalLimit)
   }
 
   return wrapAsyncFunctionsToRunInSpan({

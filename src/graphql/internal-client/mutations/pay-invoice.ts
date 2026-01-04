@@ -5,7 +5,7 @@ import {
   LnInvoicePaymentSendMutation,
   LnInvoicePaymentSendMutationVariables,
 } from "@/graphql/internal-client/generated"
-import { ApiKey, InvoiceBolt11, Memo } from "@/domain/index.types"
+import { ApiKey, Description, InvoiceBolt11 } from "@/domain/index.types"
 import { WalletId } from "@/domain/core/index.types"
 
 gql`
@@ -50,7 +50,7 @@ export async function payInvoice(
   apiKey: ApiKey,
   bolt11: InvoiceBolt11,
   walletId: WalletId,
-  memo?: Memo,
+  memo?: Description,
 ) {
   const { data } = await client.mutate<
     LnInvoicePaymentSendMutation,

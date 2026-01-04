@@ -1,4 +1,8 @@
-import { CoreServiceTx } from "@/domain/core/index.types"
+import { CoreServiceTx, PaymentStateType } from "@/domain/core/index.types"
+import { Nip47Transaction } from "@/domain/nostr/index.types"
+import { ensureUnixSeconds, toMilliSatoshis } from "@/domain/units"
+import { PaymentState } from "@/domain/core/payment-state"
+import { InvoicePaymentStatus, TxStatus } from "@/graphql/internal-client/generated"
 
 export const sleep = async (ms: number): Promise<void> => {
   await new Promise((resolve) => setTimeout(resolve, ms))
@@ -24,31 +28,75 @@ export function mergeTxs(
 
   // add all invoices - they have the real created_at
   for (const inv of invoices) {
-    map.set(inv.payment_hash, inv)
+    map.set(inv.paymentHash, inv)
   }
 
   // then merge with transactions
   for (const tx of transactions) {
-    const invoice = map.get(tx.payment_hash)
+    const invoice = map.get(tx.paymentHash)
     if (invoice) {
-      map.set(tx.payment_hash, {
+      map.set(tx.paymentHash, {
         type: tx.type,
-        payment_hash: tx.payment_hash,
+        paymentHash: tx.paymentHash,
+        status: mergeField(tx.status, invoice.status),
         invoice: mergeField(tx.invoice, invoice.invoice),
         description: mergeField(tx.description, invoice.description),
-        description_hash: mergeField(tx.description_hash, invoice.description_hash),
+        descriptionHash: mergeField(tx.descriptionHash, invoice.descriptionHash),
         preimage: mergeField(tx.preimage, invoice.preimage),
         amount: tx.amount || invoice.amount,
-        fees_paid: tx.fees_paid || invoice.fees_paid,
-        created_at: invoice.created_at,
-        expires_at: mergeField(tx.expires_at, invoice.expires_at),
-        settled_at: tx.settled_at,
+        feesPaid: tx.feesPaid || invoice.feesPaid,
+        createdAt: invoice.createdAt,
+        expiresAt: mergeField(tx.expiresAt, invoice.expiresAt),
+        settledAt: tx.settledAt,
       })
     } else {
       // outgoing tx or incoming without invoice - use tx as-is
-      map.set(tx.payment_hash, tx)
+      map.set(tx.paymentHash, tx)
     }
   }
 
-  return Array.from(map.values()).sort((a, b) => b.created_at - a.created_at)
+  return Array.from(map.values()).sort((a, b) => b.createdAt - a.createdAt)
+}
+
+export const toNwcTx = (tx: CoreServiceTx): Nip47Transaction => {
+  const {
+    amount: satoshis,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    settledAt,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    expiresAt,
+    paymentHash,
+    createdAt,
+    descriptionHash,
+    feesPaid,
+    ...rest
+  } = tx
+
+  return {
+    ...rest,
+    amount: toMilliSatoshis(satoshis),
+    created_at: ensureUnixSeconds(createdAt),
+    fees_paid: toMilliSatoshis(feesPaid),
+    metadata: undefined,
+    payment_hash: paymentHash,
+    description_hash: descriptionHash,
+  }
+}
+
+export const translateStatus = (
+  status?: TxStatus | InvoicePaymentStatus,
+): PaymentStateType => {
+  switch (status) {
+    case "SUCCESS":
+    case "PAID":
+      return PaymentState.PAID
+    case "PENDING":
+      return PaymentState.PENDING
+    case "EXPIRED":
+      return PaymentState.EXPIRED
+    case "FAILURE":
+      return PaymentState.FAILED
+    default:
+      return PaymentState.UNKOWN
+  }
 }

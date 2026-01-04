@@ -1,6 +1,6 @@
 import { ApolloClient, gql } from "@apollo/client"
 
-import { ApiKey, Memo } from "@/domain/index.types"
+import { ApiKey, Description } from "@/domain/index.types"
 import { WalletId } from "@/domain/core/index.types"
 import {
   LnNoAmountInvoiceCreateOnBehalfOfRecipient,
@@ -32,8 +32,8 @@ export async function createInvoiceAmountless(
   client: ApolloClient,
   apiKey: ApiKey,
   walletId: WalletId,
+  memo?: Description,
   expiry?: Minutes,
-  memo?: Memo,
 ) {
   const expiresIn = expiry?.toString()
   const { data } = await client.mutate<

@@ -9,7 +9,7 @@ import {
   NwcServerAlias,
   NwcServerColor,
   PaymentHash,
-  PaymentStatus,
+  PaymentStateType,
   Preimage,
   Seconds,
   ServerNostrPubkey,
@@ -50,6 +50,7 @@ export type Nip47ListTransactionsRequest = {
 export type Nip47Transaction = {
   type: PaymentDirection
   invoice?: InvoiceBolt11
+  state?: PaymentStateType
   description?: Description
   description_hash?: DescriptionHash
   preimage?: Preimage
@@ -110,7 +111,7 @@ export type Nip47PaymentReceivedNotification = {
   notification_type: "payment_received"
   notification: {
     type: "incoming"
-    state?: PaymentStatus // optional
+    state?: PaymentStateType // optional
     invoice: InvoiceBolt11 // encoded invoice
     description?: Description // invoice's description, optional
     description_hash?: DescriptionHash // invoice's description hash, optional
@@ -128,7 +129,7 @@ export type Nip47PaymentSentNotification = {
   notification_type: "payment_sent"
   notification: {
     type: "outgoing"
-    state?: PaymentStatus // optional
+    state?: PaymentStateType // optional
     invoice: InvoiceBolt11 // encoded invoice
     description?: Description // invoice's description, optional
     description_hash?: DescriptionHash // invoice's description hash, optional

@@ -5,8 +5,8 @@ import {
   LnInvoiceCreateOnBehalfOfRecipientMutation,
   LnInvoiceCreateOnBehalfOfRecipientMutationVariables,
 } from "@/graphql/internal-client/generated"
-import { DescriptionHash, WalletId } from "@/domain/core/index.types"
-import { ApiKey, Memo, Satoshis } from "@/domain/index.types"
+import { Description, DescriptionHash, WalletId } from "@/domain/core/index.types"
+import { ApiKey, Satoshis } from "@/domain/index.types"
 import { Minutes } from "@/domain/units/index.types"
 
 gql`
@@ -37,9 +37,9 @@ export async function createInvoice(
   apiKey: ApiKey,
   walletId: WalletId,
   amount: Satoshis,
+  memo?: Description,
   descriptionHash?: DescriptionHash,
   expiry?: Minutes,
-  memo?: Memo,
 ) {
   const expiresIn = expiry?.toString()
 

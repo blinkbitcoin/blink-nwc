@@ -4,9 +4,9 @@ import {
   BlockHeight,
   CoreServiceTx,
   Cursor,
+  Description,
   DescriptionHash,
   InvoiceBolt11,
-  Memo,
   Minutes,
   Network,
   PaymentDirection,
@@ -31,7 +31,8 @@ export interface IBlinkCoreService {
     apiKey: ApiKey,
     walletId: WalletId,
     amount: Satoshis,
-    descriptionHash: DescriptionHash,
+    memo?: Description,
+    descriptionHash?: DescriptionHash,
     expiry?: Minutes,
   ): Promise<
     | {
@@ -45,7 +46,7 @@ export interface IBlinkCoreService {
   createInvoiceAmountless(
     apiKey: ApiKey,
     walletId: WalletId,
-    memo?: Memo,
+    memo?: Description,
     expiry?: Minutes,
   ): Promise<
     | {
@@ -60,26 +61,14 @@ export interface IBlinkCoreService {
     apiKey: ApiKey,
     walletId: WalletId,
     invoice: InvoiceBolt11,
-    memo?: Memo,
+    memo?: Description,
   ): Promise<{ preimage: Preimage; feesPaid: Satoshis } | BlinkServiceError>
   lookupInvoice(
     apiKey: ApiKey,
     walletId: WalletId,
     paymentHash?: PaymentHash,
     invoice?: InvoiceBolt11,
-  ): Promise<
-    | {
-        paymentHash: PaymentHash
-        paymentRequest?: InvoiceBolt11
-        paymentStatus: string
-        satoshis?: Satoshis
-        feesPaid?: Satoshis
-        preimage?: Preimage
-        createdAt?: UnixTimestamp
-        settledAt?: UnixTimestamp
-      }
-    | BlinkServiceError
-  >
+  ): Promise<CoreServiceTx | BlinkServiceError>
   listTransactions(
     apiKey: ApiKey,
     walletId: WalletId,

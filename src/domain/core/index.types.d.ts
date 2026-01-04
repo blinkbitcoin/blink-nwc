@@ -13,8 +13,8 @@ export type IpAddress = string & { readonly brand: unique symbol }
 export type SessionId = string & { readonly brand: unique symbol }
 export type ScopesOauth2 =
   (typeof import("./scopes").ScopesOauth2)[keyof typeof import("./scopes").ScopesOauth2]
-export type PaymentStatus =
-  (typeof import("./payment-status").PaymentStatus)[keyof typeof import("./payment-status").PaymentStatus]
+export type PaymentStateType =
+  (typeof import("./payment-state").PaymentState)[keyof typeof import("./payment-state").PaymentState]
 
 export type Account = {
   readonly id: AccountId
@@ -51,13 +51,14 @@ export type GraphQLContext =
 export type CoreServiceTx = {
   type: "incoming" | "outgoing"
   invoice?: InvoiceBolt11
+  state?: PaymentStateType
   description?: Description
-  description_hash?: DescriptionHash
+  descriptionHash?: DescriptionHash
   preimage?: Preimage
-  payment_hash: PaymentHash
+  paymentHash: PaymentHash
   amount: Satoshis
-  fees_paid: Satoshis
-  created_at: UnixTimestamp
-  settled_at?: UnixTimestamp
-  expires_at?: UnixTimestamp
+  feesPaid: Satoshis
+  createdAt: UnixTimestamp
+  settledAt?: UnixTimestamp
+  expiresAt?: UnixTimestamp
 }
