@@ -17,7 +17,16 @@ import {
 } from "@/domain/index.types"
 
 import {
+  InvalidAmount,
   InvalidApiKey,
+  InvalidDescription,
+  InvalidHash,
+  InvalidInvoice,
+  InvalidNwcAlias,
+  InvalidNwcConnectionId,
+  InvalidPaymentDirection,
+  InvalidPermissions,
+  InvalidUnixTimestamp,
   InvalidUserId,
   InvalidWalletId,
   ValidationError,
@@ -49,10 +58,10 @@ const isNonNegativeInteger = (value: unknown): value is number => {
 }
 
 export const checkedToUserId = (userId: string): UserId | ValidationError => {
-  if (userId.match(UuidRegex)) {
-    return userId as UserId
+  if (!userId.match(UuidRegex)) {
+    return new InvalidUserId(userId)
   }
-  return new InvalidUserId(userId)
+  return userId as UserId
 }
 
 export const checkedToWalletId = (walletId: string): WalletId | InvalidWalletId => {
@@ -73,27 +82,50 @@ export const checkedToPermissions = (
   permissions: string[],
 ): Nip47MethodType[] | ValidationError => {
   if (!Array.isArray(permissions)) {
-    return new ValidationError("Permissions must be an array")
+    return new InvalidPermissions("Permissions must be an array")
   }
 
   for (const permission of permissions) {
     if (!SUPPORTED_NWC_METHODS.includes(permission as Nip47MethodType)) {
-      return new ValidationError(`Invalid permission: ${permission}`)
+      return new InvalidPermissions(`Invalid permission: ${permission}`)
     }
   }
 
   return permissions as Nip47MethodType[]
 }
 
+export const checkedToNwcAlias = (
+  alias?: unknown,
+): NwcConnectionAlias | null | ValidationError => {
+  if (alias == null || alias === "") {
+    return null
+  }
+
+  if (typeof alias !== "string") {
+    return new InvalidNwcAlias("Alias must be a string")
+  }
+
+  if (alias.length > 32) {
+    return new InvalidNwcAlias("Alias must be under 32 characters")
+  }
+
+  const regex = /^[a-zA-Z0-9_-]+$/
+  if (!regex.test(alias)) {
+    return new InvalidNwcAlias("Alias contains invalid characters")
+  }
+
+  return alias as NwcConnectionAlias
+}
+
 export const checkedToConnectionId = (
   connectionId: unknown,
 ): NwcConnectionId | ValidationError => {
   if (typeof connectionId !== "string") {
-    return new ValidationError("Connection ID must be a string")
+    return new InvalidNwcConnectionId("Connection ID must be a string")
   }
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!uuidRegex.test(connectionId)) {
-    return new ValidationError("Connection ID must be a valid UUID")
+    return new InvalidNwcConnectionId("Connection ID must be a valid UUID")
   }
   return connectionId as NwcConnectionId
 }
@@ -110,7 +142,9 @@ export const checkedToNwcUpdates = (updates: {
   if ("alias" in updates) {
     if (updates.alias !== undefined) {
       const checkedAlias = checkedToNwcAlias(updates.alias)
-      if (checkedAlias instanceof Error) return checkedAlias
+      if (checkedAlias instanceof Error) {
+        return checkedAlias
+      }
       checkedUpdates.alias = checkedAlias
     } else {
       checkedUpdates.alias = undefined
@@ -130,37 +164,14 @@ export const checkedToNwcUpdates = (updates: {
   return checkedUpdates
 }
 
-export const checkedToNwcAlias = (
-  alias?: unknown,
-): NwcConnectionAlias | null | ValidationError => {
-  if (alias == null || alias === "") {
-    return null
-  }
-
-  if (typeof alias !== "string") {
-    return new ValidationError("Alias must be a string")
-  }
-
-  if (alias.length > 32) {
-    return new ValidationError("Alias must be under 32 characters")
-  }
-
-  const regex = /^[a-zA-Z0-9_-]+$/
-  if (!regex.test(alias)) {
-    return new ValidationError("Alias contains invalid characters")
-  }
-
-  return alias as NwcConnectionAlias
-}
-
 export const checkedToBolt11Invoice = (
   invoice: unknown,
 ): InvoiceBolt11 | ValidationError => {
   if (!(typeof invoice === "string")) {
-    return new ValidationError("Invalid invoice type")
+    return new InvalidInvoice("Invalid invoice type")
   }
   if (invoice.length === 0) {
-    return new ValidationError("Invoice cannot be empty")
+    return new InvalidInvoice("Invoice cannot be empty")
   }
 
   const normalized = invoice.toLowerCase()
@@ -173,7 +184,7 @@ export const checkedToBolt11Invoice = (
       normalized.startsWith("lnbcrt")
     )
   ) {
-    return new ValidationError("Unknown lightning invoice prefix!")
+    return new InvalidInvoice("Unknown lightning invoice prefix!")
   }
 
   return normalized as InvoiceBolt11
@@ -181,7 +192,7 @@ export const checkedToBolt11Invoice = (
 
 export const checkedToMsatAmount = (amount: unknown): MilliSatoshis | ValidationError => {
   if (!isNonNegativeInteger(amount)) {
-    return new ValidationError("Amount must be a positive integer")
+    return new InvalidAmount("Amount must be a positive integer")
   }
   return amount as MilliSatoshis
 }
@@ -192,15 +203,15 @@ export const checkedToUnixTimestamp = (
   if (isPositiveInteger(timestamp)) {
     return timestamp as UnixTimestamp
   }
-  return new ValidationError("Invalid timestamp input")
+  return new InvalidUnixTimestamp("Invalid timestamp input")
 }
 
 export const checkedToHash = (name: string, hash: unknown): string | ValidationError => {
   if (typeof hash !== "string") {
-    return new ValidationError(`${name} must be a string`)
+    return new InvalidHash(`${name} must be a string`)
   }
   if (!HEX256_REGEX.test(hash)) {
-    return new ValidationError(`${name} must be 64-char hex (sha256)`)
+    return new InvalidHash(`${name} must be 64-char hex (sha256)`)
   }
   return hash.toLowerCase()
 }
@@ -219,7 +230,7 @@ export const checkedToDescription = (
   description: unknown,
 ): Description | ValidationError => {
   if (typeof description !== "string") {
-    return new ValidationError(`Description must be a string`)
+    return new InvalidDescription(`Description must be a string`)
   }
   return description as Description
 }
@@ -259,11 +270,13 @@ export const checkedToPaymentDirection = (
   }
 
   if (typeof value !== "string") {
-    return new ValidationError("Type must be a string or undefined")
+    return new InvalidPaymentDirection("Type must be a string or undefined")
   }
 
   if (value !== pt.Incoming && value !== pt.Outgoing) {
-    return new ValidationError('Type must be either "incoming", "outgoing" or undefined')
+    return new InvalidPaymentDirection(
+      'Type must be either "incoming", "outgoing" or undefined',
+    )
   }
 
   return value as PaymentDirection
@@ -373,7 +386,7 @@ export const checkedToNip47PayInvoiceRequest = (
   const invoice =
     req?.invoice !== undefined
       ? checkedToBolt11Invoice(req.invoice)
-      : new ValidationError("Invoice is required!")
+      : new InvalidInvoice("Invoice is required!")
   if (invoice instanceof ValidationError) {
     return invoice
   }

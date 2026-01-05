@@ -36,6 +36,15 @@ export const mapError = (error: ApplicationError): CustomGraphQLError => {
     case "InvalidUserId":
     case "InvalidWalletId":
     case "InvalidApiKey":
+    case "InvalidPermissions":
+    case "InvalidNwcConnectionId":
+    case "InvalidInvoice":
+    case "InvalidAmount":
+    case "InvalidNwcAlias":
+    case "InvalidUnixTimestamp":
+    case "InvalidHash":
+    case "InvalidPaymentDirection":
+    case "InvalidDescription":
       message = error.message
       return new InputValidationError({ message, logger: baseLogger })
 
@@ -56,6 +65,10 @@ export const mapError = (error: ApplicationError): CustomGraphQLError => {
       }${error.message ? ": " + error.message : ""})`
       return new UnexpectedClientError({ message, logger: baseLogger })
 
+    case "ConstraintViolationError":
+    case "UniqueConstraintViolationError":
+    case "NotNullConstraintViolationError":
+    case "ForeignKeyViolationError":
     case "UnknownRepositoryError":
     case "ErrorLevel":
     case "RankedErrorLevel":

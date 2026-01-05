@@ -23,6 +23,15 @@ export class ValidationError extends DomainError {}
 export class InvalidWalletId extends ValidationError {}
 export class InvalidUserId extends ValidationError {}
 export class InvalidApiKey extends ValidationError {}
+export class InvalidPermissions extends ValidationError {}
+export class InvalidNwcConnectionId extends ValidationError {}
+export class InvalidInvoice extends ValidationError {}
+export class InvalidAmount extends ValidationError {}
+export class InvalidNwcAlias extends ValidationError {}
+export class InvalidUnixTimestamp extends ValidationError {}
+export class InvalidHash extends ValidationError {}
+export class InvalidPaymentDirection extends ValidationError {}
+export class InvalidDescription extends ValidationError {}
 
 export class RepositoryError extends DomainError {}
 export class CouldNotFindError extends RepositoryError {}
