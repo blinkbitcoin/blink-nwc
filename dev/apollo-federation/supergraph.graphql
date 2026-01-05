@@ -176,6 +176,47 @@ type AccountUpdateNotificationSettingsPayload
   errors: [Error!]!
 }
 
+type ApiKey
+  @join__type(graph: GALOY)
+{
+  id: ID!
+  name: String!
+  createdAt: Timestamp!
+  revoked: Boolean!
+  expired: Boolean!
+  lastUsedAt: Timestamp
+  expiresAt: Timestamp
+  readOnly: Boolean!
+  scopes: [Scope!]!
+}
+
+input ApiKeyCreateInput
+  @join__type(graph: GALOY)
+{
+  name: String!
+  expireInDays: Int
+  scopes: [Scope!]! = [READ, WRITE]
+}
+
+type ApiKeyCreatePayload
+  @join__type(graph: GALOY)
+{
+  apiKey: ApiKey!
+  apiKeySecret: String!
+}
+
+input ApiKeyRevokeInput
+  @join__type(graph: GALOY)
+{
+  id: ID!
+}
+
+type ApiKeyRevokePayload
+  @join__type(graph: GALOY)
+{
+  apiKey: ApiKey!
+}
+
 type Authorization
   @join__type(graph: GALOY)
 {
@@ -195,7 +236,7 @@ type AuthTokenPayload
 }
 
 type BlockInfo
-@join__type(graph: GALOY)
+  @join__type(graph: GALOY)
 {
   blockHash: String
   blockHeight: Int
@@ -638,6 +679,62 @@ type GraphQLApplicationError implements Error
 """Hex-encoded string of 32 bytes"""
 scalar Hex32Bytes
   @join__type(graph: GALOY)
+
+enum Icon
+  @join__type(graph: GALOY)
+{
+  ARROW_RIGHT @join__enumValue(graph: GALOY)
+  ARROW_LEFT @join__enumValue(graph: GALOY)
+  BACK_SPACE @join__enumValue(graph: GALOY)
+  BANK @join__enumValue(graph: GALOY)
+  BITCOIN @join__enumValue(graph: GALOY)
+  BOOK @join__enumValue(graph: GALOY)
+  BTC_BOOK @join__enumValue(graph: GALOY)
+  CARET_DOWN @join__enumValue(graph: GALOY)
+  CARET_LEFT @join__enumValue(graph: GALOY)
+  CARET_RIGHT @join__enumValue(graph: GALOY)
+  CARET_UP @join__enumValue(graph: GALOY)
+  CHECK_CIRCLE @join__enumValue(graph: GALOY)
+  CHECK @join__enumValue(graph: GALOY)
+  CLOSE @join__enumValue(graph: GALOY)
+  CLOSE_CROSS_WITH_BACKGROUND @join__enumValue(graph: GALOY)
+  COINS @join__enumValue(graph: GALOY)
+  PEOPLE @join__enumValue(graph: GALOY)
+  COPY_PASTE @join__enumValue(graph: GALOY)
+  DOLLAR @join__enumValue(graph: GALOY)
+  EYE_SLASH @join__enumValue(graph: GALOY)
+  EYE @join__enumValue(graph: GALOY)
+  FILTER @join__enumValue(graph: GALOY)
+  GLOBE @join__enumValue(graph: GALOY)
+  GRAPH @join__enumValue(graph: GALOY)
+  IMAGE @join__enumValue(graph: GALOY)
+  INFO @join__enumValue(graph: GALOY)
+  LIGHTNING @join__enumValue(graph: GALOY)
+  LINK @join__enumValue(graph: GALOY)
+  LOADING @join__enumValue(graph: GALOY)
+  MAGNIFYING_GLASS @join__enumValue(graph: GALOY)
+  MAP @join__enumValue(graph: GALOY)
+  MENU @join__enumValue(graph: GALOY)
+  PENCIL @join__enumValue(graph: GALOY)
+  NOTE @join__enumValue(graph: GALOY)
+  RANK @join__enumValue(graph: GALOY)
+  QR_CODE @join__enumValue(graph: GALOY)
+  QUESTION @join__enumValue(graph: GALOY)
+  RECEIVE @join__enumValue(graph: GALOY)
+  SEND @join__enumValue(graph: GALOY)
+  SETTINGS @join__enumValue(graph: GALOY)
+  SHARE @join__enumValue(graph: GALOY)
+  TRANSFER @join__enumValue(graph: GALOY)
+  USER @join__enumValue(graph: GALOY)
+  VIDEO @join__enumValue(graph: GALOY)
+  WARNING @join__enumValue(graph: GALOY)
+  WARNING_WITH_BACKGROUND @join__enumValue(graph: GALOY)
+  PAYMENT_SUCCESS @join__enumValue(graph: GALOY)
+  PAYMENT_PENDING @join__enumValue(graph: GALOY)
+  PAYMENT_ERROR @join__enumValue(graph: GALOY)
+  BELL @join__enumValue(graph: GALOY)
+  REFRESH @join__enumValue(graph: GALOY)
+}
 
 union InitiationVia
   @join__type(graph: GALOY)
@@ -1188,6 +1285,9 @@ type Mutation
   @join__type(graph: GALOY)
   @join__type(graph: NOSTR_WALLET_CONNECT)
 {
+  apiKeyCreate(input: ApiKeyCreateInput!): ApiKeyCreatePayload! @join__field(graph: GALOY)
+  apiKeyRevoke(input: ApiKeyRevokeInput!): ApiKeyRevokePayload! @join__field(graph: GALOY)
+  statefulNotificationAcknowledge(input: StatefulNotificationAcknowledgeInput!): StatefulNotificationAcknowledgePayload! @join__field(graph: GALOY)
   accountDelete: AccountDeletePayload! @join__field(graph: GALOY)
   accountDisableNotificationCategory(input: AccountDisableNotificationCategoryInput!): AccountUpdateNotificationSettingsPayload! @join__field(graph: GALOY)
   accountDisableNotificationChannel(input: AccountDisableNotificationChannelInput!): AccountUpdateNotificationSettingsPayload! @join__field(graph: GALOY)
@@ -1318,6 +1418,7 @@ type Mutation
   userEmailRegistrationValidate(input: UserEmailRegistrationValidateInput!): UserEmailRegistrationValidatePayload! @join__field(graph: GALOY)
   userLogin(input: UserLoginInput!): AuthTokenPayload! @join__field(graph: GALOY)
   userLoginUpgrade(input: UserLoginUpgradeInput!): UpgradePayload! @join__field(graph: GALOY)
+  userLoginUpgradeTelegram(input: UserLoginUpgradeTelegramInput!): UpgradePayload! @join__field(graph: GALOY)
   userLogout(input: UserLogoutInput): SuccessPayload! @join__field(graph: GALOY)
   userPhoneDelete: UserPhoneDeletePayload! @join__field(graph: GALOY)
   userPhoneRegistrationInitiate(input: UserPhoneRegistrationInitiateInput!): SuccessPayload! @join__field(graph: GALOY)
@@ -1359,6 +1460,12 @@ enum Nip47Method
   LOOKUP_INVOICE @join__enumValue(graph: NOSTR_WALLET_CONNECT)
   LIST_TRANSACTIONS @join__enumValue(graph: NOSTR_WALLET_CONNECT)
 }
+
+union NotificationAction
+  @join__type(graph: GALOY)
+  @join__unionMember(graph: GALOY, member: "OpenDeepLinkAction")
+  @join__unionMember(graph: GALOY, member: "OpenExternalLinkAction")
+ = OpenDeepLinkAction | OpenExternalLinkAction
 
 scalar NotificationCategory
   @join__type(graph: GALOY)
@@ -1551,21 +1658,33 @@ type OneDayAccountLimit implements AccountLimit
 scalar OneTimeAuthCode
   @join__type(graph: GALOY)
 
-"""Information about pagination in a connection."""
+type OpenDeepLinkAction
+  @join__type(graph: GALOY)
+{
+  deepLink: String!
+}
+
+type OpenExternalLinkAction
+  @join__type(graph: GALOY)
+{
+  url: String!
+}
+
+"""Information about pagination in a connection"""
 type PageInfo
   @join__type(graph: GALOY)
 {
-  """When paginating forwards, the cursor to continue."""
-  endCursor: String
+  """When paginating backwards, are there more items?"""
+  hasPreviousPage: Boolean!
 
   """When paginating forwards, are there more items?"""
   hasNextPage: Boolean!
 
-  """When paginating backwards, are there more items?"""
-  hasPreviousPage: Boolean!
-
   """When paginating backwards, the cursor to continue."""
   startCursor: String
+
+  """When paginating forwards, the cursor to continue."""
+  endCursor: String
 }
 
 scalar PaymentHash
@@ -1834,8 +1953,8 @@ enum Scope
   @join__type(graph: GALOY)
 {
   READ @join__enumValue(graph: GALOY)
-  RECEIVE @join__enumValue(graph: GALOY)
   WRITE @join__enumValue(graph: GALOY)
+  RECEIVE @join__enumValue(graph: GALOY)
 }
 
 """(Positive) amount of seconds"""
@@ -1885,6 +2004,56 @@ A string amount (of a currency) that can be negative (e.g. in a transaction)
 scalar SignedDisplayMajorAmount
   @join__type(graph: GALOY)
 
+type StatefulNotification
+  @join__type(graph: GALOY)
+{
+  id: ID!
+  title: String!
+  body: String!
+  deepLink: String
+  action: NotificationAction
+  createdAt: Timestamp!
+  acknowledgedAt: Timestamp
+  bulletinEnabled: Boolean!
+  icon: Icon
+}
+
+input StatefulNotificationAcknowledgeInput
+  @join__type(graph: GALOY)
+{
+  notificationId: ID!
+}
+
+type StatefulNotificationAcknowledgePayload
+  @join__type(graph: GALOY)
+{
+  notification: StatefulNotification!
+}
+
+type StatefulNotificationConnection
+  @join__type(graph: GALOY)
+{
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """A list of edges."""
+  edges: [StatefulNotificationEdge!]!
+
+  """A list of nodes."""
+  nodes: [StatefulNotification!]!
+}
+
+"""An edge in a connection."""
+type StatefulNotificationEdge
+  @join__type(graph: GALOY)
+{
+  """The item at the end of the edge"""
+  node: StatefulNotification!
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
 type Subscription
   @join__type(graph: GALOY)
 {
@@ -1933,6 +2102,10 @@ enum SupportRole
   ASSISTANT @join__enumValue(graph: GALOY)
   USER @join__enumValue(graph: GALOY)
 }
+
+"""Nonce provided by Telegram Passport to validate the login/upgrade flow"""
+scalar TelegramPassportNonce
+  @join__type(graph: GALOY)
 
 """
 Timestamp field, serialized as Unix time (the number of seconds since the Unix epoch)
@@ -2125,6 +2298,13 @@ type User
   @join__type(graph: GALOY)
   @join__type(graph: NOSTR_WALLET_CONNECT, key: "id", extension: true)
 {
+  id: ID!
+  apiKeys: [ApiKey!]! @join__field(graph: GALOY)
+  statefulNotifications(first: Int!, after: String): StatefulNotificationConnection! @join__field(graph: GALOY)
+  statefulNotificationsWithoutBulletinEnabled(first: Int!, after: String): StatefulNotificationConnection! @join__field(graph: GALOY)
+  unacknowledgedStatefulNotificationsWithoutBulletinEnabledCount: Int! @join__field(graph: GALOY)
+  unacknowledgedStatefulNotificationsWithBulletinEnabled(first: Int!, after: String): StatefulNotificationConnection! @join__field(graph: GALOY)
+
   """
   Get single contact details.
   Can include the transactions associated with the contact.
@@ -2141,7 +2321,6 @@ type User
 
   """Email address"""
   email: Email @join__field(graph: GALOY)
-  id: ID!
 
   """
   Preferred language for user.
@@ -2255,6 +2434,13 @@ input UserLoginUpgradeInput
   @join__type(graph: GALOY)
 {
   code: OneTimeAuthCode!
+  phone: Phone!
+}
+
+input UserLoginUpgradeTelegramInput
+  @join__type(graph: GALOY)
+{
+  nonce: TelegramPassportNonce!
   phone: Phone!
 }
 
