@@ -1,4 +1,4 @@
-import { Nip47MethodType } from '@/domain/index.types';
+import { Nip47Method } from '@/domain/index.types';
 import { GraphQLResolveInfo, GraphQLScalarType, GraphQLScalarTypeConfig } from 'graphql';
 import { IError } from '@/graphql/index.types';
 export type Maybe<T> = T | null;
@@ -20,6 +20,7 @@ export type Scalars = {
   Float: { input: number; output: number; }
   AccountId: { input: any; output: any; }
   Timestamp: { input: any; output: any; }
+  UserId: { input: any; output: any; }
   WalletId: { input: any; output: any; }
 };
 
@@ -58,7 +59,7 @@ export type MutationNwcConnectionUpdateArgs = {
   input: NwcConnectionUpdateInput;
 };
 
-export { Nip47MethodType };
+export { Nip47Method };
 
 export type NwcConnection = {
   __typename?: 'NwcConnection';
@@ -67,15 +68,18 @@ export type NwcConnection = {
   appPubkey: Scalars['String']['output'];
   createdAt: Scalars['Timestamp']['output'];
   id: Scalars['ID']['output'];
-  permissions: Array<Nip47MethodType>;
+  notificationsEnabled: Scalars['Boolean']['output'];
+  permissions: Array<Nip47Method>;
+  revoked: Scalars['Boolean']['output'];
   updatedAt: Scalars['Timestamp']['output'];
+  userId?: Maybe<Scalars['UserId']['output']>;
   walletId: Scalars['WalletId']['output'];
 };
 
 export type NwcConnectionCreateInput = {
   alias?: InputMaybe<Scalars['String']['input']>;
   apiKey: Scalars['String']['input'];
-  permissions: Array<Nip47MethodType>;
+  permissions: Array<Nip47Method>;
   walletId: Scalars['WalletId']['input'];
 };
 
@@ -99,7 +103,7 @@ export type NwcConnectionDeletePayload = {
 export type NwcConnectionUpdateInput = {
   alias?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
-  permissions?: InputMaybe<Array<Nip47MethodType>>;
+  permissions?: InputMaybe<Array<Nip47Method>>;
 };
 
 export type NwcConnectionUpdatePayload = {
@@ -202,7 +206,7 @@ export type ResolversTypes = ResolversObject<{
   GraphQLApplicationError: ResolverTypeWrapper<IError>;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   Mutation: ResolverTypeWrapper<{}>;
-  Nip47Method: Nip47MethodType;
+  Nip47Method: Nip47Method;
   NwcConnection: ResolverTypeWrapper<NwcConnection>;
   NwcConnectionCreateInput: NwcConnectionCreateInput;
   NwcConnectionCreatePayload: ResolverTypeWrapper<Omit<NwcConnectionCreatePayload, 'errors'> & { errors: Array<ResolversTypes['Error']> }>;
@@ -214,6 +218,7 @@ export type ResolversTypes = ResolversObject<{
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   Timestamp: ResolverTypeWrapper<Scalars['Timestamp']['output']>;
   User: ResolverTypeWrapper<User>;
+  UserId: ResolverTypeWrapper<Scalars['UserId']['output']>;
   WalletId: ResolverTypeWrapper<Scalars['WalletId']['output']>;
 }>;
 
@@ -236,6 +241,7 @@ export type ResolversParentTypes = ResolversObject<{
   String: Scalars['String']['output'];
   Timestamp: Scalars['Timestamp']['output'];
   User: User;
+  UserId: Scalars['UserId']['output'];
   WalletId: Scalars['WalletId']['output'];
 }>;
 
@@ -271,8 +277,11 @@ export type NwcConnectionResolvers<ContextType = any, ParentType extends Resolve
   appPubkey?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['Timestamp'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  notificationsEnabled?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   permissions?: Resolver<Array<ResolversTypes['Nip47Method']>, ParentType, ContextType>;
+  revoked?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['Timestamp'], ParentType, ContextType>;
+  userId?: Resolver<Maybe<ResolversTypes['UserId']>, ParentType, ContextType>;
   walletId?: Resolver<ResolversTypes['WalletId'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -311,6 +320,10 @@ export type UserResolvers<ContextType = any, ParentType extends ResolversParentT
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export interface UserIdScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['UserId'], any> {
+  name: 'UserId';
+}
+
 export interface WalletIdScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['WalletId'], any> {
   name: 'WalletId';
 }
@@ -328,6 +341,7 @@ export type Resolvers<ContextType = any> = ResolversObject<{
   Query?: QueryResolvers<ContextType>;
   Timestamp?: GraphQLScalarType;
   User?: UserResolvers<ContextType>;
+  UserId?: GraphQLScalarType;
   WalletId?: GraphQLScalarType;
 }>;
 

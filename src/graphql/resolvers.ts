@@ -9,6 +9,7 @@ import {
   updateNwcConnection,
 } from "@/app/manage-connections"
 import { Account } from "@/domain/core/index.types"
+import { stripApiKey } from "@/domain/utils"
 
 export const resolvers: Resolvers = {
   Query: {
@@ -29,12 +30,10 @@ export const resolvers: Resolvers = {
       if (result instanceof Error) {
         throw mapError(result)
       }
-      return result
+      return result.map((r) => stripApiKey(r))
     },
   },
   Mutation: {
-    //todo - instead of separate mutation, extend the apiKeyCreate mutation payload type, and create connection
-    // as side-effect (__resolveReference)
     nwcConnectionCreate: async (
       _,
       args,
@@ -55,7 +54,7 @@ export const resolvers: Resolvers = {
 
       return {
         errors: [],
-        connection: result.connectionObj,
+        connection: stripApiKey(result.connectionObj),
         connectionUri: result.connectionUri,
       }
     },
@@ -76,10 +75,9 @@ export const resolvers: Resolvers = {
 
       return {
         errors: [],
-        connection,
+        connection: stripApiKey(connection),
       }
     },
-    // todo - same as with creation - delete nwc connection on api key revoke
     nwcConnectionDelete: async (
       _,
       args,

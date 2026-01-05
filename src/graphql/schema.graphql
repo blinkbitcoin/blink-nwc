@@ -3,7 +3,7 @@ extend schema @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@
 type Query {
     hello: String!
 }
-
+scalar UserId
 scalar AccountId
 scalar WalletId
 scalar Timestamp
@@ -34,11 +34,18 @@ type Mutation {
 
 type NwcConnection @key(fields: "id") {
     id: ID!
-    alias: String
+
+    userId: UserId
     accountId: AccountId!
     walletId: WalletId!
+
+    alias: String
     appPubkey: String!
     permissions: [Nip47Method!]!
+    notificationsEnabled: Boolean!
+
+    revoked: Boolean!
+
     createdAt: Timestamp!
     updatedAt: Timestamp!
 }

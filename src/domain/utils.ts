@@ -3,6 +3,7 @@ import { Nip47Transaction } from "@/domain/nostr/index.types"
 import { ensureUnixSeconds, toMilliSatoshis } from "@/domain/units"
 import { PaymentState } from "@/domain/core/payment-state"
 import { InvoicePaymentStatus, TxStatus } from "@/graphql/internal-client/generated"
+import { NwcConnection } from "@/domain/connection"
 
 export const sleep = async (ms: number): Promise<void> => {
   await new Promise((resolve) => setTimeout(resolve, ms))
@@ -99,4 +100,12 @@ export const translateStatus = (
     default:
       return PaymentState.UNKOWN
   }
+}
+
+export const stripApiKey = (
+  ConnectionObj: NwcConnection,
+): Omit<NwcConnection, "apiKey"> => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { apiKey: x, ...rest } = ConnectionObj
+  return rest
 }

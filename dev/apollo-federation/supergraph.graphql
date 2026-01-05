@@ -1493,11 +1493,14 @@ type NwcConnection
   @join__type(graph: NOSTR_WALLET_CONNECT, key: "id")
 {
   id: ID!
-  alias: String
+  userId: UserId
   accountId: AccountId!
   walletId: WalletId!
+  alias: String
   appPubkey: String!
   permissions: [Nip47Method!]!
+  notificationsEnabled: Boolean!
+  revoked: Boolean!
   createdAt: Timestamp!
   updatedAt: Timestamp!
 }
@@ -2422,6 +2425,9 @@ type UserEmailRegistrationValidatePayload
   errors: [Error!]!
   me: User
 }
+
+scalar UserId
+  @join__type(graph: NOSTR_WALLET_CONNECT)
 
 input UserLoginInput
   @join__type(graph: GALOY)

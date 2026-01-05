@@ -14,6 +14,9 @@ import { getServerKeypair, NwcConnection, stringifyNwcUri } from "@/domain/conne
 import { ConnectionsRepository } from "@/services/db/connections"
 import { NOSTR_RELAY_PUBLIC_URL } from "@/config"
 import { Account } from "@/domain/core/index.types"
+import { CouldNotFindNwcConnectionFromIdError } from "@/domain/errors"
+
+// todo add notifications
 
 export const createNwcConnection = async (
   account: Account,
@@ -21,6 +24,7 @@ export const createNwcConnection = async (
   apiKey: string,
   permissions: string[],
   alias?: string,
+  // notifications?: boolean,
 ): Promise<
   { connectionObj: NwcConnection; connectionUri: NwcUri } | ApplicationError
 > => {
@@ -50,9 +54,9 @@ export const createNwcConnection = async (
   const connection: Omit<NwcConnection, "id" | "createdAt" | "updatedAt" | "revoked"> = {
     userId: account.kratosUserId,
     accountId: account.id,
-    alias: checkedAlias,
     walletId: checkedWalletId,
     apiKey: checkedApiKey,
+    alias: checkedAlias,
     appPubkey,
     permissions: checkedPermissions,
     notificationsEnabled: false,
@@ -82,7 +86,7 @@ export const updateNwcConnection = async (
   updates: {
     alias?: string | null
     permissions?: string[]
-    notificationsEnabled?: boolean
+    // notificationsEnabled?: boolean
   },
 ): Promise<NwcConnection | ApplicationError> => {
   const checkedConnectionId = checkedToConnectionId(connectionId)
@@ -150,7 +154,14 @@ export const getNwcConnectionById = async (
   if (checkedConnectionId instanceof Error) {
     return checkedConnectionId
   }
-  return ConnectionsRepository().findById(checkedConnectionId)
+  const connection = await ConnectionsRepository().findById(checkedConnectionId)
+  if (connection instanceof Error) {
+    return connection
+  }
+  if (connection.revoked) {
+    return new CouldNotFindNwcConnectionFromIdError()
+  }
+  return connection
 }
 
 export const nwcConnectionsByUserId = async (
@@ -160,7 +171,11 @@ export const nwcConnectionsByUserId = async (
   if (checkedUserId instanceof Error) {
     return checkedUserId
   }
-  return ConnectionsRepository().findByUserId(checkedUserId)
+  const connections = await ConnectionsRepository().findByUserId(checkedUserId)
+  if (connections instanceof Error) {
+    return connections
+  }
+  return connections.filter((c) => !c.revoked)
 }
 
 export const nwcConnectionsByWalletId = async (
@@ -170,5 +185,9 @@ export const nwcConnectionsByWalletId = async (
   if (checkedWalletId instanceof Error) {
     return checkedWalletId
   }
-  return ConnectionsRepository().findByWalletId(checkedWalletId)
+  const connections = await ConnectionsRepository().findByWalletId(checkedWalletId)
+  if (connections instanceof Error) {
+    return connections
+  }
+  return connections.filter((c) => !c.revoked)
 }
