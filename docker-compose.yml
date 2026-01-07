@@ -8,12 +8,15 @@ services:
     volumes:
     - ${HOST_PROJECT_PATH:-.}/dev:/repo/dev
 
+  # We're using alby's strfry fork, since it has REQ filter validation, which is important for privacy.
+  # see: https://github.com/hoytech/strfry/pull/163/commits/c132a10f7b50590ad9a4d20c980c9822bfa62811
   strfry:
-    image: dockurr/strfry:latest
+    image: ghcr.io/getalby/strfry:latest
     ports:
       - "7777:7777"
     volumes:
       - strfry-data:/app/strfry-db
+      - ./strfry.conf:/etc/strfry.conf
     restart: unless-stopped
 
   nwc-pg:

@@ -1,3 +1,6 @@
+import WebSocket from "ws";
+;(global as any).WebSocket = WebSocket
+
 import { EventTemplate, finalizeEvent, Relay } from "nostr-tools"
 import { Subscription } from "nostr-tools/lib/types/abstract-relay"
 
