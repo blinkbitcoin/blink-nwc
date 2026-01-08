@@ -8,15 +8,30 @@ services:
     volumes:
     - ${HOST_PROJECT_PATH:-.}/dev:/repo/dev
 
+  # Builds strfry-policy Rust binary for Alpine/musl
+  strfry-policy-builder:
+    image: rust:1.83-alpine
+    command: sh -c "apk add --no-cache musl-dev && cp -r /src/* . && cargo build --release && cp target/release/strfry-policy /out/"
+    working_dir: /build
+    volumes:
+      - ./strfry-policy:/src:ro
+      - strfry-policy-bin:/out
+
   # We're using alby's strfry fork, since it has REQ filter validation, which is important for privacy.
-  # see: https://github.com/hoytech/strfry/pull/163/commits/c132a10f7b50590ad9a4d20c980c9822bfa62811
+  # see: https://github.com/hoytech/strfry/pull/163/
   strfry:
     image: ghcr.io/getalby/strfry:latest
+    depends_on:
+      strfry-policy-builder:
+        condition: service_completed_successfully
     ports:
       - "7777:7777"
     volumes:
       - strfry-data:/app/strfry-db
-      - ./strfry.conf:/etc/strfry.conf
+      - ./strfry.conf:/etc/strfry.conf:ro
+      - strfry-policy-bin:/policy:ro
+    entrypoint: /bin/sh
+    command: ["-c", "cp /policy/strfry-policy /app/strfry-policy && chmod +x /app/strfry-policy && /app/strfry relay"]
     restart: unless-stopped
 
   nwc-pg:
@@ -30,3 +45,4 @@ services:
 
 volumes:
   strfry-data:
+  strfry-policy-bin:

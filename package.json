@@ -19,7 +19,8 @@
     "db:migrate": "knex --knexfile ./src/config/db.ts migrate:latest",
     "db:rollback": "knex --knexfile ./src/config/db.ts migrate:rollback",
     "db:create:seed": "knex --knexfile ./src/config/db.ts seed:make -x ts",
-    "db:seed": "knex --knexfile ./src/config/db.ts seed:run"
+    "db:seed": "knex --knexfile ./src/config/db.ts seed:run",
+    "build-strfry-policy": "docker run --rm -v ./strfry-policy:/build -w /build rust:1.83-alpine sh -c 'apk add --no-cache musl-dev && cargo build --release'"
   },
   "devDependencies": {
     "@apollo/rover": "^0.17.3",

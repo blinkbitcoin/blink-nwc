@@ -43,6 +43,7 @@ generated.gql
 .e2e-*.log
 .*_pid
 
-.vscode
-
 .direnv
+.idea
+
+strfry-policy/target/
