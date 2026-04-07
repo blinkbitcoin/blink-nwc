@@ -1,4 +1,6 @@
-import { sleep, mergeTxs, toNwcTx } from "@/domain/utils"
+import { sleep, mergeTxs, toNwcTx, stripSensitiveFields } from "@/domain/utils"
+import { NwcConnection } from "@/domain/connection"
+import { Nip47Method } from "@/domain/nostr"
 import {
   CoreServiceTx,
   Description,
@@ -782,5 +784,53 @@ describe("toNwcTx", () => {
       expect(result).toHaveProperty("fees_paid")
       expect(result).toHaveProperty("created_at")
     })
+  })
+})
+
+describe("stripSensitiveFields", () => {
+  const mockConnection: NwcConnection = {
+    id: "conn-1" as any,
+    userId: "user-1" as any,
+    accountId: "account-1" as any,
+    walletId: "wallet-1" as any,
+    walletCurrency: "BTC",
+    apiKey: "secret-api-key-value" as any,
+    apiKeyId: null,
+    connectionSecret: "secret-connection-value" as any,
+    appPubkey: "a".repeat(64) as any,
+    alias: "Test" as any,
+    permissions: [Nip47Method.GetInfo],
+    notificationsEnabled: false,
+    revoked: false,
+    expiresAt: null,
+    revokedAt: null,
+    lastUsedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
+
+  it("should remove apiKey from result", () => {
+    const result = stripSensitiveFields(mockConnection)
+    expect((result as any).apiKey).toBeUndefined()
+  })
+
+  it("should remove connectionSecret from result", () => {
+    const result = stripSensitiveFields(mockConnection)
+    expect((result as any).connectionSecret).toBeUndefined()
+  })
+
+  it("should preserve all other fields", () => {
+    const result = stripSensitiveFields(mockConnection)
+    expect(result.id).toBe(mockConnection.id)
+    expect(result.userId).toBe(mockConnection.userId)
+    expect(result.walletId).toBe(mockConnection.walletId)
+    expect(result.walletCurrency).toBe("BTC")
+    expect(result.appPubkey).toBe(mockConnection.appPubkey)
+    expect(result.permissions).toEqual(mockConnection.permissions)
+    expect(result.alias).toBe(mockConnection.alias)
+    expect(result.notificationsEnabled).toBe(false)
+    expect(result.revoked).toBe(false)
+    expect(result.expiresAt).toBeNull()
+    expect(result.apiKeyId).toBeNull()
   })
 })

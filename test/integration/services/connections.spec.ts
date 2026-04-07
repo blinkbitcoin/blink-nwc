@@ -865,4 +865,235 @@ describe("ConnectionsRepository", () => {
       expect(final.appPubkey).toBe(testConn.appPubkey)
     })
   })
+
+  describe("New schema fields round-trip", () => {
+    it("should persist and return walletCurrency", async () => {
+      const repo = ConnectionsRepository()
+      const testConn = createTestConnection({ walletCurrency: "USD" })
+      const result = await repo.create(testConn)
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+      expect(result.walletCurrency).toBe("USD")
+    })
+
+    it("should persist and return connectionSecret", async () => {
+      const repo = ConnectionsRepository()
+      const testConn = createTestConnection()
+      const result = await repo.create(testConn)
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+      expect(result.connectionSecret).toBe(testConn.connectionSecret)
+    })
+
+    it("should persist and return expiresAt", async () => {
+      const repo = ConnectionsRepository()
+      const expires = new Date("2027-01-01T00:00:00Z")
+      const testConn = createTestConnection({ expiresAt: expires })
+      const result = await repo.create(testConn)
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+      expect(result.expiresAt).toBeInstanceOf(Date)
+      expect(result.expiresAt!.getTime()).toBe(expires.getTime())
+    })
+
+    it("should persist null expiresAt", async () => {
+      const repo = ConnectionsRepository()
+      const testConn = createTestConnection({ expiresAt: null })
+      const result = await repo.create(testConn)
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+      expect(result.expiresAt).toBeNull()
+    })
+
+    it("should persist and return apiKeyId when provided", async () => {
+      const repo = ConnectionsRepository()
+      const apiKeyId = "12345678-1234-1234-1234-123456789abc"
+      const testConn = createTestConnection({ apiKeyId: apiKeyId as any })
+      const result = await repo.create(testConn)
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+      expect(result.apiKeyId).toBe(apiKeyId)
+    })
+
+    it("should persist null apiKeyId", async () => {
+      const repo = ConnectionsRepository()
+      const testConn = createTestConnection({ apiKeyId: null })
+      const result = await repo.create(testConn)
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+      expect(result.apiKeyId).toBeNull()
+    })
+
+    it("should default revokedAt and lastUsedAt to null on create", async () => {
+      const repo = ConnectionsRepository()
+      const testConn = createTestConnection()
+      const result = await repo.create(testConn)
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+      expect(result.revokedAt).toBeNull()
+      expect(result.lastUsedAt).toBeNull()
+    })
+  })
+
+  describe("updateLastUsed", () => {
+    it("should set last_used_at timestamp", async () => {
+      const repo = ConnectionsRepository()
+      const testConn = createTestConnection()
+      const inserted = await insertTestConnection(testConn)
+      const id = inserted.id as NwcConnectionId
+
+      const before = await repo.findById(id)
+      expect(before).not.toBeInstanceOf(Error)
+      if (before instanceof Error) return
+      expect(before.lastUsedAt).toBeNull()
+
+      await repo.updateLastUsed(id)
+
+      const after = await repo.findById(id)
+      expect(after).not.toBeInstanceOf(Error)
+      if (after instanceof Error) return
+      expect(after.lastUsedAt).toBeInstanceOf(Date)
+      expect(after.lastUsedAt!.getTime()).toBeGreaterThan(0)
+    })
+
+    it("should update last_used_at on subsequent calls", async () => {
+      const repo = ConnectionsRepository()
+      const testConn = createTestConnection()
+      const inserted = await insertTestConnection(testConn)
+      const id = inserted.id as NwcConnectionId
+
+      await repo.updateLastUsed(id)
+      const first = await repo.findById(id)
+      if (first instanceof Error) return
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      await repo.updateLastUsed(id)
+      const second = await repo.findById(id)
+      if (second instanceof Error) return
+
+      expect(second.lastUsedAt!.getTime()).toBeGreaterThanOrEqual(
+        first.lastUsedAt!.getTime(),
+      )
+    })
+  })
+
+  describe("findByWalletIdWithNotificationPerm", () => {
+    it("should find connections with matching notification permission", async () => {
+      const repo = ConnectionsRepository()
+      const walletId = randomUUID() as WalletId
+
+      await insertTestConnection(
+        createTestConnection({
+          walletId,
+          permissions: [Nip47Method.GetInfo, "notifications:payment_received" as any],
+          notificationsEnabled: true,
+        }),
+      )
+      await insertTestConnection(
+        createTestConnection({
+          walletId,
+          permissions: [Nip47Method.GetInfo],
+          notificationsEnabled: true,
+        }),
+      )
+
+      const result = await repo.findByWalletIdWithNotificationPerm(
+        walletId,
+        "notifications:payment_received",
+      )
+
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+      expect(result).toHaveLength(1)
+      expect(result[0].permissions).toContain("notifications:payment_received")
+    })
+
+    it("should exclude revoked connections", async () => {
+      const repo = ConnectionsRepository()
+      const walletId = randomUUID() as WalletId
+
+      await insertTestConnection(
+        createTestConnection({
+          walletId,
+          permissions: ["notifications:payment_received" as any],
+          notificationsEnabled: true,
+          revoked: true,
+        }),
+      )
+
+      const result = await repo.findByWalletIdWithNotificationPerm(
+        walletId,
+        "notifications:payment_received",
+      )
+
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+      expect(result).toHaveLength(0)
+    })
+
+    it("should exclude connections with notifications disabled", async () => {
+      const repo = ConnectionsRepository()
+      const walletId = randomUUID() as WalletId
+
+      await insertTestConnection(
+        createTestConnection({
+          walletId,
+          permissions: ["notifications:payment_received" as any],
+          notificationsEnabled: false,
+        }),
+      )
+
+      const result = await repo.findByWalletIdWithNotificationPerm(
+        walletId,
+        "notifications:payment_received",
+      )
+
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+      expect(result).toHaveLength(0)
+    })
+
+    it("should return empty array when no matches", async () => {
+      const repo = ConnectionsRepository()
+      const walletId = randomUUID() as WalletId
+
+      const result = await repo.findByWalletIdWithNotificationPerm(
+        walletId,
+        "notifications:payment_sent",
+      )
+
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+      expect(result).toHaveLength(0)
+    })
+  })
+
+  describe("softDelete sets revoked_at", () => {
+    it("should set revoked_at timestamp on soft delete", async () => {
+      const repo = ConnectionsRepository()
+      const testConn = createTestConnection()
+      const inserted = await insertTestConnection(testConn)
+      const id = inserted.id as NwcConnectionId
+
+      await repo.softDelete(id)
+
+      const result = await repo.findById(id)
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+      expect(result.revoked).toBe(true)
+      expect(result.revokedAt).toBeInstanceOf(Date)
+      expect(result.revokedAt!.getTime()).toBeGreaterThan(0)
+    })
+
+    it("should not set revoked_at before soft delete", async () => {
+      const repo = ConnectionsRepository()
+      const testConn = createTestConnection()
+      const inserted = await insertTestConnection(testConn)
+
+      const result = await repo.findById(inserted.id as NwcConnectionId)
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+      expect(result.revokedAt).toBeNull()
+    })
+  })
 })
