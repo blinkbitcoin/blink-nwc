@@ -1,7 +1,7 @@
 import WebSocket from "ws";
 ;(global as any).WebSocket = WebSocket
 
-import { EventTemplate, finalizeEvent, Relay } from "nostr-tools"
+import { EventTemplate, finalizeEvent, Relay, verifyEvent } from "nostr-tools"
 import { Subscription } from "nostr-tools/lib/types/abstract-relay"
 
 import { NOSTR_RELAY_URL, SUPPORTED_NWC_METHODS } from "@/config"
@@ -109,6 +109,12 @@ export const NwcSubscriber = () => {
         connection: NwcConnection,
       ) => Promise<Nip47Result>,
     ) => {
+      // Verify event signature before processing
+      if (!verifyEvent(event)) {
+        console.warn("Rejected event with invalid signature", event.id)
+        return
+      }
+
       const encryptionType = (event.tags.find(
         (t: string[]) => t[0] === "encryption",
       )?.[1] || "nip04") as Nip47EncryptionType
@@ -141,6 +147,25 @@ export const NwcSubscriber = () => {
         )
         return
       }
+
+      // Check if connection has expired
+      if (userConnection.expiresAt && userConnection.expiresAt < new Date()) {
+        await sendNwcResponse(
+          event.id,
+          event.pubkey as NwcAppPubkey,
+          request.method,
+          encryptionType,
+          parseNip47Response(
+            new Nip47UnauthorizedError("Connection has expired"),
+          ),
+        )
+        return
+      }
+
+      // Update last_used_at (fire-and-forget, don't block the response)
+      ConnectionsRepository().updateLastUsed(userConnection.id).catch((err) => {
+        console.error("Failed to update last_used_at", err)
+      })
 
       const response = await handle(request, userConnection)
       await sendNwcResponse(
