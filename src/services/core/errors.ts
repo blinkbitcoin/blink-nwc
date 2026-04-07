@@ -203,7 +203,7 @@ export const parseBlinkError = (err: IError | GraphQlApplicationError) => {
   }
 
   recordExceptionInCurrentSpan({
-    error: `Unknown core service error ocurred. Code: ${err.code} Message: ${err.message}`,
+    error: `Unknown core service error occurred. Code: ${err.code} Message: ${err.message}`,
     level: ErrorLevel.Warn,
   })
   return new UnknownBlinkServiceError(message)
