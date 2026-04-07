@@ -10,6 +10,9 @@ export type BlockHeight = number & { readonly brand: unique symbol }
 export type BlockHash = string & { readonly brand: unique symbol }
 
 export type ApiKey = string & { readonly brand: unique symbol }
+export type ApiKeyId = string & { readonly brand: unique symbol }
+export type WalletCurrency = "BTC" | "USD"
+export type ConnectionSecret = string & { readonly brand: unique symbol }
 
 export type InvoiceBolt11 = string & { readonly brand: unique symbol }
 export type Preimage = string & { readonly brand: unique symbol }
