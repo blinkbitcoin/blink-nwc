@@ -2,6 +2,9 @@ import { queryBuilder } from "@/services/db/query-builder"
 import type { NwcConnectionRecord } from "@/services/db/index.types"
 import type {
   ApiKey,
+  ApiKeyId,
+  ConnectionSecret,
+  WalletCurrency,
   Nip47MethodType,
   NwcAppPubkey,
   NwcConnectionAlias,
@@ -57,7 +60,10 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
   }
 
   const create = async (
-    data: Omit<NwcConnection, "id" | "createdAt" | "updatedAt" | "revoked">,
+    data: Omit<
+      NwcConnection,
+      "id" | "createdAt" | "updatedAt" | "revoked" | "revokedAt" | "lastUsedAt"
+    >,
   ): Promise<NwcConnection | RepositoryError> => {
     try {
       const insertData = {
@@ -65,10 +71,14 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
         user_id: data.userId,
         account_id: data.accountId,
         wallet_id: data.walletId,
+        wallet_currency: data.walletCurrency,
         api_key: data.apiKey,
+        api_key_id: data.apiKeyId,
+        connection_secret: data.connectionSecret,
         app_pubkey: data.appPubkey,
         permissions: data.permissions,
-        notifications: data.notificationsEnabled,
+        notifications_enabled: data.notificationsEnabled,
+        expires_at: data.expiresAt,
       }
 
       const [doc] = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
@@ -91,12 +101,13 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
         | "userId"
         | "walletId"
         | "apiKey"
-        // todo i'm not sure how one click flow should look like on the backend side. Maybe it would be the best to just
-        // create the connection normally, but allow user to modify the app pubkey.
+        | "apiKeyId"
         | "appPubkey"
+        | "connectionSecret"
         | "createdAt"
         | "updatedAt"
         | "revoked"
+        | "revokedAt"
       >
     >,
   ): Promise<NwcConnection | RepositoryError> => {
@@ -110,7 +121,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
         updateData.permissions = updates.permissions
       }
       if (updates.notificationsEnabled !== undefined) {
-        updateData.notifications = updates.notificationsEnabled
+        updateData.notifications_enabled = updates.notificationsEnabled
       }
 
       updateData.updated_at = queryBuilder.fn.now() as any
@@ -146,7 +157,11 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
     try {
       const affectedRows = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
         .where({ id })
-        .update({ revoked: true })
+        .update({
+          revoked: true,
+          revoked_at: queryBuilder.fn.now() as any,
+          updated_at: queryBuilder.fn.now() as any,
+        })
       return !!affectedRows
     } catch (err) {
       return parseRepositoryError(err)
@@ -163,6 +178,25 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
 
       if (!docs || !docs.length) {
         return new CouldNotFindNwcConnectionFromWalletIdError()
+      }
+
+      return docs.map(translateConnection)
+    } catch (err) {
+      return parseRepositoryError(err)
+    }
+  }
+
+  const findByWalletIdWithNotificationPerm = async (
+    walletId: WalletId,
+    notificationType: string,
+  ): Promise<NwcConnection[] | RepositoryError> => {
+    try {
+      const docs = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
+        .where({ wallet_id: walletId, revoked: false, notifications_enabled: true })
+        .whereRaw("? = ANY(permissions)", [notificationType])
+
+      if (!docs || !docs.length) {
+        return []
       }
 
       return docs.map(translateConnection)
@@ -242,6 +276,21 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
     }
   }
 
+  const updateLastUsed = async (
+    id: NwcConnectionId,
+  ): Promise<void | RepositoryError> => {
+    try {
+      await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
+        .where({ id })
+        .update({
+          last_used_at: queryBuilder.fn.now() as any,
+          updated_at: queryBuilder.fn.now() as any,
+        })
+    } catch (err) {
+      return parseRepositoryError(err)
+    }
+  }
+
   return wrapAsyncFunctionsToRunInSpan({
     namespace: "services.db.connections",
     fns: {
@@ -252,10 +301,12 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
       delete: deleteById,
       softDelete,
       findByWalletId,
+      findByWalletIdWithNotificationPerm,
       countActiveByWalletId,
       findByUserId,
       deleteByWalletId,
       updatePermissions,
+      updateLastUsed,
     },
   })
 }
@@ -267,11 +318,17 @@ const translateConnection = (doc: NwcConnectionRecord): NwcConnection => {
     accountId: doc.account_id as AccountId,
     alias: (doc.alias as NwcConnectionAlias) ?? null,
     walletId: doc.wallet_id as WalletId,
+    walletCurrency: doc.wallet_currency as WalletCurrency,
     appPubkey: doc.app_pubkey as NwcAppPubkey,
     permissions: doc.permissions as Nip47MethodType[],
     apiKey: doc.api_key as ApiKey,
-    notificationsEnabled: doc.notifications,
+    apiKeyId: (doc.api_key_id as ApiKeyId) ?? null,
+    connectionSecret: doc.connection_secret as ConnectionSecret,
+    notificationsEnabled: doc.notifications_enabled,
     revoked: doc.revoked,
+    expiresAt: doc.expires_at,
+    revokedAt: doc.revoked_at,
+    lastUsedAt: doc.last_used_at,
     createdAt: doc.created_at,
     updatedAt: doc.updated_at,
   }

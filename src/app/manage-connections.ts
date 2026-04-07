@@ -1,6 +1,13 @@
 import { getPublicKey, generateSecretKey } from "nostr-tools"
 
-import { NwcUri, NwcSecret, NwcAppPubkey, NwcConnectionId } from "@/domain/index.types"
+import {
+  NwcUri,
+  NwcSecret,
+  NwcAppPubkey,
+  NwcConnectionId,
+  ConnectionSecret,
+  WalletCurrency,
+} from "@/domain/index.types"
 import {
   checkedToUserId,
   checkedToWalletId,
@@ -9,6 +16,7 @@ import {
   checkedToConnectionId,
   checkedToNwcUpdates,
   checkedToApiKey,
+  checkedToApiKeyId,
 } from "@/domain/validation"
 import { getServerKeypair, NwcConnection, stringifyNwcUri } from "@/domain/connection"
 import { ConnectionsRepository } from "@/services/db/connections"
@@ -16,15 +24,16 @@ import { NOSTR_RELAY_PUBLIC_URL } from "@/config"
 import { Account } from "@/domain/core/index.types"
 import { CouldNotFindNwcConnectionFromIdError } from "@/domain/errors"
 
-// todo add notifications
-
 export const createNwcConnection = async (
   account: Account,
   walletId: string,
   apiKey: string,
   permissions: string[],
   alias?: string,
-  // notifications?: boolean,
+  walletCurrency?: WalletCurrency,
+  expiresAt?: Date | null,
+  notificationsEnabled?: boolean,
+  apiKeyId?: string,
 ): Promise<
   { connectionObj: NwcConnection; connectionUri: NwcUri } | ApplicationError
 > => {
@@ -48,18 +57,32 @@ export const createNwcConnection = async (
     return checkedApiKey
   }
 
+  const checkedApiKeyId = apiKeyId ? checkedToApiKeyId(apiKeyId) : null
+  if (checkedApiKeyId instanceof Error) {
+    return checkedApiKeyId
+  }
+
   const bytes = generateSecretKey()
   const secret = Buffer.from(bytes).toString("hex") as NwcSecret
   const appPubkey = getPublicKey(bytes) as NwcAppPubkey
-  const connection: Omit<NwcConnection, "id" | "createdAt" | "updatedAt" | "revoked"> = {
+  const connectionSecret = secret as unknown as ConnectionSecret
+
+  const connection: Omit<
+    NwcConnection,
+    "id" | "createdAt" | "updatedAt" | "revoked" | "revokedAt" | "lastUsedAt"
+  > = {
     userId: account.kratosUserId,
     accountId: account.id,
     walletId: checkedWalletId,
+    walletCurrency: walletCurrency || "BTC",
     apiKey: checkedApiKey,
+    apiKeyId: checkedApiKeyId,
+    connectionSecret,
     alias: checkedAlias,
     appPubkey,
     permissions: checkedPermissions,
-    notificationsEnabled: false,
+    notificationsEnabled: notificationsEnabled ?? false,
+    expiresAt: expiresAt ?? null,
   }
   const connectionObj = await ConnectionsRepository().create(connection)
   if (connectionObj instanceof Error) {
@@ -67,7 +90,6 @@ export const createNwcConnection = async (
   }
 
   const serverPubkey = getServerKeypair().pubkey
-  //create connection uri - it shouldn't be stored in wallet service - user should store it safely
   const connectionUri = stringifyNwcUri({
     pubkey: serverPubkey,
     secret,

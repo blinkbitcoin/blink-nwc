@@ -9,7 +9,7 @@ import {
   updateNwcConnection,
 } from "@/app/manage-connections"
 import { Account } from "@/domain/core/index.types"
-import { stripApiKey } from "@/domain/utils"
+import { stripSensitiveFields } from "@/domain/utils"
 
 export const resolvers: Resolvers = {
   Query: {
@@ -30,7 +30,7 @@ export const resolvers: Resolvers = {
       if (result instanceof Error) {
         throw mapError(result)
       }
-      return result.map((r) => stripApiKey(r))
+      return result.map((r) => stripSensitiveFields(r))
     },
   },
   Mutation: {
@@ -54,7 +54,7 @@ export const resolvers: Resolvers = {
 
       return {
         errors: [],
-        connection: stripApiKey(result.connectionObj),
+        connection: stripSensitiveFields(result.connectionObj),
         connectionUri: result.connectionUri,
       }
     },
@@ -75,7 +75,7 @@ export const resolvers: Resolvers = {
 
       return {
         errors: [],
-        connection: stripApiKey(connection),
+        connection: stripSensitiveFields(connection),
       }
     },
     nwcConnectionDelete: async (
