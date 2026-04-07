@@ -339,7 +339,7 @@ describe("ConnectionsRepository", () => {
       const repo = ConnectionsRepository()
       const testConn = createTestConnection()
       const inserted = await insertTestConnection(testConn)
-      expect(inserted.notifications).toBe(false)
+      expect(inserted.notifications_enabled).toBe(false)
 
       const result = await repo.update(inserted.id as NwcConnectionId, {
         notificationsEnabled: true,

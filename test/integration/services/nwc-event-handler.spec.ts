@@ -32,7 +32,10 @@ describe("NwcEventHandler", () => {
     userId: "user-123" as UserId,
     accountId: "account-123" as any,
     walletId: "wallet-123" as WalletId,
+    walletCurrency: "BTC",
     apiKey: "api-key-123" as any,
+    apiKeyId: null,
+    connectionSecret: "test-secret" as any,
     appPubkey: ("0".repeat(63) + "1") as any,
     alias: "Test Connection" as any,
     permissions: [
@@ -45,6 +48,9 @@ describe("NwcEventHandler", () => {
     ],
     notificationsEnabled: true,
     revoked: false,
+    expiresAt: null,
+    revokedAt: null,
+    lastUsedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   }

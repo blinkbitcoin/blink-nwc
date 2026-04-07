@@ -6,7 +6,14 @@ import { generateSecretKey, getPublicKey } from "nostr-tools"
 import databaseConfig from "@/config/db"
 import { NwcConnectionRecord } from "@/services/db/index.types"
 import { NwcConnection } from "@/domain/connection"
-import { NwcAppPubkey, NwcConnectionId, ApiKey, AccountId } from "@/domain/index.types"
+import {
+  NwcAppPubkey,
+  NwcConnectionId,
+  ApiKey,
+  ApiKeyId,
+  ConnectionSecret,
+  AccountId,
+} from "@/domain/index.types"
 import { UserId, WalletId } from "@/domain/core/index.types"
 import { Nip47Method } from "@/domain/nostr"
 
@@ -54,12 +61,18 @@ export const createTestConnection = (
   userId: randomUUID() as UserId,
   accountId: randomUUID() as AccountId,
   walletId: randomUUID() as WalletId,
+  walletCurrency: "BTC",
   appPubkey: randomPubkey(),
   permissions: [Nip47Method.GetInfo, Nip47Method.GetBalance],
   apiKey: ("test-api-key-" + Math.random().toString(36).substring(7)) as ApiKey,
+  apiKeyId: null,
+  connectionSecret: ("test-secret-" + Math.random().toString(36).substring(7)) as ConnectionSecret,
   alias: null,
   notificationsEnabled: false,
   revoked: false,
+  expiresAt: null,
+  revokedAt: null,
+  lastUsedAt: null,
   ...overrides,
 })
 
@@ -74,11 +87,15 @@ export const insertTestConnection = async (
       user_id: connection.userId,
       account_id: connection.accountId,
       wallet_id: connection.walletId,
+      wallet_currency: connection.walletCurrency,
       app_pubkey: connection.appPubkey,
       permissions: connection.permissions,
       api_key: connection.apiKey,
-      notifications: connection.notificationsEnabled,
+      api_key_id: connection.apiKeyId,
+      connection_secret: connection.connectionSecret,
+      notifications_enabled: connection.notificationsEnabled,
       revoked: connection.revoked ?? false,
+      expires_at: connection.expiresAt,
     })
     .returning("*")
 
@@ -108,11 +125,15 @@ export const insertMultipleTestConnections = async (
         user_id: c.userId,
         account_id: c.accountId,
         wallet_id: c.walletId,
+        wallet_currency: c.walletCurrency,
         app_pubkey: c.appPubkey,
         permissions: c.permissions,
         api_key: c.apiKey,
-        notifications: c.notificationsEnabled,
+        api_key_id: c.apiKeyId,
+        connection_secret: c.connectionSecret,
+        notifications_enabled: c.notificationsEnabled,
         revoked: c.revoked ?? false,
+        expires_at: c.expiresAt,
       })),
     )
     .returning("*")
