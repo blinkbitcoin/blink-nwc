@@ -98,7 +98,7 @@ export const translateStatus = (
     case "FAILURE":
       return PaymentState.FAILED
     default:
-      return PaymentState.UNKOWN
+      return PaymentState.UNKNOWN
   }
 }
 

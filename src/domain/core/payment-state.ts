@@ -3,5 +3,5 @@ export const PaymentState = {
   FAILED: "failed",
   PENDING: "pending",
   EXPIRED: "expired",
-  UNKOWN: "unknown",
+  UNKNOWN: "unknown",
 } as const
