@@ -2,6 +2,7 @@ extend schema @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@
 
 type Query {
     hello: String!
+    nwcServiceInfo: NwcServiceInfo!
 }
 scalar UserId
 scalar AccountId
@@ -23,13 +24,21 @@ type GraphQLApplicationError implements Error @shareable
 extend type User @key(fields: "id") {
     id: ID!
     exampleField: String
-    nwcConnections: [NwcConnection!]!
+    nwcConnections(includeRevoked: Boolean): [NwcConnection!]!
 }
 
 type Mutation {
     nwcConnectionCreate(input: NwcConnectionCreateInput!): NwcConnectionCreatePayload!
     nwcConnectionUpdate(input: NwcConnectionUpdateInput!): NwcConnectionUpdatePayload!
     nwcConnectionDelete(input: NwcConnectionDeleteInput!): NwcConnectionDeletePayload!
+    nwcConnectionRevoke(input: NwcConnectionRevokeInput!): NwcConnectionRevokePayload!
+    nwcConnectionRevokeAll: NwcConnectionRevokeAllPayload!
+}
+
+type NwcServiceInfo {
+    supportedMethods: [Nip47Method!]!
+    supportedNotifications: [String!]!
+    relayUrl: String!
 }
 
 type NwcConnection @key(fields: "id") {
@@ -38,6 +47,7 @@ type NwcConnection @key(fields: "id") {
     userId: UserId
     accountId: AccountId!
     walletId: WalletId!
+    walletCurrency: WalletCurrency!
 
     alias: String
     appPubkey: String!
@@ -45,34 +55,54 @@ type NwcConnection @key(fields: "id") {
     notificationsEnabled: Boolean!
 
     revoked: Boolean!
+    expiresAt: Timestamp
+    revokedAt: Timestamp
+    lastUsedAt: Timestamp
 
     createdAt: Timestamp!
     updatedAt: Timestamp!
 }
 
+enum WalletCurrency {
+    BTC
+    USD
+}
+
 enum Nip47Method {
     GET_INFO
     GET_BALANCE
+    GET_BUDGET
     MAKE_INVOICE
     PAY_INVOICE
     LOOKUP_INVOICE
     LIST_TRANSACTIONS
+    NOTIFICATIONS_PAYMENT_SENT
+    NOTIFICATIONS_PAYMENT_RECEIVED
 }
 
 input NwcConnectionCreateInput {
     walletId: WalletId!
     alias: String
     apiKey: String!
+    apiKeyId: String
     permissions: [Nip47Method!]!
+    walletCurrency: WalletCurrency
+    expiresAt: Timestamp
+    notificationsEnabled: Boolean
 }
 
 input NwcConnectionUpdateInput {
     id: ID!
     alias: String
     permissions: [Nip47Method!]
+    notificationsEnabled: Boolean
 }
 
 input NwcConnectionDeleteInput {
+    id: ID!
+}
+
+input NwcConnectionRevokeInput {
     id: ID!
 }
 
@@ -90,4 +120,14 @@ type NwcConnectionUpdatePayload {
 type NwcConnectionDeletePayload {
     errors: [Error!]!
     success: Boolean!
+}
+
+type NwcConnectionRevokePayload {
+    errors: [Error!]!
+    connection: NwcConnection
+}
+
+type NwcConnectionRevokeAllPayload {
+    errors: [Error!]!
+    revokedCount: Int!
 }

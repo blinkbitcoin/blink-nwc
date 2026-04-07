@@ -13,6 +13,6 @@ generates:
       useIndexSignature: true
       resolverTypeWrapperSignature: 'T'
       enumValues:
-        Nip47Method: '@/domain/index.types#Nip47Method'
+        Nip47Method: '@/domain/nostr/index.types#Nip47MethodType'
       mappers:
         GraphQLApplicationError: '@/graphql/index.types#IError'
