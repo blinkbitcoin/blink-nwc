@@ -149,6 +149,4 @@ export type Nip47Notification =
 
 export type Nip47EncryptionType = "nip04" | "nip44_v2"
 
-
-declare module 'nostr-tools/pool' {
-}
+declare module "nostr-tools/pool" {}

@@ -276,9 +276,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
     }
   }
 
-  const updateLastUsed = async (
-    id: NwcConnectionId,
-  ): Promise<void | RepositoryError> => {
+  const updateLastUsed = async (id: NwcConnectionId): Promise<void | RepositoryError> => {
     try {
       await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
         .where({ id })

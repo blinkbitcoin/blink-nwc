@@ -86,6 +86,7 @@ export type Scalars = {
   TotpSecret: { input: string; output: string; }
   /** An external reference id that can be optionally added for transactions. */
   TxExternalId: { input: string; output: string; }
+  UserId: { input: string; output: string; }
   /** Unique identifier of a user */
   Username: { input: string; output: string; }
   /** Unique identifier of a wallet */
@@ -1508,8 +1509,11 @@ export type NwcConnection = {
   readonly appPubkey: Scalars['String']['output'];
   readonly createdAt: Scalars['Timestamp']['output'];
   readonly id: Scalars['ID']['output'];
+  readonly notificationsEnabled: Scalars['Boolean']['output'];
   readonly permissions: ReadonlyArray<Nip47Method>;
+  readonly revoked: Scalars['Boolean']['output'];
   readonly updatedAt: Scalars['Timestamp']['output'];
+  readonly userId?: Maybe<Scalars['UserId']['output']>;
   readonly walletId: Scalars['WalletId']['output'];
 };
 
@@ -2948,6 +2952,7 @@ export type ResolversTypes = {
   UserEmailRegistrationInitiatePayload: ResolverTypeWrapper<Omit<UserEmailRegistrationInitiatePayload, 'errors' | 'me'> & { errors: ReadonlyArray<ResolversTypes['Error']>, me?: Maybe<ResolversTypes['User']> }>;
   UserEmailRegistrationValidateInput: UserEmailRegistrationValidateInput;
   UserEmailRegistrationValidatePayload: ResolverTypeWrapper<Omit<UserEmailRegistrationValidatePayload, 'errors' | 'me'> & { errors: ReadonlyArray<ResolversTypes['Error']>, me?: Maybe<ResolversTypes['User']> }>;
+  UserId: ResolverTypeWrapper<Scalars['UserId']['output']>;
   UserLoginInput: UserLoginInput;
   UserLoginUpgradeInput: UserLoginUpgradeInput;
   UserLoginUpgradeTelegramInput: UserLoginUpgradeTelegramInput;
@@ -3183,6 +3188,7 @@ export type ResolversParentTypes = {
   UserEmailRegistrationInitiatePayload: Omit<UserEmailRegistrationInitiatePayload, 'errors' | 'me'> & { errors: ReadonlyArray<ResolversParentTypes['Error']>, me?: Maybe<ResolversParentTypes['User']> };
   UserEmailRegistrationValidateInput: UserEmailRegistrationValidateInput;
   UserEmailRegistrationValidatePayload: Omit<UserEmailRegistrationValidatePayload, 'errors' | 'me'> & { errors: ReadonlyArray<ResolversParentTypes['Error']>, me?: Maybe<ResolversParentTypes['User']> };
+  UserId: Scalars['UserId']['output'];
   UserLoginInput: UserLoginInput;
   UserLoginUpgradeInput: UserLoginUpgradeInput;
   UserLoginUpgradeTelegramInput: UserLoginUpgradeTelegramInput;
@@ -3863,8 +3869,11 @@ export type NwcConnectionResolvers<ContextType = any, ParentType extends Resolve
   appPubkey?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['Timestamp'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  notificationsEnabled?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   permissions?: Resolver<ReadonlyArray<ResolversTypes['Nip47Method']>, ParentType, ContextType>;
+  revoked?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['Timestamp'], ParentType, ContextType>;
+  userId?: Resolver<Maybe<ResolversTypes['UserId']>, ParentType, ContextType>;
   walletId?: Resolver<ResolversTypes['WalletId'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
@@ -4330,6 +4339,10 @@ export type UserEmailRegistrationValidatePayloadResolvers<ContextType = any, Par
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export interface UserIdScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['UserId'], any> {
+  name: 'UserId';
+}
+
 export type UserPhoneDeletePayloadResolvers<ContextType = any, ParentType extends ResolversParentTypes['UserPhoneDeletePayload'] = ResolversParentTypes['UserPhoneDeletePayload']> = {
   errors?: Resolver<ReadonlyArray<ResolversTypes['Error']>, ParentType, ContextType>;
   me?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
@@ -4559,6 +4572,7 @@ export type Resolvers<ContextType = any> = {
   UserEmailDeletePayload?: UserEmailDeletePayloadResolvers<ContextType>;
   UserEmailRegistrationInitiatePayload?: UserEmailRegistrationInitiatePayloadResolvers<ContextType>;
   UserEmailRegistrationValidatePayload?: UserEmailRegistrationValidatePayloadResolvers<ContextType>;
+  UserId?: GraphQLScalarType;
   UserPhoneDeletePayload?: UserPhoneDeletePayloadResolvers<ContextType>;
   UserPhoneRegistrationValidatePayload?: UserPhoneRegistrationValidatePayloadResolvers<ContextType>;
   UserTotpDeletePayload?: UserTotpDeletePayloadResolvers<ContextType>;

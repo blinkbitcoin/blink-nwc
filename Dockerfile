@@ -33,4 +33,3 @@ ENV BUILDTIME ${BUILDTIME}
 ENV COMMITHASH ${COMMITHASH}
 
 CMD ["node", "-r", "./lib/src/services/tracing.js", "./lib/src/server/index.js"]
-

@@ -1,4 +1,4 @@
-import WebSocket from "ws";
+import WebSocket from "ws"
 ;(global as any).WebSocket = WebSocket
 
 import { EventTemplate, finalizeEvent, Relay, verifyEvent } from "nostr-tools"
@@ -155,17 +155,17 @@ export const NwcSubscriber = () => {
           event.pubkey as NwcAppPubkey,
           request.method,
           encryptionType,
-          parseNip47Response(
-            new Nip47UnauthorizedError("Connection has expired"),
-          ),
+          parseNip47Response(new Nip47UnauthorizedError("Connection has expired")),
         )
         return
       }
 
       // Update last_used_at (fire-and-forget, don't block the response)
-      ConnectionsRepository().updateLastUsed(userConnection.id).catch((err) => {
-        console.error("Failed to update last_used_at", err)
-      })
+      ConnectionsRepository()
+        .updateLastUsed(userConnection.id)
+        .catch((err) => {
+          console.error("Failed to update last_used_at", err)
+        })
 
       const response = await handle(request, userConnection)
       await sendNwcResponse(

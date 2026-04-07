@@ -1,7 +1,6 @@
 import { NwcSubscriber } from "@/services"
 import NwcEventHandler from "@/app/nwc-event-handler"
 
-
 const nwc = NwcSubscriber()
 console.log("starting nwc")
 

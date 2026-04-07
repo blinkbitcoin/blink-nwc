@@ -10,7 +10,6 @@ import {
   NwcAppPubkey,
   NwcConnectionId,
   ApiKey,
-  ApiKeyId,
   ConnectionSecret,
   AccountId,
 } from "@/domain/index.types"
@@ -66,7 +65,8 @@ export const createTestConnection = (
   permissions: [Nip47Method.GetInfo, Nip47Method.GetBalance],
   apiKey: ("test-api-key-" + Math.random().toString(36).substring(7)) as ApiKey,
   apiKeyId: null,
-  connectionSecret: ("test-secret-" + Math.random().toString(36).substring(7)) as ConnectionSecret,
+  connectionSecret: ("test-secret-" +
+    Math.random().toString(36).substring(7)) as ConnectionSecret,
   alias: null,
   notificationsEnabled: false,
   revoked: false,

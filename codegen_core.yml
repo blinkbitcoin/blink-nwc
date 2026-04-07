@@ -71,3 +71,4 @@ generates:
         ContactType: "string"
         ContactDisplayName: "string"
         TelegramPassportNonce: "string"
+        UserId: "string"

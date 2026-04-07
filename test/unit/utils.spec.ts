@@ -276,7 +276,7 @@ describe("mergeTxs", () => {
     })
   })
 
-  describe("Timestamp Merging ", () => {
+  describe("Timestamp Merging", () => {
     /**
      * NIP-47 requires:
      * - created_at = when invoice was created (from invoice)
