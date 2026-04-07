@@ -16,7 +16,7 @@ export const NotificationService = (relay: Relay) => {
     try {
       // todo add legacy nip04 support
       const notificationEventTemplate: EventTemplate = {
-        kind: 23196,
+        kind: 23197,
         created_at: Math.floor(Date.now() / 1000),
         tags: [["p", appPubkey]],
         content: encrypt(
