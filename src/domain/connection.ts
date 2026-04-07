@@ -10,6 +10,9 @@ import {
   ServerNostrKeypair,
   ServerNostrPubkey,
   ApiKey,
+  ApiKeyId,
+  ConnectionSecret,
+  WalletCurrency,
   Nip47MethodType,
 } from "./index.types"
 
@@ -19,7 +22,10 @@ import { RepositoryError } from "@/domain/errors"
 
 export interface IConnectionsRepository {
   create(
-    data: Omit<NwcConnection, "id" | "createdAt" | "updatedAt" | "revoked">,
+    data: Omit<
+      NwcConnection,
+      "id" | "createdAt" | "updatedAt" | "revoked" | "revokedAt" | "lastUsedAt"
+    >,
   ): Promise<NwcConnection | RepositoryError>
   update(
     id: NwcConnectionId,
@@ -31,10 +37,13 @@ export interface IConnectionsRepository {
         | "userId"
         | "walletId"
         | "apiKey"
+        | "apiKeyId"
         | "appPubkey"
+        | "connectionSecret"
         | "createdAt"
         | "updatedAt"
         | "revoked"
+        | "revokedAt"
       >
     >,
   ): Promise<NwcConnection | RepositoryError>
@@ -43,12 +52,18 @@ export interface IConnectionsRepository {
   findById(id: NwcConnectionId): Promise<NwcConnection | RepositoryError>
   findByWalletId(walletId: WalletId): Promise<NwcConnection[] | RepositoryError>
   findByUserId(userId: UserId): Promise<NwcConnection[] | RepositoryError>
+  findByWalletIdWithNotificationPerm(
+    walletId: WalletId,
+    notificationType: string,
+  ): Promise<NwcConnection[] | RepositoryError>
   deleteByWalletId(walletId: WalletId): Promise<number | RepositoryError>
 
   updatePermissions(
     id: NwcConnectionId,
     permissions: Nip47MethodType[],
   ): Promise<NwcConnection | RepositoryError>
+
+  updateLastUsed(id: NwcConnectionId): Promise<void | RepositoryError>
 
   softDelete(id: NwcConnectionId): Promise<boolean | RepositoryError>
   delete(id: NwcConnectionId): Promise<boolean | RepositoryError>
@@ -62,8 +77,11 @@ export interface NwcConnection {
   userId: UserId
   accountId: AccountId
   walletId: WalletId
+  walletCurrency: WalletCurrency
 
   apiKey: ApiKey
+  apiKeyId: ApiKeyId | null
+  connectionSecret: ConnectionSecret
 
   alias: NwcConnectionAlias | null
   appPubkey: NwcAppPubkey
@@ -71,6 +89,9 @@ export interface NwcConnection {
   notificationsEnabled: boolean
 
   revoked: boolean
+  expiresAt: Date | null
+  revokedAt: Date | null
+  lastUsedAt: Date | null
 
   createdAt: Date
   updatedAt: Date

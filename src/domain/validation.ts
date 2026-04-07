@@ -1,5 +1,6 @@
 import {
   ApiKey,
+  ApiKeyId,
   Description,
   DescriptionHash,
   InvoiceBolt11,
@@ -76,6 +77,13 @@ export const checkedToApiKey = (apiKey: string): ApiKey | InvalidApiKey => {
     return new InvalidApiKey(apiKey)
   }
   return apiKey as ApiKey
+}
+
+export const checkedToApiKeyId = (apiKeyId: string): ApiKeyId | InvalidApiKey => {
+  if (!apiKeyId.match(UuidRegex)) {
+    return new InvalidApiKey(apiKeyId)
+  }
+  return apiKeyId as ApiKeyId
 }
 
 export const checkedToPermissions = (

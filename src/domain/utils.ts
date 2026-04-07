@@ -102,10 +102,10 @@ export const translateStatus = (
   }
 }
 
-export const stripApiKey = (
-  ConnectionObj: NwcConnection,
-): Omit<NwcConnection, "apiKey"> => {
+export const stripSensitiveFields = (
+  connectionObj: NwcConnection,
+): Omit<NwcConnection, "apiKey" | "connectionSecret"> => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { apiKey: x, ...rest } = ConnectionObj
+  const { apiKey: _key, connectionSecret: _secret, ...rest } = connectionObj
   return rest
 }
