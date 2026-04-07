@@ -14,6 +14,7 @@ import {
 } from "../helpers"
 
 import { ConnectionsRepository } from "@/services/db/connections"
+import { closeDbConnections } from "@/services/db/query-builder"
 import { NwcConnectionAlias, NwcConnectionId } from "@/domain/index.types"
 import { UserId, WalletId } from "@/domain/core/index.types"
 import {
@@ -36,6 +37,7 @@ describe("ConnectionsRepository", () => {
 
   afterAll(async () => {
     await closeTestDb()
+    await closeDbConnections()
   })
 
   describe("findByPubkey", () => {

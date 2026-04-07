@@ -14,7 +14,7 @@ services:
     command: sh -c "apk add --no-cache musl-dev && cp -r /src/* . && cargo build --release && cp target/release/strfry-policy /out/"
     working_dir: /build
     volumes:
-      - ./strfry-policy:/src:ro
+      - ${HOST_PROJECT_PATH:-.}/strfry-policy:/src:ro
       - strfry-policy-bin:/out
 
   # We're using alby's strfry fork, since it has REQ filter validation, which is important for privacy.
@@ -28,7 +28,7 @@ services:
       - "7777:7777"
     volumes:
       - strfry-data:/app/strfry-db
-      - ./strfry.conf:/etc/strfry.conf:ro
+      - ${HOST_PROJECT_PATH:-.}/strfry.conf:/etc/strfry.conf:ro
       - strfry-policy-bin:/policy:ro
     entrypoint: /bin/sh
     command: ["-c", "cp /policy/strfry-policy /app/strfry-policy && chmod +x /app/strfry-policy && /app/strfry relay"]
@@ -41,7 +41,7 @@ services:
       - POSTGRES_PASSWORD=blink-nwc-pwd
       - POSTGRES_DB=blink-nwc
     ports:
-      - "5431:5432"
+      - "5435:5432"
 
 volumes:
   strfry-data:

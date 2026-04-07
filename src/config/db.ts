@@ -4,7 +4,7 @@ import { Knex } from "knex"
 
 export const databaseConfig = {
   host: process.env.DB_HOST || "localhost",
-  port: parseInt(process.env.DB_PORT || "", 10) || 5431,
+  port: parseInt(process.env.DB_PORT || "", 10) || 5435,
   user: process.env.DB_USER || "blink-nwc-usr",
   password: process.env.DB_PWD || "blink-nwc-pwd",
   database: process.env.DB_DB || "blink-nwc",
