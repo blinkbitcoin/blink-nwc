@@ -188,6 +188,7 @@ type ApiKey
   expiresAt: Timestamp
   readOnly: Boolean!
   scopes: [Scope!]!
+  limits: ApiKeyLimits!
 }
 
 input ApiKeyCreateInput
@@ -205,6 +206,26 @@ type ApiKeyCreatePayload
   apiKeySecret: String!
 }
 
+type ApiKeyLimits
+  @join__type(graph: GALOY)
+{
+  dailyLimitSats: Int
+  weeklyLimitSats: Int
+  monthlyLimitSats: Int
+  annualLimitSats: Int
+  dailySpentSats: Int!
+  weeklySpentSats: Int!
+  monthlySpentSats: Int!
+  annualSpentSats: Int!
+}
+
+input ApiKeyRemoveLimitInput
+  @join__type(graph: GALOY)
+{
+  id: ID!
+  limitTimeWindow: LimitTimeWindow!
+}
+
 input ApiKeyRevokeInput
   @join__type(graph: GALOY)
 {
@@ -212,6 +233,20 @@ input ApiKeyRevokeInput
 }
 
 type ApiKeyRevokePayload
+  @join__type(graph: GALOY)
+{
+  apiKey: ApiKey!
+}
+
+input ApiKeySetLimitInput
+  @join__type(graph: GALOY)
+{
+  id: ID!
+  limitTimeWindow: LimitTimeWindow!
+  limitSats: Int!
+}
+
+type ApiKeySetLimitPayload
   @join__type(graph: GALOY)
 {
   apiKey: ApiKey!
@@ -868,6 +903,15 @@ enum join__Graph {
 scalar Language
   @join__type(graph: GALOY)
 
+enum LimitTimeWindow
+  @join__type(graph: GALOY)
+{
+  DAILY @join__enumValue(graph: GALOY)
+  WEEKLY @join__enumValue(graph: GALOY)
+  MONTHLY @join__enumValue(graph: GALOY)
+  ANNUAL @join__enumValue(graph: GALOY)
+}
+
 scalar link__Import
 
 enum link__Purpose {
@@ -1287,6 +1331,8 @@ type Mutation
 {
   apiKeyCreate(input: ApiKeyCreateInput!): ApiKeyCreatePayload! @join__field(graph: GALOY)
   apiKeyRevoke(input: ApiKeyRevokeInput!): ApiKeyRevokePayload! @join__field(graph: GALOY)
+  apiKeySetLimit(input: ApiKeySetLimitInput!): ApiKeySetLimitPayload! @join__field(graph: GALOY)
+  apiKeyRemoveLimit(input: ApiKeyRemoveLimitInput!): ApiKeySetLimitPayload! @join__field(graph: GALOY)
   statefulNotificationAcknowledge(input: StatefulNotificationAcknowledgeInput!): StatefulNotificationAcknowledgePayload! @join__field(graph: GALOY)
   accountDelete: AccountDeletePayload! @join__field(graph: GALOY)
   accountDisableNotificationCategory(input: AccountDisableNotificationCategoryInput!): AccountUpdateNotificationSettingsPayload! @join__field(graph: GALOY)
@@ -1431,6 +1477,8 @@ type Mutation
   nwcConnectionCreate(input: NwcConnectionCreateInput!): NwcConnectionCreatePayload! @join__field(graph: NOSTR_WALLET_CONNECT)
   nwcConnectionUpdate(input: NwcConnectionUpdateInput!): NwcConnectionUpdatePayload! @join__field(graph: NOSTR_WALLET_CONNECT)
   nwcConnectionDelete(input: NwcConnectionDeleteInput!): NwcConnectionDeletePayload! @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcConnectionRevoke(input: NwcConnectionRevokeInput!): NwcConnectionRevokePayload! @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcConnectionRevokeAll: NwcConnectionRevokeAllPayload! @join__field(graph: NOSTR_WALLET_CONNECT)
 }
 
 type MyUpdatesPayload
@@ -1455,6 +1503,7 @@ enum Nip47Method
 {
   GET_INFO @join__enumValue(graph: NOSTR_WALLET_CONNECT)
   GET_BALANCE @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  GET_BUDGET @join__enumValue(graph: NOSTR_WALLET_CONNECT)
   MAKE_INVOICE @join__enumValue(graph: NOSTR_WALLET_CONNECT)
   PAY_INVOICE @join__enumValue(graph: NOSTR_WALLET_CONNECT)
   LOOKUP_INVOICE @join__enumValue(graph: NOSTR_WALLET_CONNECT)
@@ -1496,11 +1545,15 @@ type NwcConnection
   userId: UserId
   accountId: AccountId!
   walletId: WalletId!
+  walletCurrency: WalletCurrency!
   alias: String
   appPubkey: String!
   permissions: [Nip47Method!]!
   notificationsEnabled: Boolean!
   revoked: Boolean!
+  expiresAt: Timestamp
+  revokedAt: Timestamp
+  lastUsedAt: Timestamp
   createdAt: Timestamp!
   updatedAt: Timestamp!
 }
@@ -1511,7 +1564,11 @@ input NwcConnectionCreateInput
   walletId: WalletId!
   alias: String
   apiKey: String!
+  apiKeyId: String
   permissions: [Nip47Method!]!
+  walletCurrency: WalletCurrency
+  expiresAt: Timestamp
+  notificationsEnabled: Boolean
 }
 
 type NwcConnectionCreatePayload
@@ -1535,12 +1592,33 @@ type NwcConnectionDeletePayload
   success: Boolean!
 }
 
+type NwcConnectionRevokeAllPayload
+  @join__type(graph: NOSTR_WALLET_CONNECT)
+{
+  errors: [Error!]!
+  revokedCount: Int!
+}
+
+input NwcConnectionRevokeInput
+  @join__type(graph: NOSTR_WALLET_CONNECT)
+{
+  id: ID!
+}
+
+type NwcConnectionRevokePayload
+  @join__type(graph: NOSTR_WALLET_CONNECT)
+{
+  errors: [Error!]!
+  connection: NwcConnection
+}
+
 input NwcConnectionUpdateInput
   @join__type(graph: NOSTR_WALLET_CONNECT)
 {
   id: ID!
   alias: String
   permissions: [Nip47Method!]
+  notificationsEnabled: Boolean
 }
 
 type NwcConnectionUpdatePayload
@@ -1548,6 +1626,21 @@ type NwcConnectionUpdatePayload
 {
   errors: [Error!]!
   connection: NwcConnection
+}
+
+enum NwcNotificationType
+  @join__type(graph: NOSTR_WALLET_CONNECT)
+{
+  PAYMENT_SENT @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  PAYMENT_RECEIVED @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+}
+
+type NwcServiceInfo
+  @join__type(graph: NOSTR_WALLET_CONNECT)
+{
+  supportedMethods: [Nip47Method!]!
+  supportedNotifications: [NwcNotificationType!]!
+  relayUrl: String!
 }
 
 """An address for an on-chain bitcoin destination"""
@@ -1665,12 +1758,14 @@ type OpenDeepLinkAction
   @join__type(graph: GALOY)
 {
   deepLink: String!
+  label: String
 }
 
 type OpenExternalLinkAction
   @join__type(graph: GALOY)
 {
   url: String!
+  label: String
 }
 
 """Information about pagination in a connection"""
@@ -1881,6 +1976,7 @@ type Query
   userDefaultWalletId(username: Username!): WalletId! @join__field(graph: GALOY) @deprecated(reason: "will be migrated to AccountDefaultWalletId")
   usernameAvailable(username: Username!): Boolean @join__field(graph: GALOY)
   hello: String! @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcServiceInfo: NwcServiceInfo! @join__field(graph: NOSTR_WALLET_CONNECT)
 }
 
 type Quiz
@@ -2341,7 +2437,7 @@ type User
   """Optional immutable user friendly identifier."""
   username: Username @join__field(graph: GALOY) @deprecated(reason: "will be moved to @Handle in Account and Wallet")
   exampleField: String @join__field(graph: NOSTR_WALLET_CONNECT)
-  nwcConnections: [NwcConnection!]! @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcConnections(includeRevoked: Boolean): [NwcConnection!]! @join__field(graph: NOSTR_WALLET_CONNECT)
 }
 
 type UserContact
@@ -2660,9 +2756,10 @@ interface Wallet
 
 enum WalletCurrency
   @join__type(graph: GALOY)
+  @join__type(graph: NOSTR_WALLET_CONNECT)
 {
-  BTC @join__enumValue(graph: GALOY)
-  USD @join__enumValue(graph: GALOY)
+  BTC @join__enumValue(graph: GALOY) @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  USD @join__enumValue(graph: GALOY) @join__enumValue(graph: NOSTR_WALLET_CONNECT)
 }
 
 """Unique identifier of a wallet"""
