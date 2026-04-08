@@ -1,4 +1,3 @@
-version: "3"
 services:
   apollo-router:
     image: ghcr.io/apollographql/router:v1.25.0
@@ -31,7 +30,7 @@ services:
       - ${HOST_PROJECT_PATH:-.}/strfry.conf:/etc/strfry.conf:ro
       - strfry-policy-bin:/policy:ro
     entrypoint: /bin/sh
-    command: ["-c", "cp /policy/strfry-policy /app/strfry-policy && chmod +x /app/strfry-policy && /app/strfry relay"]
+    command: ["-c", "while [ ! -f /policy/strfry-policy ]; do echo 'Waiting for policy binary...'; sleep 2; done && cp /policy/strfry-policy /app/strfry-policy && chmod +x /app/strfry-policy && /app/strfry relay"]
     restart: unless-stopped
 
   nwc-pg:
