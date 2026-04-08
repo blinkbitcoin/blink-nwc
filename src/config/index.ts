@@ -10,6 +10,10 @@ import {
   ServerNostrPrivkey,
 } from "@/domain/index.types"
 import { Nip47Method } from "@/domain/nostr"
+import {
+  NwcNotificationType,
+  NwcNotificationTypeValue,
+} from "@/domain/nostr/notification-type"
 
 export const SUBGRAPH_PORT = process.env.SUBGRAPH_PORT
   ? parseInt(process.env.SUBGRAPH_PORT)
@@ -39,4 +43,9 @@ export const SUPPORTED_NWC_METHODS: Nip47MethodType[] = [
   Nip47Method.PayInvoice,
   Nip47Method.LookupInvoice,
   Nip47Method.ListTransactions,
+]
+
+export const SUPPORTED_NWC_NOTIFICATIONS: NwcNotificationTypeValue[] = [
+  NwcNotificationType.PaymentSent,
+  NwcNotificationType.PaymentReceived,
 ]

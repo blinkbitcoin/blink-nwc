@@ -10,8 +10,20 @@ import {
 } from "@/app/manage-connections"
 import { Account } from "@/domain/core/index.types"
 import { stripSensitiveFields } from "@/domain/utils"
+import {
+  SUPPORTED_NWC_METHODS,
+  SUPPORTED_NWC_NOTIFICATIONS,
+  NOSTR_RELAY_PUBLIC_URL,
+} from "@/config"
+import { Nip47Method } from "@/domain/nostr/nip47-method"
+import { NwcNotificationType } from "@/domain/nostr/notification-type"
+
+const toEnumResolver = <T extends Record<string, string>>(obj: T) =>
+  Object.fromEntries(Object.values(obj).map((v) => [v.toUpperCase(), v]))
 
 export const resolvers: Resolvers = {
+  Nip47Method: toEnumResolver(Nip47Method),
+  NwcNotificationType: toEnumResolver(NwcNotificationType),
   Query: {
     hello: {
       resolve: async () => {
@@ -20,6 +32,11 @@ export const resolvers: Resolvers = {
         return result
       },
     },
+    nwcServiceInfo: () => ({
+      supportedMethods: SUPPORTED_NWC_METHODS,
+      supportedNotifications: SUPPORTED_NWC_NOTIFICATIONS,
+      relayUrl: NOSTR_RELAY_PUBLIC_URL,
+    }),
   },
   User: {
     __resolveReference: async (user: { id: string }) => {

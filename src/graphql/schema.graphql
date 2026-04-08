@@ -37,7 +37,7 @@ type Mutation {
 
 type NwcServiceInfo {
     supportedMethods: [Nip47Method!]!
-    supportedNotifications: [String!]!
+    supportedNotifications: [NwcNotificationType!]!
     relayUrl: String!
 }
 
@@ -76,8 +76,11 @@ enum Nip47Method {
     PAY_INVOICE
     LOOKUP_INVOICE
     LIST_TRANSACTIONS
-    NOTIFICATIONS_PAYMENT_SENT
-    NOTIFICATIONS_PAYMENT_RECEIVED
+}
+
+enum NwcNotificationType {
+    PAYMENT_SENT
+    PAYMENT_RECEIVED
 }
 
 input NwcConnectionCreateInput {
