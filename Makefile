@@ -5,10 +5,10 @@ generate-supergraph:
 	pnpm generate-supergraph
 
 check-code:
+	pnpm generate-gql-types
 	pnpm tsc-check
 	pnpm eslint-check
 	pnpm build
-	pnpm check-sdl
 
 unit-test:
 	pnpm run unit

@@ -11,7 +11,6 @@ COPY ./*.json ./pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY ./src ./src
-COPY ./scripts ./scripts
 
 RUN pnpm build
 
@@ -33,5 +32,4 @@ ARG COMMITHASH
 ENV BUILDTIME ${BUILDTIME}
 ENV COMMITHASH ${COMMITHASH}
 
-CMD ["node", "-r", "./lib/src/services/tracing.js", "./lib/src/server/subgraph.js"]
-
+CMD ["node", "-r", "./lib/src/services/tracing.js", "./lib/src/server/index.js"]

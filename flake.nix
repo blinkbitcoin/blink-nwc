@@ -21,6 +21,7 @@
       pkgs = import nixpkgs {inherit overlays system;};
       nativeBuildInputs = with pkgs;
         [
+          git
           nodejs
           pnpm
           alejandra
