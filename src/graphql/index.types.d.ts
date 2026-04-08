@@ -1,7 +1,7 @@
 type GraphQLError = import("graphql").GraphQLError
 type InputValidationError = import("./errors").InputValidationError
 
-type IError = {
+export type IError = {
   message: string
   readonly path: ReadonlyArray<string | number> | undefined
   code?: string
