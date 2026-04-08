@@ -20,8 +20,8 @@ jobs:
       - name: Run the Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
       - run: nix develop -c pnpm install --frozen-lockfile
-      - name: Build project
-        run: nix develop -c pnpm build
+      - name: Generate types and build
+        run: nix develop -c bash -c "pnpm generate-gql-types && pnpm build"
       - name: Start dependencies
         run: |
           # Retry logic for docker compose to handle transient Docker Hub issues

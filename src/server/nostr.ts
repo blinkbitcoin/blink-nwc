@@ -1,10 +1,11 @@
 import { NwcSubscriber } from "@/services"
-import NwcEventHandler from "@/app/nwc-event-handler"
+import { Nip47InternalError } from "@/domain/nostr"
 
 const nwc = NwcSubscriber()
 console.log("starting nwc")
 
-const stop = nwc.subscribe(NwcEventHandler().handle)
+// Event handler will be wired in E2 (NIP-47 Method Implementation)
+const stop = nwc.subscribe(async () => new Nip47InternalError("Not implemented"))
 
 process.on("SIGTERM", async () => {
   console.log("Received SIGTERM, stopping...")

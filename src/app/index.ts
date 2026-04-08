@@ -1,13 +1,11 @@
 import * as ExampleMod from "./example"
 import * as ConnectionsMod from "./manage-connections"
-import NwcEventHandler from "./nwc-event-handler"
 
 import { wrapAsyncToRunInSpan } from "@/services/tracing"
 
 const allFunctions = {
   Example: { ...ExampleMod },
   Connections: { ...ConnectionsMod },
-  NwcHandler: NwcEventHandler,
 } as const
 
 let subModule: keyof typeof allFunctions
@@ -23,4 +21,4 @@ for (subModule in allFunctions) {
   }
 }
 
-export const { Example, Connections, NwcHandler } = allFunctions
+export const { Example, Connections } = allFunctions
