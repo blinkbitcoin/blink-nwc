@@ -27,6 +27,7 @@
           alejandra
           gnumake
           docker-compose
+          tilt
           shellcheck
           shfmt
           vendir
