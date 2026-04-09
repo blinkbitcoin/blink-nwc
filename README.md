@@ -34,39 +34,50 @@ vendir sync
 pnpm generate-gql-types
 ```
 
-4. Start development server:
+4. Start the local development environment:
 ```bash
-pnpm dev
+nix develop -c make start
 ```
 
-The GraphQL playground will be available at http://localhost:4010/graphql
+This starts the Tilt-driven workflow for Blink NWC. Tilt will orchestrate the local containers, codegen, database setup, and the NWC dev server.
+
+Useful endpoints:
+
+- GraphQL playground: http://localhost:4010/graphql
+- Apollo Router: http://localhost:4004/graphql
+- Tilt UI: http://localhost:10350
 
 ## Running with Supergraph
 
-To run as part of an Apollo Federation supergraph:
+For normal local development, use Tilt:
 
-1. Generate the supergraph schema:
 ```bash
-pnpm generate-supergraph
+nix develop -c make start
 ```
 
-2. Start all dependencies (including Apollo Router):
+For dependency-only workflows, keep using the compose path:
+
+1. Start shared dependencies and Apollo Router:
 ```bash
 make start-deps
 ```
 
-3. Start your subgraph (if not already running):
+2. Start only the NWC subgraph process:
 ```bash
 pnpm dev
 ```
 
-4. Access the federated graph through the Apollo Router at http://localhost:4004/graphql
+This split path is still useful for CI and for cases where you do not want Tilt managing the full session.
 
 ## Development
 
 ### Available Scripts
 
-- `pnpm dev` - Start development server with hot reload
+- `make start` - Start the full Tilt-based local development environment
+- `make tilt-up` - Run `tilt up` explicitly
+- `make tilt-down` - Stop the Tilt session
+- `make start-deps` - Start only docker-compose dependencies and Apollo Router
+- `pnpm dev` - Start only the NWC subgraph server
 - `pnpm build` - Build for production
 - `pnpm start` - Start production server
 - `pnpm generate-gql-types` - Generate TypeScript types from GraphQL schema
