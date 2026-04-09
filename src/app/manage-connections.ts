@@ -153,6 +153,15 @@ export const softDeleteNwcConnection = async (
   return ConnectionsRepository().softDelete(existingConnection.id)
 }
 
+export const revokeAllNwcConnections = async (
+  account: Account,
+): Promise<number | ApplicationError> => {
+  const userId = checkedToUserId(account.kratosUserId)
+  if (userId instanceof Error) return userId
+
+  return ConnectionsRepository().revokeAllByUserId(userId)
+}
+
 export const deleteNwcConnection = async (
   connectionId: NwcConnectionId,
 ): Promise<boolean | ApplicationError> => {
@@ -170,7 +179,7 @@ export const deleteNwcConnection = async (
 }
 
 export const getNwcConnectionById = async (
-  connectionId: NwcConnectionId,
+  connectionId: string,
 ): Promise<NwcConnection | ApplicationError> => {
   const checkedConnectionId = checkedToConnectionId(connectionId)
   if (checkedConnectionId instanceof Error) {

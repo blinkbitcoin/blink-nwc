@@ -24,6 +24,7 @@ type GraphQLApplicationError implements Error @shareable
 extend type User @key(fields: "id") {
     id: ID!
     exampleField: String
+    nwcConnection(id: ID!): NwcConnection
     nwcConnections(includeRevoked: Boolean): [NwcConnection!]!
 }
 
@@ -59,8 +60,35 @@ type NwcConnection @key(fields: "id") {
     revokedAt: Timestamp
     lastUsedAt: Timestamp
 
+    """Read-only; queried from API-key service via apiKeyId"""
+    budget: NwcBudget
+
     createdAt: Timestamp!
     updatedAt: Timestamp!
+}
+
+"""Spending limits and usage for a connection (read-only, sourced from API-key service)"""
+type NwcBudget {
+    dailyLimitSats: Int
+    weeklyLimitSats: Int
+    monthlyLimitSats: Int
+    annualLimitSats: Int
+    dailySpentSats: Int!
+    weeklySpentSats: Int!
+    monthlySpentSats: Int!
+    annualSpentSats: Int!
+}
+
+input NwcBudgetInput {
+    limitSats: Int!
+    period: NwcBudgetPeriod!
+}
+
+enum NwcBudgetPeriod {
+    DAILY
+    WEEKLY
+    MONTHLY
+    ANNUAL
 }
 
 enum WalletCurrency {
@@ -92,6 +120,8 @@ input NwcConnectionCreateInput {
     walletCurrency: WalletCurrency
     expiresAt: Timestamp
     notificationsEnabled: Boolean
+    """Budget configuration (passed through to API-key service)"""
+    budget: NwcBudgetInput
 }
 
 input NwcConnectionUpdateInput {
@@ -99,6 +129,7 @@ input NwcConnectionUpdateInput {
     alias: String
     permissions: [Nip47Method!]
     notificationsEnabled: Boolean
+    budget: NwcBudgetInput
 }
 
 input NwcConnectionDeleteInput {

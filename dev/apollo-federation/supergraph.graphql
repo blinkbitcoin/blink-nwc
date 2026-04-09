@@ -1538,6 +1538,38 @@ type NotificationSettings
   push: NotificationChannelSettings!
 }
 
+"""
+Spending limits and usage for a connection (read-only, sourced from API-key service)
+"""
+type NwcBudget
+  @join__type(graph: NOSTR_WALLET_CONNECT)
+{
+  dailyLimitSats: Int
+  weeklyLimitSats: Int
+  monthlyLimitSats: Int
+  annualLimitSats: Int
+  dailySpentSats: Int!
+  weeklySpentSats: Int!
+  monthlySpentSats: Int!
+  annualSpentSats: Int!
+}
+
+input NwcBudgetInput
+  @join__type(graph: NOSTR_WALLET_CONNECT)
+{
+  limitSats: Int!
+  period: NwcBudgetPeriod!
+}
+
+enum NwcBudgetPeriod
+  @join__type(graph: NOSTR_WALLET_CONNECT)
+{
+  DAILY @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  WEEKLY @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  MONTHLY @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  ANNUAL @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+}
+
 type NwcConnection
   @join__type(graph: NOSTR_WALLET_CONNECT, key: "id")
 {
@@ -1554,6 +1586,9 @@ type NwcConnection
   expiresAt: Timestamp
   revokedAt: Timestamp
   lastUsedAt: Timestamp
+
+  """Read-only; queried from API-key service via apiKeyId"""
+  budget: NwcBudget
   createdAt: Timestamp!
   updatedAt: Timestamp!
 }
@@ -1569,6 +1604,9 @@ input NwcConnectionCreateInput
   walletCurrency: WalletCurrency
   expiresAt: Timestamp
   notificationsEnabled: Boolean
+
+  """Budget configuration (passed through to API-key service)"""
+  budget: NwcBudgetInput
 }
 
 type NwcConnectionCreatePayload
@@ -1619,6 +1657,7 @@ input NwcConnectionUpdateInput
   alias: String
   permissions: [Nip47Method!]
   notificationsEnabled: Boolean
+  budget: NwcBudgetInput
 }
 
 type NwcConnectionUpdatePayload
@@ -2437,6 +2476,7 @@ type User
   """Optional immutable user friendly identifier."""
   username: Username @join__field(graph: GALOY) @deprecated(reason: "will be moved to @Handle in Account and Wallet")
   exampleField: String @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcConnection(id: ID!): NwcConnection @join__field(graph: NOSTR_WALLET_CONNECT)
   nwcConnections(includeRevoked: Boolean): [NwcConnection!]! @join__field(graph: NOSTR_WALLET_CONNECT)
 }
 

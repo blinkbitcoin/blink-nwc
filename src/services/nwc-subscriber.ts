@@ -102,7 +102,32 @@ export const NwcSubscriber = () => {
       }
     }
 
+    const MAX_EVENT_RETRIES = 2
+
     const handleEvent = async (
+      event: any,
+      handle: (
+        request: { method: Nip47MethodType; params: unknown },
+        connection: NwcConnection,
+      ) => Promise<Nip47Result>,
+      attempt = 0,
+    ) => {
+      try {
+        await processEvent(event, handle)
+      } catch (err) {
+        if (attempt < MAX_EVENT_RETRIES) {
+          console.warn(
+            `Transient error processing event ${event.id}, retrying (${attempt + 1}/${MAX_EVENT_RETRIES})`,
+            err,
+          )
+          await sleep(Math.min(1000 * Math.pow(2, attempt), 5000))
+          return handleEvent(event, handle, attempt + 1)
+        }
+        console.error(`Failed to process event ${event.id} after ${MAX_EVENT_RETRIES} retries`, err)
+      }
+    }
+
+    const processEvent = async (
       event: any,
       handle: (
         request: { method: Nip47MethodType; params: unknown },
@@ -149,7 +174,7 @@ export const NwcSubscriber = () => {
       }
 
       // Check if connection has expired
-      if (userConnection.expiresAt && userConnection.expiresAt < new Date()) {
+      if (userConnection.expiresAt && userConnection.expiresAt <= new Date()) {
         await sendNwcResponse(
           event.id,
           event.pubkey as NwcAppPubkey,

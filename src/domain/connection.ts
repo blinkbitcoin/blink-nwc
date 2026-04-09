@@ -56,6 +56,7 @@ export interface IConnectionsRepository {
     walletId: WalletId,
     notificationType: string,
   ): Promise<NwcConnection[] | RepositoryError>
+  revokeAllByUserId(userId: UserId): Promise<number | RepositoryError>
   deleteByWalletId(walletId: WalletId): Promise<number | RepositoryError>
 
   updatePermissions(

@@ -4,7 +4,9 @@ import { mapAndParseErrorForGqlResponse, mapError } from "./error-map"
 import { Example } from "@/app"
 import {
   createNwcConnection,
+  getNwcConnectionById,
   nwcConnectionsByUserId,
+  revokeAllNwcConnections,
   softDeleteNwcConnection,
   updateNwcConnection,
 } from "@/app/manage-connections"
@@ -41,6 +43,11 @@ export const resolvers: Resolvers = {
   User: {
     __resolveReference: async (user: { id: string }) => {
       return { id: user.id }
+    },
+    nwcConnection: async (user: { id: string }, { id }: { id: string }) => {
+      const result = await getNwcConnectionById(id)
+      if (result instanceof Error) return null
+      return stripSensitiveFields(result)
     },
     nwcConnections: async (user: { id: string }) => {
       const result = await nwcConnectionsByUserId(user.id)
@@ -111,6 +118,43 @@ export const resolvers: Resolvers = {
       return {
         errors: [],
         success: result,
+      }
+    },
+    nwcConnectionRevoke: async (
+      _: unknown,
+      args: { input: { id: string } },
+      { domainAccount }: { domainAccount: Account },
+    ) => {
+      const result = await softDeleteNwcConnection(domainAccount, args.input.id)
+
+      if (result instanceof Error) {
+        return { errors: [mapAndParseErrorForGqlResponse(result)] }
+      }
+
+      const connection = await getNwcConnectionById(args.input.id)
+      if (connection instanceof Error) {
+        return { errors: [mapAndParseErrorForGqlResponse(connection)] }
+      }
+
+      return {
+        errors: [],
+        connection: stripSensitiveFields(connection),
+      }
+    },
+    nwcConnectionRevokeAll: async (
+      _: unknown,
+      __: unknown,
+      { domainAccount }: { domainAccount: Account },
+    ) => {
+      const result = await revokeAllNwcConnections(domainAccount)
+
+      if (result instanceof Error) {
+        return { errors: [mapAndParseErrorForGqlResponse(result)], revokedCount: 0 }
+      }
+
+      return {
+        errors: [],
+        revokedCount: result,
       }
     },
   },

@@ -239,6 +239,22 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
     }
   }
 
+  const revokeAllByUserId = async (
+    userId: UserId,
+  ): Promise<number | RepositoryError> => {
+    try {
+      return await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
+        .where({ user_id: userId, revoked: false })
+        .update({
+          revoked: true,
+          revoked_at: queryBuilder.fn.now() as any,
+          updated_at: queryBuilder.fn.now() as any,
+        })
+    } catch (err) {
+      return parseRepositoryError(err)
+    }
+  }
+
   const deleteByWalletId = async (
     walletId: WalletId,
   ): Promise<number | RepositoryError> => {
@@ -302,6 +318,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
       findByWalletIdWithNotificationPerm,
       countActiveByWalletId,
       findByUserId,
+      revokeAllByUserId,
       deleteByWalletId,
       updatePermissions,
       updateLastUsed,
