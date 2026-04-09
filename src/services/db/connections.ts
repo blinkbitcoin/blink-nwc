@@ -239,9 +239,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
     }
   }
 
-  const revokeAllByUserId = async (
-    userId: UserId,
-  ): Promise<number | RepositoryError> => {
+  const revokeAllByUserId = async (userId: UserId): Promise<number | RepositoryError> => {
     try {
       return await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
         .where({ user_id: userId, revoked: false })

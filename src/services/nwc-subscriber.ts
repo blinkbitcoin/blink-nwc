@@ -124,7 +124,10 @@ export const NwcSubscriber = () => {
           await sleep(Math.min(1000 * Math.pow(2, attempt), 5000))
           return handleEvent(event, handle, attempt + 1)
         }
-        console.error(`Failed to process event ${event.id} after ${MAX_EVENT_RETRIES} retries`, err)
+        console.error(
+          `Failed to process event ${event.id} after ${MAX_EVENT_RETRIES} retries`,
+          err,
+        )
       }
     }
 
