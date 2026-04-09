@@ -126,8 +126,8 @@ export const updateNwcConnection = async (
     return existingConnection
   }
 
-  if (existingConnection.accountId != account.id) {
-    // todo maybe invalid account exception?
+  if (existingConnection.accountId !== account.id) {
+    return new CouldNotFindNwcConnectionFromIdError()
   }
 
   return ConnectionsRepository().update(checkedConnectionId, checkedUpdates)
@@ -146,8 +146,8 @@ export const softDeleteNwcConnection = async (
   if (existingConnection instanceof Error) {
     return existingConnection
   }
-  if (existingConnection.accountId != account.id) {
-    // todo maybe invalid account exception?
+  if (existingConnection.accountId !== account.id) {
+    return new CouldNotFindNwcConnectionFromIdError()
   }
 
   return ConnectionsRepository().softDelete(existingConnection.id)
@@ -197,6 +197,7 @@ export const getNwcConnectionById = async (
 
 export const nwcConnectionsByUserId = async (
   userId: string,
+  includeRevoked = false,
 ): Promise<NwcConnection[] | ApplicationError> => {
   const checkedUserId = checkedToUserId(userId)
   if (checkedUserId instanceof Error) {
@@ -206,7 +207,7 @@ export const nwcConnectionsByUserId = async (
   if (connections instanceof Error) {
     return connections
   }
-  return connections.filter((c) => !c.revoked)
+  return includeRevoked ? connections : connections.filter((c) => !c.revoked)
 }
 
 export const nwcConnectionsByWalletId = async (
