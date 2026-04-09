@@ -19,6 +19,7 @@ import {
   EventKind,
   hexToBytes,
   Nip47UnauthorizedError,
+  Nip47InternalError,
   parseNip47Response,
 } from "@/domain/nostr"
 import { ConnectionsRepository } from "@/services/db"
@@ -144,16 +145,39 @@ export const NwcSubscriber = () => {
         (t: string[]) => t[0] === "encryption",
       )?.[1] || "nip04") as Nip47EncryptionType
 
-      const decryptedContent = await decrypt(
-        serverKeypair,
-        event.pubkey as NwcAppPubkey,
-        event.content,
-        encryptionType,
-      )
+      let decryptedContent: string
+      try {
+        decryptedContent = await decrypt(
+          serverKeypair,
+          event.pubkey as NwcAppPubkey,
+          event.content,
+          encryptionType,
+        )
+      } catch (err) {
+        console.error("Failed to decrypt event", event.id, err)
+        await sendNwcResponse(
+          event.id,
+          event.pubkey as NwcAppPubkey,
+          "unknown" as Nip47MethodType,
+          encryptionType,
+          parseNip47Response(new Nip47InternalError("Decryption failed")),
+        )
+        return
+      }
 
-      const request = JSON.parse(decryptedContent) as {
-        method: Nip47MethodType
-        params: unknown
+      let request: { method: Nip47MethodType; params: unknown }
+      try {
+        request = JSON.parse(decryptedContent)
+      } catch (err) {
+        console.error("Failed to parse decrypted content", event.id, err)
+        await sendNwcResponse(
+          event.id,
+          event.pubkey as NwcAppPubkey,
+          "unknown" as Nip47MethodType,
+          encryptionType,
+          parseNip47Response(new Nip47InternalError("Invalid request format")),
+        )
+        return
       }
 
       const userConnection = await ConnectionsRepository().findByPubkey(
