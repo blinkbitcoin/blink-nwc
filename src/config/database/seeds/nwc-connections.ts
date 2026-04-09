@@ -2,7 +2,10 @@ import { Knex } from "knex"
 import { generateSecretKey, getPublicKey } from "nostr-tools"
 
 export async function seed(knex: Knex): Promise<void> {
-  // Deletes ALL existing entries
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Seeds cannot be run in production")
+  }
+
   await knex("nwc_connections").del()
 
   // Inserts seed entries

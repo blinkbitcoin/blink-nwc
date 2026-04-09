@@ -12,9 +12,10 @@ teardown_file() {
   stop_server
 }
 
-@test "supergraph: hello query returns greeting" {
-  exec_graphql "anon" "hello" "{}"
+@test "supergraph: nwcServiceInfo returns supported methods via federation" {
+  exec_graphql "anon" "nwc-service-info" "{}"
 
-  hello_response="$(graphql_output '.data.hello')"
-  [[ "${hello_response}" != "null" ]] || exit 1
+  methods="$(graphql_output '.data.nwcServiceInfo.supportedMethods')"
+  [[ "${methods}" != "null" ]] || exit 1
+  [[ "${methods}" == *"GET_INFO"* ]] || exit 1
 }

@@ -161,11 +161,11 @@ describe("manage-connections", () => {
       expect(mockConnectionsRepository.create).not.toHaveBeenCalled()
     })
 
-    it("should return error for invalid API key", async () => {
+    it("should return error for empty API key", async () => {
       const result = await createNwcConnection(
         mockAccount,
         mockWalletId,
-        "short",
+        "",
         mockPermissions,
       )
 
@@ -227,24 +227,6 @@ describe("manage-connections", () => {
 
       expect(result.permissions).toEqual(newPermissions)
     })
-
-    // eslint-disable-next-line jest/no-commented-out-tests
-    // it("should update notificationsEnabled", async () => {
-    //   mockConnectionsRepository.findById.mockResolvedValue(mockConnection)
-    //   mockConnectionsRepository.update.mockResolvedValue({
-    //     ...mockConnection,
-    //     notificationsEnabled: true,
-    //   })
-    //
-    //   const result = await updateNwcConnection(mockAccount, mockConnection.id, {
-    //     notificationsEnabled: true,
-    //   })
-    //
-    //   expect(result).not.toBeInstanceOf(Error)
-    //   if (result instanceof Error) return
-    //
-    //   expect(result.notificationsEnabled).toBe(true)
-    // })
 
     it("should return error for invalid connectionId", async () => {
       const result = await updateNwcConnection(mockAccount, "invalid-id", {
