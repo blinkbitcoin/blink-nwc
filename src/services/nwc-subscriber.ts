@@ -23,9 +23,11 @@ import {
   parseNip47Response,
 } from "@/domain/nostr"
 import { ConnectionsRepository } from "@/services/db"
+import { baseLogger } from "@/services/logger"
 import { sleep } from "@/domain/utils"
 
 export const NwcSubscriber = () => {
+  const logger = baseLogger.child({ module: "nwc-subscriber" })
   const r = new Relay(NOSTR_RELAY_URL)
   const serverKeypair = getServerKeypair()
 
@@ -49,13 +51,13 @@ export const NwcSubscriber = () => {
             sub.close()
             sub = undefined
           }
-          console.info("checking connection to relay")
+          logger.info("checking connection to relay")
           await checkConnected()
 
-          console.info("publishing info event")
+          logger.info("publishing info event")
           await publishInfoEvent()
 
-          console.info("subscribing to relay")
+          logger.info("subscribing to relay")
           sub = r.subscribe(
             [
               {
@@ -65,39 +67,33 @@ export const NwcSubscriber = () => {
             ],
             {},
           )
-          console.info("subscribed to relay")
+          logger.info("subscribed to relay")
           retries = 0
 
-          // handle
           sub.onevent = (event) => {
-            // process event asynchronously, catch errors (nothing should be thrown anyway)
-            handleEvent(event, handle).catch((e) => {
-              console.error("Failed to handle event", event.id, e)
+            handleEvent(event, handle).catch((err) => {
+              logger.error({ err, eventId: event.id }, "failed to handle event")
             })
           }
 
-          // wait for disconnection or manual stop
           await new Promise<void>((resolve) => {
             r.onclose = () => {
-              console.error("relay disconnected")
+              logger.warn("relay disconnected")
               resolve()
             }
           })
 
-          // clear the handler
           r.onclose = null
-        } catch (error) {
-          console.error("error subscribing to requests", error || "unknown relay error")
+        } catch (err) {
+          logger.error({ err }, "error subscribing to requests")
         }
 
-        // backoff before retry
         if (isRunning) {
           await backoff(retries++)
         }
       }
 
-      // cleanup on exit
-      console.info("subscriber loop ended, cleaning up")
+      logger.info("subscriber loop ended, cleaning up")
       if (sub) {
         sub.close()
       }
@@ -117,16 +113,21 @@ export const NwcSubscriber = () => {
         await processEvent(event, handle)
       } catch (err) {
         if (attempt < MAX_EVENT_RETRIES) {
-          console.warn(
-            `Transient error processing event ${event.id}, retrying (${attempt + 1}/${MAX_EVENT_RETRIES})`,
-            err,
+          logger.warn(
+            {
+              err,
+              eventId: event.id,
+              attempt: attempt + 1,
+              maxRetries: MAX_EVENT_RETRIES,
+            },
+            "transient error processing event, retrying",
           )
           await sleep(Math.min(1000 * Math.pow(2, attempt), 5000))
           return handleEvent(event, handle, attempt + 1)
         }
-        console.error(
-          `Failed to process event ${event.id} after ${MAX_EVENT_RETRIES} retries`,
-          err,
+        logger.error(
+          { err, eventId: event.id, attempts: MAX_EVENT_RETRIES },
+          "failed to process event after retries",
         )
       }
     }
@@ -138,11 +139,15 @@ export const NwcSubscriber = () => {
         connection: NwcConnection,
       ) => Promise<Nip47Result>,
     ) => {
-      // Verify event signature before processing
       if (!verifyEvent(event)) {
-        console.warn("Rejected event with invalid signature", event.id)
+        logger.warn({ eventId: event.id }, "rejected event with invalid signature")
         return
       }
+
+      const eventLogger = logger.child({
+        eventId: event.id,
+        appPubkey: event.pubkey,
+      })
 
       const encryptionType = (event.tags.find(
         (t: string[]) => t[0] === "encryption",
@@ -157,7 +162,7 @@ export const NwcSubscriber = () => {
           encryptionType,
         )
       } catch (err) {
-        console.error("Failed to decrypt event", event.id, err)
+        eventLogger.error({ err }, "failed to decrypt event")
         await sendNwcResponse(
           event.id,
           event.pubkey as NwcAppPubkey,
@@ -172,7 +177,7 @@ export const NwcSubscriber = () => {
       try {
         request = JSON.parse(decryptedContent)
       } catch (err) {
-        console.error("Failed to parse decrypted content", event.id, err)
+        eventLogger.error({ err }, "failed to parse decrypted content")
         await sendNwcResponse(
           event.id,
           event.pubkey as NwcAppPubkey,
@@ -183,11 +188,14 @@ export const NwcSubscriber = () => {
         return
       }
 
+      eventLogger.info({ method: request.method }, "processing NWC request")
+
       const userConnection = await ConnectionsRepository().findByPubkey(
         event.pubkey as NwcAppPubkey,
       )
 
       if (userConnection instanceof Error || userConnection.revoked) {
+        eventLogger.warn("no active connection found for pubkey")
         await sendNwcResponse(
           event.id,
           event.pubkey as NwcAppPubkey,
@@ -200,8 +208,8 @@ export const NwcSubscriber = () => {
         return
       }
 
-      // Check if connection has expired
       if (userConnection.expiresAt && userConnection.expiresAt <= new Date()) {
+        eventLogger.warn({ connectionId: userConnection.id }, "connection has expired")
         await sendNwcResponse(
           event.id,
           event.pubkey as NwcAppPubkey,
@@ -212,11 +220,13 @@ export const NwcSubscriber = () => {
         return
       }
 
-      // Update last_used_at (fire-and-forget, don't block the response)
       ConnectionsRepository()
         .updateLastUsed(userConnection.id)
         .catch((err) => {
-          console.error("Failed to update last_used_at", err)
+          eventLogger.error(
+            { err, connectionId: userConnection.id },
+            "failed to update last_used_at",
+          )
         })
 
       const response = await handle(request, userConnection)
@@ -230,7 +240,7 @@ export const NwcSubscriber = () => {
     }
 
     const stop = async () => {
-      console.info("stopping subscriber")
+      logger.info("stopping subscriber")
       isRunning = false
 
       if (sub) {
@@ -238,14 +248,12 @@ export const NwcSubscriber = () => {
         sub = undefined
       }
 
-      // close relay connection
       r.close()
-
-      console.info("subscriber stopped")
+      logger.info("subscriber stopped")
     }
 
-    run().catch((e) => {
-      console.error("Fatal error in subscriber run loop:", e)
+    run().catch((err) => {
+      logger.error({ err }, "fatal error in subscriber run loop")
     })
 
     return stop
@@ -256,9 +264,9 @@ export const NwcSubscriber = () => {
       if (!r.connected) {
         await r.connect()
       }
-    } catch (error) {
-      console.error("failed to connect to relay", NOSTR_RELAY_URL, error)
-      throw error
+    } catch (err) {
+      logger.error({ err, relayUrl: NOSTR_RELAY_URL }, "failed to connect to relay")
+      throw err
     }
   }
 
@@ -272,7 +280,7 @@ export const NwcSubscriber = () => {
 
     const infoEvent = finalizeEvent(infoEventTemplate, hexToBytes(serverKeypair.privkey))
     await r.publish(infoEvent)
-    console.info("Published info event to relay")
+    logger.info("published info event to relay")
   }
 
   const sendNwcResponse = async (
@@ -309,15 +317,14 @@ export const NwcSubscriber = () => {
     await r.publish(responseEvent)
   }
 
-  // exponential backoff with ceiling. will reconnect every few minutes
   const backoff = async (retries: number) => {
     const SECOND = 1000
     const MAX_BACKOFF_MS = SECOND * 60 * 5
     const delay = Math.min(SECOND * Math.pow(2, retries), MAX_BACKOFF_MS)
-
     const jitter = Math.random() * delay * 0.1
-    console.info(
-      `Backing off for ${Math.round((delay + jitter) / 1000)}s (retry ${retries})`,
+    logger.info(
+      { delaySec: Math.round((delay + jitter) / 1000), retry: retries },
+      "backing off before retry",
     )
     await sleep(Math.round(delay + jitter))
   }

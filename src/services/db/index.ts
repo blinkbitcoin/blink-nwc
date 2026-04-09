@@ -6,6 +6,9 @@ import {
   NotNullConstraintViolationError,
 } from "@/domain/errors"
 import { parseErrorMessageFromUnknown } from "@/domain/error-parsers"
+import { baseLogger } from "@/services/logger"
+
+const logger = baseLogger.child({ module: "db" })
 
 export * from "./query-builder"
 export * from "./connections"
@@ -57,7 +60,7 @@ export const parseRepositoryError = (err: unknown) => {
       )
 
     default:
-      console.error("Unknown PG error code:", err.code, err.message)
+      logger.error({ code: err.code, error: err.message }, "unknown PG error code")
       return new UnknownRepositoryError()
   }
 }
