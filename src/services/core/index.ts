@@ -576,13 +576,11 @@ export const BlinkCoreService = (): IBlinkCoreService => {
       if (invoices.length === 0) {
         break
       }
-      allInvoices.push(...invoices)
-
-      let txsToPush: CoreServiceTx[] = [...invoices]
       if (type !== PD.Both) {
-        txsToPush = invoices.filter((inv) => inv.type === type)
+        allInvoices.push(...invoices.filter((inv) => inv.type === type))
+      } else {
+        allInvoices.push(...invoices)
       }
-      allInvoices.push(...txsToPush)
 
       const oldestInvTimestamp = invoices[invoices.length - 1].createdAt
       if (from !== undefined && oldestInvTimestamp <= from) {
