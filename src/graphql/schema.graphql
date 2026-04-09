@@ -45,7 +45,7 @@ type NwcServiceInfo {
 type NwcConnection @key(fields: "id") {
     id: ID!
 
-    userId: UserId
+    userId: UserId!
     accountId: AccountId!
     walletId: WalletId!
     walletCurrency: WalletCurrency!

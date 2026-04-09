@@ -49,8 +49,11 @@ export const resolvers: Resolvers = {
       if (result instanceof Error) return null
       return stripSensitiveFields(result)
     },
-    nwcConnections: async (user: { id: string }) => {
-      const result = await nwcConnectionsByUserId(user.id)
+    nwcConnections: async (
+      user: { id: string },
+      { includeRevoked }: { includeRevoked?: boolean | null },
+    ) => {
+      const result = await nwcConnectionsByUserId(user.id, includeRevoked ?? false)
       if (result instanceof Error) {
         throw mapError(result)
       }
@@ -63,13 +66,26 @@ export const resolvers: Resolvers = {
       args,
       { domainAccount }: { domainAccount: Account },
     ) => {
-      const { walletId, alias, permissions, apiKey } = args.input
+      const {
+        walletId,
+        alias,
+        permissions,
+        apiKey,
+        apiKeyId,
+        walletCurrency,
+        expiresAt,
+        notificationsEnabled,
+      } = args.input
       const result = await createNwcConnection(
         domainAccount,
         walletId,
         apiKey,
         permissions,
         alias ?? undefined,
+        walletCurrency ?? undefined,
+        expiresAt ? new Date(expiresAt) : undefined,
+        notificationsEnabled ?? undefined,
+        apiKeyId ?? undefined,
       )
 
       if (result instanceof Error) {
