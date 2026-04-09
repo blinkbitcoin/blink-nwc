@@ -73,8 +73,8 @@ export const checkedToWalletId = (walletId: string): WalletId | InvalidWalletId 
 }
 
 export const checkedToApiKey = (apiKey: string): ApiKey | InvalidApiKey => {
-  if (!apiKey.match(UuidRegex)) {
-    return new InvalidApiKey(apiKey)
+  if (!apiKey || apiKey.trim().length === 0) {
+    return new InvalidApiKey("API key cannot be empty")
   }
   return apiKey as ApiKey
 }

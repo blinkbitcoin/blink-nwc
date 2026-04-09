@@ -64,21 +64,24 @@ describe("Validation Functions", () => {
   })
 
   describe("checkedToApiKey", () => {
-    it("should accept valid UUID", () => {
+    it("should accept valid API key string", () => {
+      const result = checkedToApiKey("blink_api_key_abc123")
+      expect(result).toBe("blink_api_key_abc123")
+    })
+
+    it("should accept UUID-format API key", () => {
       const validUuid = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
       const result = checkedToApiKey(validUuid)
       expect(result).toBe(validUuid)
     })
 
-    it("should reject invalid UUID", () => {
-      const invalidUuid = "not-an-api-key"
-      const result = checkedToApiKey(invalidUuid)
+    it("should reject empty string", () => {
+      const result = checkedToApiKey("")
       expect(result).toBeInstanceOf(ValidationError)
     })
 
-    it("should reject short string", () => {
-      const shortString = "123"
-      const result = checkedToApiKey(shortString)
+    it("should reject whitespace-only string", () => {
+      const result = checkedToApiKey("   ")
       expect(result).toBeInstanceOf(ValidationError)
     })
   })
