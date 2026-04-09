@@ -95,7 +95,7 @@ describe("ensureUnixSeconds", () => {
 })
 
 describe("toMinutes", () => {
-  it("converts seconds to minutes (multiplying by 60)", () => {
+  it("converts seconds to minutes (dividing by 60)", () => {
     expect(toMinutes(1 as Seconds)).toBe(1 / 60)
     expect(toMinutes(10 as Seconds)).toBe(1 / 6)
   })
