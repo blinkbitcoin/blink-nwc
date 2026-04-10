@@ -8,6 +8,7 @@ const mockUpdateLastUsed = jest.fn()
 const mockDecrypt = jest.fn()
 const mockEncrypt = jest.fn()
 const mockParseNip47Response = jest.fn()
+const mockHandle = jest.fn()
 
 let relayInstance: MockRelay | undefined
 let currentSubscription:
@@ -60,6 +61,8 @@ jest.mock("@/domain/connection", () => ({
     pubkey: "a".repeat(64),
     privkey: "b".repeat(64),
   }),
+  hasPermission: (method: string, connection: { permissions?: string[] }) =>
+    connection.permissions?.includes(method) ?? false,
 }))
 
 jest.mock("@/domain/nostr", () => ({
@@ -71,8 +74,15 @@ jest.mock("@/domain/nostr", () => ({
     InfoEvent: 13194,
   },
   hexToBytes: jest.fn().mockReturnValue(new Uint8Array(32)),
-  Nip47UnauthorizedError: class Nip47UnauthorizedError extends Error {},
-  Nip47InternalError: class Nip47InternalError extends Error {},
+  Nip47UnauthorizedError: class Nip47UnauthorizedError extends Error {
+    code = "UNAUTHORIZED"
+  },
+  Nip47InternalError: class Nip47InternalError extends Error {
+    code = "INTERNAL"
+  },
+  Nip47RestrictedError: class Nip47RestrictedError extends Error {
+    code = "RESTRICTED"
+  },
   parseNip47Response: (...args: unknown[]) => mockParseNip47Response(...args),
 }))
 
@@ -97,10 +107,12 @@ describe("NwcSubscriber", () => {
     mockFindByPubkey.mockResolvedValue({
       id: "connection-id",
       appPubkey: "c".repeat(64),
+      permissions: ["get_balance"],
       revoked: false,
       expiresAt: null,
     })
     mockUpdateLastUsed.mockResolvedValue(undefined)
+    mockHandle.mockResolvedValue({ balance: 1000 })
     mockDecrypt.mockResolvedValue(
       JSON.stringify({
         method: "get_balance",
@@ -108,12 +120,27 @@ describe("NwcSubscriber", () => {
       }),
     )
     mockEncrypt.mockResolvedValue("encrypted-response")
-    mockParseNip47Response.mockImplementation((result: unknown) => ({ result }))
+    mockParseNip47Response.mockImplementation((result: unknown) => {
+      if (
+        result instanceof Error &&
+        "code" in result &&
+        typeof result.code === "string"
+      ) {
+        return {
+          error: {
+            code: result.code,
+            message: result.message,
+          },
+        }
+      }
+
+      return { result }
+    })
   })
 
   it("awaits nip04 encryption before publishing the response event", async () => {
     const subscriber = NwcSubscriber()
-    const stop = subscriber.subscribe(async () => ({ balance: 1000 }) as never)
+    const stop = subscriber.subscribe(mockHandle)
 
     await flushMicrotasks()
 
@@ -135,11 +162,50 @@ describe("NwcSubscriber", () => {
       }),
       "nip04",
     )
+    expect(mockHandle).toHaveBeenCalledTimes(1)
     expect(mockPublish).toHaveBeenLastCalledWith(
       expect.objectContaining({
         kind: 23195,
         content: "encrypted-response",
       }),
+    )
+
+    await stop()
+  })
+
+  it("rejects requests for methods outside the connection allowlist", async () => {
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+    mockDecrypt.mockResolvedValue(
+      JSON.stringify({
+        method: "pay_invoice",
+        params: {},
+      }),
+    )
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+
+    await flushMicrotasks()
+
+    expect(mockHandle).not.toHaveBeenCalled()
+    expect(mockEncrypt).toHaveBeenCalledWith(
+      expect.objectContaining({ pubkey: "a".repeat(64) }),
+      "c".repeat(64),
+      JSON.stringify({
+        result_type: "pay_invoice",
+        error: {
+          code: "RESTRICTED",
+          message: "Connection does not have permission for this method",
+        },
+      }),
+      "nip04",
     )
 
     await stop()

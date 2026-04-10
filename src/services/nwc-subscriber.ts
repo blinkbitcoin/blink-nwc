@@ -5,7 +5,7 @@ import { EventTemplate, finalizeEvent, Relay, verifyEvent } from "nostr-tools"
 import { Subscription } from "nostr-tools/lib/types/abstract-relay"
 
 import { NOSTR_RELAY_URL, SUPPORTED_NWC_METHODS } from "@/config"
-import { getServerKeypair, NwcConnection } from "@/domain/connection"
+import { getServerKeypair, hasPermission, NwcConnection } from "@/domain/connection"
 import {
   Nip47EncryptionType,
   Nip47MethodType,
@@ -20,6 +20,7 @@ import {
   hexToBytes,
   Nip47UnauthorizedError,
   Nip47InternalError,
+  Nip47RestrictedError,
   parseNip47Response,
 } from "@/domain/nostr"
 import { ConnectionsRepository } from "@/services/db"
@@ -216,6 +217,25 @@ export const NwcSubscriber = () => {
           request.method,
           encryptionType,
           parseNip47Response(new Nip47UnauthorizedError("Connection has expired")),
+        )
+        return
+      }
+
+      if (!hasPermission(request.method, userConnection)) {
+        eventLogger.warn(
+          { connectionId: userConnection.id, method: request.method },
+          "connection is not permitted to use method",
+        )
+        await sendNwcResponse(
+          event.id,
+          event.pubkey as NwcAppPubkey,
+          request.method,
+          encryptionType,
+          parseNip47Response(
+            new Nip47RestrictedError(
+              "Connection does not have permission for this method",
+            ),
+          ),
         )
         return
       }
