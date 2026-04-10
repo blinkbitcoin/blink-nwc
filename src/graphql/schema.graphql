@@ -72,7 +72,6 @@ enum WalletCurrency {
 enum Nip47Method {
     GET_INFO
     GET_BALANCE
-    GET_BUDGET
     MAKE_INVOICE
     PAY_INVOICE
     LOOKUP_INVOICE
