@@ -9,6 +9,7 @@ const mockDecrypt = jest.fn()
 const mockEncrypt = jest.fn()
 const mockParseNip47Response = jest.fn()
 const mockHandle = jest.fn()
+const mockSleep = jest.fn()
 
 let relayInstance: MockRelay | undefined
 let currentSubscription:
@@ -86,6 +87,10 @@ jest.mock("@/domain/nostr", () => ({
   parseNip47Response: (...args: unknown[]) => mockParseNip47Response(...args),
 }))
 
+jest.mock("@/domain/utils", () => ({
+  sleep: (...args: unknown[]) => mockSleep(...args),
+}))
+
 import { NwcSubscriber } from "@/services/nwc-subscriber"
 
 const flushMicrotasks = async () => {
@@ -120,6 +125,7 @@ describe("NwcSubscriber", () => {
       }),
     )
     mockEncrypt.mockResolvedValue("encrypted-response")
+    mockSleep.mockResolvedValue(undefined)
     mockParseNip47Response.mockImplementation((result: unknown) => {
       if (
         result instanceof Error &&
@@ -169,6 +175,61 @@ describe("NwcSubscriber", () => {
         content: "encrypted-response",
       }),
     )
+
+    await stop()
+  })
+
+  it("retries relay publish failures that escape event processing", async () => {
+    let publishAttempts = 0
+    mockPublish.mockImplementation(async (event: { kind?: number }) => {
+      if (event.kind === 23195) {
+        publishAttempts += 1
+        if (publishAttempts === 1) {
+          throw new Error("relay publish failed")
+        }
+      }
+    })
+
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+
+    await flushMicrotasks()
+
+    expect(mockSleep).toHaveBeenCalledWith(1000)
+    expect(mockHandle).toHaveBeenCalledTimes(2)
+    expect(publishAttempts).toBe(2)
+
+    await stop()
+  })
+
+  it("does not retry non-retryable handler failures", async () => {
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+    mockHandle.mockRejectedValue(new Error("handler failed"))
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+
+    await flushMicrotasks()
+
+    expect(mockSleep).not.toHaveBeenCalled()
+    expect(mockHandle).toHaveBeenCalledTimes(1)
+    expect(mockPublish).toHaveBeenCalledTimes(1)
 
     await stop()
   })

@@ -6,6 +6,7 @@ import { Subscription } from "nostr-tools/lib/types/abstract-relay"
 
 import { NOSTR_RELAY_URL, SUPPORTED_NWC_METHODS } from "@/config"
 import { getServerKeypair, hasPermission, NwcConnection } from "@/domain/connection"
+import { parseErrorFromUnknown } from "@/domain/errors"
 import {
   Nip47EncryptionType,
   Nip47MethodType,
@@ -26,6 +27,17 @@ import {
 import { ConnectionsRepository } from "@/services/db"
 import { baseLogger } from "@/services/logger"
 import { sleep } from "@/domain/utils"
+
+class RetryableEventProcessingError extends Error {
+  originalError: Error
+
+  constructor(message: string, error: unknown) {
+    const originalError = parseErrorFromUnknown(error)
+    super(`${message}: ${originalError.message}`)
+    this.name = this.constructor.name
+    this.originalError = originalError
+  }
+}
 
 export const NwcSubscriber = () => {
   const logger = baseLogger.child({ module: "nwc-subscriber" })
@@ -101,6 +113,10 @@ export const NwcSubscriber = () => {
     }
 
     const MAX_EVENT_RETRIES = 2
+    const isRetryableEventProcessingError = (
+      error: unknown,
+    ): error is RetryableEventProcessingError =>
+      error instanceof RetryableEventProcessingError
 
     const handleEvent = async (
       event: any,
@@ -113,10 +129,10 @@ export const NwcSubscriber = () => {
       try {
         await processEvent(event, handle)
       } catch (err) {
-        if (attempt < MAX_EVENT_RETRIES) {
+        if (isRetryableEventProcessingError(err) && attempt < MAX_EVENT_RETRIES) {
           logger.warn(
             {
-              err,
+              err: err.originalError,
               eventId: event.id,
               attempt: attempt + 1,
               maxRetries: MAX_EVENT_RETRIES,
@@ -127,8 +143,15 @@ export const NwcSubscriber = () => {
           return handleEvent(event, handle, attempt + 1)
         }
         logger.error(
-          { err, eventId: event.id, attempts: MAX_EVENT_RETRIES },
-          "failed to process event after retries",
+          {
+            err: err instanceof RetryableEventProcessingError ? err.originalError : err,
+            eventId: event.id,
+            attempts: attempt + 1,
+            retryable: isRetryableEventProcessingError(err),
+          },
+          isRetryableEventProcessingError(err)
+            ? "failed to process event after retries"
+            : "failed to process event without retry",
         )
       }
     }
@@ -334,7 +357,11 @@ export const NwcSubscriber = () => {
       responseEventTemplate,
       hexToBytes(serverKeypair.privkey),
     )
-    await r.publish(responseEvent)
+    try {
+      await r.publish(responseEvent)
+    } catch (err) {
+      throw new RetryableEventProcessingError("Failed to publish NWC response", err)
+    }
   }
 
   const backoff = async (retries: number) => {
