@@ -290,7 +290,7 @@ export const NwcSubscriber = () => {
     encryptionType: Nip47EncryptionType,
     response: Nip47Response,
   ) => {
-    const encryptedContent = encrypt(
+    const encryptedContent = await encrypt(
       serverKeypair,
       appPk,
       JSON.stringify({

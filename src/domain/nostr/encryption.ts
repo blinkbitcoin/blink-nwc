@@ -29,12 +29,12 @@ const decrypt = async (
   return nip44.decrypt(content, key)
 }
 
-const encrypt = (
+const encrypt = async (
   serverKeypair: ServerNostrKeypair,
   appPubkey: NwcAppPubkey,
   content: string,
   encryptionType: Nip47EncryptionType,
-) => {
+): Promise<string> => {
   // legacy compatibility for nip04. nip44 should be used always when possible
   if (encryptionType === "nip04") {
     return nip04.encrypt(serverKeypair.privkey, appPubkey, content)
