@@ -7,6 +7,7 @@ module.exports = {
   transform: {
     "^.+\\.(t|j)sx?$": ["@swc/jest", swcConfig],
   },
+  setupFiles: ["<rootDir>/test/setup-env.ts"],
   testTimeout: 30000,
   testRegex: ".*\\.spec\\.ts$",
   testEnvironment: "node",
