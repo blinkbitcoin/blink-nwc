@@ -9,6 +9,7 @@ import {
   getNwcConnectionByIdForUser,
   nwcConnectionsByUserId,
   nwcConnectionsByWalletId,
+  revokeNwcConnection,
 } from "@/app/manage-connections"
 import { NwcConnection } from "@/domain/connection"
 import { Nip47Method } from "@/domain/nostr"
@@ -294,6 +295,33 @@ describe("manage-connections", () => {
       const result = await softDeleteNwcConnection(mockAccount, randomUUID())
 
       expect(result).toBeInstanceOf(CouldNotFindNwcConnectionFromIdError)
+    })
+  })
+
+  describe("revokeNwcConnection", () => {
+    it("should return the revoked connection after revocation", async () => {
+      const revokedConnection = {
+        ...mockConnection,
+        revoked: true,
+        revokedAt: new Date(),
+      }
+      mockConnectionsRepository.findById
+        .mockResolvedValueOnce(mockConnection)
+        .mockResolvedValueOnce(revokedConnection)
+      mockConnectionsRepository.softDelete.mockResolvedValue(true)
+
+      const result = await revokeNwcConnection(mockAccount, mockConnection.id)
+
+      expect(result).toEqual(revokedConnection)
+      expect(mockConnectionsRepository.softDelete).toHaveBeenCalledWith(mockConnection.id)
+      expect(mockConnectionsRepository.findById).toHaveBeenNthCalledWith(
+        1,
+        mockConnection.id,
+      )
+      expect(mockConnectionsRepository.findById).toHaveBeenNthCalledWith(
+        2,
+        mockConnection.id,
+      )
     })
   })
 

@@ -2,6 +2,7 @@ import { randomUUID } from "crypto"
 
 const mockConnectionsRepository = {
   findById: jest.fn(),
+  softDelete: jest.fn(),
 }
 
 jest.mock("@/services/db/connections", () => ({
@@ -11,7 +12,7 @@ jest.mock("@/services/db/connections", () => ({
 import { resolvers } from "@/graphql/resolvers"
 import { NwcConnection } from "@/domain/connection"
 import { AccountId, ApiKey, NwcAppPubkey, NwcConnectionId } from "@/domain/index.types"
-import { UserId, WalletId } from "@/domain/core/index.types"
+import { Account, UserId, WalletId } from "@/domain/core/index.types"
 import { Nip47Method } from "@/domain/nostr"
 
 describe("graphql resolvers", () => {
@@ -37,6 +38,11 @@ describe("graphql resolvers", () => {
     createdAt: new Date(),
     updatedAt: new Date(),
   }
+  const domainAccount: Account = {
+    id: connection.accountId,
+    kratosUserId: connection.userId,
+    username: undefined,
+  }
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -53,5 +59,39 @@ describe("graphql resolvers", () => {
 
     expect(result).toBeNull()
     expect(mockConnectionsRepository.findById).toHaveBeenCalledWith(connection.id)
+  })
+
+  it("returns the revoked connection payload from nwcConnectionRevoke", async () => {
+    const revokedConnection: NwcConnection = {
+      ...connection,
+      revoked: true,
+      revokedAt: new Date(),
+    }
+    const nwcConnectionRevokeResolver = resolvers.Mutation!.nwcConnectionRevoke as (
+      parent: unknown,
+      args: { input: { id: string } },
+      context: { domainAccount: Account },
+      info: unknown,
+    ) => Promise<unknown>
+    mockConnectionsRepository.findById
+      .mockResolvedValueOnce(connection)
+      .mockResolvedValueOnce(revokedConnection)
+    mockConnectionsRepository.softDelete.mockResolvedValue(true)
+
+    const result = await nwcConnectionRevokeResolver(
+      {},
+      { input: { id: connection.id } },
+      { domainAccount },
+      {} as never,
+    )
+
+    expect(result).toEqual({
+      errors: [],
+      connection: expect.objectContaining({
+        id: connection.id,
+        revoked: true,
+      }),
+    })
+    expect(mockConnectionsRepository.softDelete).toHaveBeenCalledWith(connection.id)
   })
 })

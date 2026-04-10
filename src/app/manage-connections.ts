@@ -153,6 +153,36 @@ export const softDeleteNwcConnection = async (
   return ConnectionsRepository().softDelete(existingConnection.id)
 }
 
+export const revokeNwcConnection = async (
+  account: Account,
+  connectionId: string,
+): Promise<NwcConnection | ApplicationError> => {
+  const checkedConnectionId = checkedToConnectionId(connectionId)
+  if (checkedConnectionId instanceof Error) {
+    return checkedConnectionId
+  }
+
+  const existingConnection = await ConnectionsRepository().findById(checkedConnectionId)
+  if (existingConnection instanceof Error) {
+    return existingConnection
+  }
+
+  if (existingConnection.accountId !== account.id) {
+    return new CouldNotFindNwcConnectionFromIdError()
+  }
+
+  const revoked = await ConnectionsRepository().softDelete(existingConnection.id)
+  if (revoked instanceof Error) {
+    return revoked
+  }
+
+  if (!revoked) {
+    return new CouldNotFindNwcConnectionFromIdError()
+  }
+
+  return ConnectionsRepository().findById(existingConnection.id)
+}
+
 export const revokeAllNwcConnections = async (
   account: Account,
 ): Promise<number | ApplicationError> => {

@@ -4,9 +4,9 @@ import { mapAndParseErrorForGqlResponse, mapError } from "./error-map"
 import { Example } from "@/app"
 import {
   createNwcConnection,
-  getNwcConnectionById,
   getNwcConnectionByIdForUser,
   nwcConnectionsByUserId,
+  revokeNwcConnection,
   revokeAllNwcConnections,
   softDeleteNwcConnection,
   updateNwcConnection,
@@ -142,13 +142,7 @@ export const resolvers: Resolvers = {
       args: { input: { id: string } },
       { domainAccount }: { domainAccount: Account },
     ) => {
-      const result = await softDeleteNwcConnection(domainAccount, args.input.id)
-
-      if (result instanceof Error) {
-        return { errors: [mapAndParseErrorForGqlResponse(result)] }
-      }
-
-      const connection = await getNwcConnectionById(args.input.id)
+      const connection = await revokeNwcConnection(domainAccount, args.input.id)
       if (connection instanceof Error) {
         return { errors: [mapAndParseErrorForGqlResponse(connection)] }
       }
