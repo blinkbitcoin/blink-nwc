@@ -69,39 +69,11 @@ export type MutationNwcConnectionUpdateArgs = {
 
 export { Nip47Method };
 
-/** Spending limits and usage for a connection (read-only, sourced from API-key service) */
-export type NwcBudget = {
-  __typename?: 'NwcBudget';
-  annualLimitSats?: Maybe<Scalars['Int']['output']>;
-  annualSpentSats: Scalars['Int']['output'];
-  dailyLimitSats?: Maybe<Scalars['Int']['output']>;
-  dailySpentSats: Scalars['Int']['output'];
-  monthlyLimitSats?: Maybe<Scalars['Int']['output']>;
-  monthlySpentSats: Scalars['Int']['output'];
-  weeklyLimitSats?: Maybe<Scalars['Int']['output']>;
-  weeklySpentSats: Scalars['Int']['output'];
-};
-
-export type NwcBudgetInput = {
-  limitSats: Scalars['Int']['input'];
-  period: NwcBudgetPeriod;
-};
-
-export const NwcBudgetPeriod = {
-  Annual: 'ANNUAL',
-  Daily: 'DAILY',
-  Monthly: 'MONTHLY',
-  Weekly: 'WEEKLY'
-} as const;
-
-export type NwcBudgetPeriod = typeof NwcBudgetPeriod[keyof typeof NwcBudgetPeriod];
 export type NwcConnection = {
   __typename?: 'NwcConnection';
   accountId: Scalars['AccountId']['output'];
   alias?: Maybe<Scalars['String']['output']>;
   appPubkey: Scalars['String']['output'];
-  /** Read-only; queried from API-key service via apiKeyId */
-  budget?: Maybe<NwcBudget>;
   createdAt: Scalars['Timestamp']['output'];
   expiresAt?: Maybe<Scalars['Timestamp']['output']>;
   id: Scalars['ID']['output'];
@@ -120,8 +92,6 @@ export type NwcConnectionCreateInput = {
   alias?: InputMaybe<Scalars['String']['input']>;
   apiKey: Scalars['String']['input'];
   apiKeyId?: InputMaybe<Scalars['String']['input']>;
-  /** Budget configuration (passed through to API-key service) */
-  budget?: InputMaybe<NwcBudgetInput>;
   expiresAt?: InputMaybe<Scalars['Timestamp']['input']>;
   notificationsEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   permissions: Array<Nip47Method>;
@@ -164,7 +134,6 @@ export type NwcConnectionRevokePayload = {
 
 export type NwcConnectionUpdateInput = {
   alias?: InputMaybe<Scalars['String']['input']>;
-  budget?: InputMaybe<NwcBudgetInput>;
   id: Scalars['ID']['input'];
   notificationsEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   permissions?: InputMaybe<Array<Nip47Method>>;
@@ -299,9 +268,6 @@ export type ResolversTypes = ResolversObject<{
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   Mutation: ResolverTypeWrapper<{}>;
   Nip47Method: Nip47Method;
-  NwcBudget: ResolverTypeWrapper<NwcBudget>;
-  NwcBudgetInput: NwcBudgetInput;
-  NwcBudgetPeriod: NwcBudgetPeriod;
   NwcConnection: ResolverTypeWrapper<NwcConnection>;
   NwcConnectionCreateInput: NwcConnectionCreateInput;
   NwcConnectionCreatePayload: ResolverTypeWrapper<Omit<NwcConnectionCreatePayload, 'errors'> & { errors: Array<ResolversTypes['Error']> }>;
@@ -332,8 +298,6 @@ export type ResolversParentTypes = ResolversObject<{
   ID: Scalars['ID']['output'];
   Int: Scalars['Int']['output'];
   Mutation: {};
-  NwcBudget: NwcBudget;
-  NwcBudgetInput: NwcBudgetInput;
   NwcConnection: NwcConnection;
   NwcConnectionCreateInput: NwcConnectionCreateInput;
   NwcConnectionCreatePayload: Omit<NwcConnectionCreatePayload, 'errors'> & { errors: Array<ResolversParentTypes['Error']> };
@@ -379,25 +343,12 @@ export type MutationResolvers<ContextType = any, ParentType extends ResolversPar
   nwcConnectionUpdate?: Resolver<ResolversTypes['NwcConnectionUpdatePayload'], ParentType, ContextType, RequireFields<MutationNwcConnectionUpdateArgs, 'input'>>;
 }>;
 
-export type Nip47MethodResolvers = EnumResolverSignature<{ GET_BALANCE?: any, GET_BUDGET?: any, GET_INFO?: any, LIST_TRANSACTIONS?: any, LOOKUP_INVOICE?: any, MAKE_INVOICE?: any, PAY_INVOICE?: any }, ResolversTypes['Nip47Method']>;
-
-export type NwcBudgetResolvers<ContextType = any, ParentType extends ResolversParentTypes['NwcBudget'] = ResolversParentTypes['NwcBudget']> = ResolversObject<{
-  annualLimitSats?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  annualSpentSats?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  dailyLimitSats?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  dailySpentSats?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  monthlyLimitSats?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  monthlySpentSats?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  weeklyLimitSats?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  weeklySpentSats?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-}>;
+export type Nip47MethodResolvers = EnumResolverSignature<{ GET_BALANCE?: any, GET_INFO?: any, LIST_TRANSACTIONS?: any, LOOKUP_INVOICE?: any, MAKE_INVOICE?: any, PAY_INVOICE?: any }, ResolversTypes['Nip47Method']>;
 
 export type NwcConnectionResolvers<ContextType = any, ParentType extends ResolversParentTypes['NwcConnection'] = ResolversParentTypes['NwcConnection']> = ResolversObject<{
   accountId?: Resolver<ResolversTypes['AccountId'], ParentType, ContextType>;
   alias?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   appPubkey?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  budget?: Resolver<Maybe<ResolversTypes['NwcBudget']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['Timestamp'], ParentType, ContextType>;
   expiresAt?: Resolver<Maybe<ResolversTypes['Timestamp']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
@@ -484,7 +435,6 @@ export type Resolvers<ContextType = any> = ResolversObject<{
   GraphQLApplicationError?: GraphQlApplicationErrorResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   Nip47Method?: Nip47MethodResolvers;
-  NwcBudget?: NwcBudgetResolvers<ContextType>;
   NwcConnection?: NwcConnectionResolvers<ContextType>;
   NwcConnectionCreatePayload?: NwcConnectionCreatePayloadResolvers<ContextType>;
   NwcConnectionDeletePayload?: NwcConnectionDeletePayloadResolvers<ContextType>;
