@@ -43,6 +43,7 @@ export const NwcSubscriber = () => {
   const logger = baseLogger.child({ module: "nwc-subscriber" })
   const r = new Relay(NOSTR_RELAY_URL)
   const serverKeypair = getServerKeypair()
+  const connectionsRepository = ConnectionsRepository()
 
   const subscribe = (
     handle: (
@@ -219,7 +220,7 @@ export const NwcSubscriber = () => {
 
       eventLogger.info({ method: request.method }, "processing NWC request")
 
-      const userConnection = await ConnectionsRepository().findByPubkey(
+      const userConnection = await connectionsRepository.findByPubkey(
         event.pubkey as NwcAppPubkey,
       )
 
@@ -268,14 +269,12 @@ export const NwcSubscriber = () => {
         return
       }
 
-      ConnectionsRepository()
-        .updateLastUsed(userConnection.id)
-        .catch((err) => {
-          eventLogger.error(
-            { err, connectionId: userConnection.id },
-            "failed to update last_used_at",
-          )
-        })
+      connectionsRepository.updateLastUsed(userConnection.id).catch((err) => {
+        eventLogger.error(
+          { err, connectionId: userConnection.id },
+          "failed to update last_used_at",
+        )
+      })
 
       const response = await handle(request, userConnection)
       await sendNwcResponse(

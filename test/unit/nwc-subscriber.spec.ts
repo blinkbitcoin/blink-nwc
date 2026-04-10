@@ -10,6 +10,7 @@ const mockEncrypt = jest.fn()
 const mockParseNip47Response = jest.fn()
 const mockHandle = jest.fn()
 const mockSleep = jest.fn()
+const mockConnectionsRepository = jest.fn()
 
 let relayInstance: MockRelay | undefined
 let currentSubscription:
@@ -39,10 +40,11 @@ jest.mock("nostr-tools", () => ({
 }))
 
 jest.mock("@/services/db", () => ({
-  ConnectionsRepository: () => ({
-    findByPubkey: mockFindByPubkey,
-    updateLastUsed: mockUpdateLastUsed,
-  }),
+  ConnectionsRepository: () =>
+    mockConnectionsRepository({
+      findByPubkey: mockFindByPubkey,
+      updateLastUsed: mockUpdateLastUsed,
+    }),
 }))
 
 jest.mock("@/config", () => ({
@@ -107,6 +109,7 @@ describe("NwcSubscriber", () => {
       close: jest.fn(),
     }
     mockSubscribe.mockImplementation(() => currentSubscription)
+    mockConnectionsRepository.mockImplementation((repository) => repository)
     mockVerifyEvent.mockReturnValue(true)
     mockFinalizeEvent.mockImplementation((template: unknown) => template)
     mockFindByPubkey.mockResolvedValue({
@@ -175,6 +178,28 @@ describe("NwcSubscriber", () => {
         content: "encrypted-response",
       }),
     )
+
+    await stop()
+  })
+
+  it("reuses a single repository instance across subscriber event handling", async () => {
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+
+    await flushMicrotasks()
+
+    expect(mockConnectionsRepository).toHaveBeenCalledTimes(1)
+    expect(mockFindByPubkey).toHaveBeenCalledTimes(1)
+    expect(mockUpdateLastUsed).toHaveBeenCalledTimes(1)
 
     await stop()
   })
