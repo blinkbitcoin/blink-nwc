@@ -315,6 +315,9 @@ describe("Validation Functions", () => {
     it("should reject negative number", () => {
       const result = checkedToMsatAmount(-100)
       expect(result).toBeInstanceOf(ValidationError)
+      expect((result as ValidationError).message).toBe(
+        "Amount must be a non-negative integer",
+      )
     })
 
     it("should reject decimal number", () => {

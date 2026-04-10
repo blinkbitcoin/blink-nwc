@@ -200,7 +200,7 @@ export const checkedToBolt11Invoice = (
 
 export const checkedToMsatAmount = (amount: unknown): MilliSatoshis | ValidationError => {
   if (!isNonNegativeInteger(amount)) {
-    return new InvalidAmount("Amount must be a positive integer")
+    return new InvalidAmount("Amount must be a non-negative integer")
   }
   return amount as MilliSatoshis
 }
