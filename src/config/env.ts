@@ -14,6 +14,13 @@ export const env = createEnv({
     LOGLEVEL: z
       .enum(["fatal", "error", "warn", "info", "debug", "trace"])
       .default("info"),
+    DATA_ENCRYPTION_KEY:
+      process.env.NODE_ENV === "test"
+        ? z
+            .string()
+            .regex(/^[a-f0-9]{64}$/i)
+            .default("0".repeat(64))
+        : z.string().regex(/^[a-f0-9]{64}$/i),
 
     NOSTR_PRIVATE_KEY:
       process.env.NODE_ENV === "production"
@@ -30,6 +37,7 @@ export const env = createEnv({
   runtimeEnvStrict: {
     COMMITHASH: process.env.COMMITHASH,
     LOGLEVEL: process.env.LOGLEVEL,
+    DATA_ENCRYPTION_KEY: process.env.DATA_ENCRYPTION_KEY,
     NOSTR_PRIVATE_KEY: process.env.NOSTR_PRIVATE_KEY,
     ROUTER_URL: process.env.ROUTER_URL,
     NOSTR_RELAY_URL: process.env.NOSTR_RELAY_URL,

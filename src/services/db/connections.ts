@@ -21,6 +21,7 @@ import {
 import { parseRepositoryError } from "@/services/db/index"
 import { IConnectionsRepository, NwcConnection } from "@/domain/connection"
 import { wrapAsyncFunctionsToRunInSpan } from "@/services/tracing"
+import { decryptSecret, encryptSecret } from "@/services/secret-encryption"
 
 const TABLE_NAME = "nwc_connections"
 
@@ -72,9 +73,9 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
         account_id: data.accountId,
         wallet_id: data.walletId,
         wallet_currency: data.walletCurrency,
-        api_key: data.apiKey,
+        api_key_encrypted: encryptSecret(data.apiKey),
         api_key_id: data.apiKeyId,
-        connection_secret: data.connectionSecret,
+        connection_secret_encrypted: encryptSecret(data.connectionSecret),
         app_pubkey: data.appPubkey,
         permissions: data.permissions,
         notifications_enabled: data.notificationsEnabled,
@@ -334,9 +335,9 @@ const translateConnection = (doc: NwcConnectionRecord): NwcConnection => {
     walletCurrency: doc.wallet_currency as WalletCurrency,
     appPubkey: doc.app_pubkey as NwcAppPubkey,
     permissions: doc.permissions as Nip47MethodType[],
-    apiKey: doc.api_key as ApiKey,
+    apiKey: decryptSecret(doc.api_key_encrypted) as ApiKey,
     apiKeyId: (doc.api_key_id as ApiKeyId) ?? null,
-    connectionSecret: doc.connection_secret as ConnectionSecret,
+    connectionSecret: decryptSecret(doc.connection_secret_encrypted) as ConnectionSecret,
     notificationsEnabled: doc.notifications_enabled,
     revoked: doc.revoked,
     expiresAt: doc.expires_at,

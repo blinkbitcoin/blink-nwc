@@ -7,9 +7,9 @@ export interface NwcConnectionRecord {
   wallet_currency: string
   app_pubkey: string
   permissions: string[]
-  api_key: string
+  api_key_encrypted: string
   api_key_id: string | null
-  connection_secret: string
+  connection_secret_encrypted: string
 
   notifications_enabled: boolean
   revoked: boolean

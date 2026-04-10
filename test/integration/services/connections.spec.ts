@@ -170,6 +170,21 @@ describe("ConnectionsRepository", () => {
       expect(result.createdAt).toBeInstanceOf(Date)
       expect(result.updatedAt).toBeInstanceOf(Date)
     })
+
+    it("should decrypt encrypted secrets when reading by id", async () => {
+      const repo = ConnectionsRepository()
+      const testConn = createTestConnection()
+      const inserted = await insertTestConnection(testConn)
+
+      const result = await repo.findById(inserted.id as NwcConnectionId)
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) {
+        return
+      }
+
+      expect(result.apiKey).toBe(testConn.apiKey)
+      expect(result.connectionSecret).toBe(testConn.connectionSecret)
+    })
   })
 
   describe("create", () => {
@@ -195,6 +210,8 @@ describe("ConnectionsRepository", () => {
 
       const dbConn = await getConnectionByAppPubkey(testConn.appPubkey)
       expect(dbConn).toBeDefined()
+      expect(dbConn?.api_key_encrypted).not.toBe(testConn.apiKey)
+      expect(dbConn?.connection_secret_encrypted).not.toBe(testConn.connectionSecret)
     })
     it("should create connection with alias", async () => {
       const repo = ConnectionsRepository()

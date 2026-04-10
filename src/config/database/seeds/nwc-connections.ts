@@ -1,6 +1,8 @@
 import { Knex } from "knex"
 import { generateSecretKey, getPublicKey } from "nostr-tools"
 
+import { encryptSecret } from "@/services/secret-encryption"
+
 export async function seed(knex: Knex): Promise<void> {
   if (process.env.NODE_ENV === "production") {
     throw new Error("Seeds cannot be run in production")
@@ -19,8 +21,8 @@ export async function seed(knex: Knex): Promise<void> {
       wallet_currency: "BTC",
       app_pubkey: randomPubkey(),
       permissions: ["get_info", "pay_invoice", "get_balance"],
-      api_key: "test_api_key_1",
-      connection_secret: "test_secret_1",
+      api_key_encrypted: encryptSecret("test_api_key_1"),
+      connection_secret_encrypted: encryptSecret("test_secret_1"),
       notifications_enabled: true,
       revoked: false,
       created_at: new Date(),
@@ -35,8 +37,8 @@ export async function seed(knex: Knex): Promise<void> {
       wallet_currency: "BTC",
       app_pubkey: randomPubkey(),
       permissions: ["get_info"],
-      api_key: "test_api_key_2",
-      connection_secret: "test_secret_2",
+      api_key_encrypted: encryptSecret("test_api_key_2"),
+      connection_secret_encrypted: encryptSecret("test_secret_2"),
       notifications_enabled: false,
       revoked: false,
       created_at: new Date(),
@@ -47,8 +49,8 @@ export async function seed(knex: Knex): Promise<void> {
       account_id: knex.fn.uuid(),
       wallet_id: knex.fn.uuid(),
       app_pubkey: randomPubkey(),
-      api_key: "test_api_key_3",
-      connection_secret: "test_secret_3",
+      api_key_encrypted: encryptSecret("test_api_key_3"),
+      connection_secret_encrypted: encryptSecret("test_secret_3"),
     },
   ])
 }

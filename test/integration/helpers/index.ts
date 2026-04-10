@@ -15,6 +15,7 @@ import {
 } from "@/domain/index.types"
 import { UserId, WalletId } from "@/domain/core/index.types"
 import { Nip47Method } from "@/domain/nostr"
+import { encryptSecret } from "@/services/secret-encryption"
 
 let db: Knex | null = null
 
@@ -39,6 +40,7 @@ export const clearAllTables = async (): Promise<void> => {
 
 export const runMigrations = async (): Promise<void> => {
   const testDb = getTestDb()
+  await testDb.migrate.rollback(undefined, true)
   await testDb.migrate.latest()
 }
 
@@ -90,9 +92,9 @@ export const insertTestConnection = async (
       wallet_currency: connection.walletCurrency,
       app_pubkey: connection.appPubkey,
       permissions: connection.permissions,
-      api_key: connection.apiKey,
+      api_key_encrypted: encryptSecret(connection.apiKey),
       api_key_id: connection.apiKeyId,
-      connection_secret: connection.connectionSecret,
+      connection_secret_encrypted: encryptSecret(connection.connectionSecret),
       notifications_enabled: connection.notificationsEnabled,
       revoked: connection.revoked ?? false,
       expires_at: connection.expiresAt,
@@ -128,9 +130,9 @@ export const insertMultipleTestConnections = async (
         wallet_currency: c.walletCurrency,
         app_pubkey: c.appPubkey,
         permissions: c.permissions,
-        api_key: c.apiKey,
+        api_key_encrypted: encryptSecret(c.apiKey),
         api_key_id: c.apiKeyId,
-        connection_secret: c.connectionSecret,
+        connection_secret_encrypted: encryptSecret(c.connectionSecret),
         notifications_enabled: c.notificationsEnabled,
         revoked: c.revoked ?? false,
         expires_at: c.expiresAt,
