@@ -5,6 +5,7 @@ import { Example } from "@/app"
 import {
   createNwcConnection,
   getNwcConnectionById,
+  getNwcConnectionByIdForUser,
   nwcConnectionsByUserId,
   revokeAllNwcConnections,
   softDeleteNwcConnection,
@@ -45,7 +46,7 @@ export const resolvers: Resolvers = {
       return { id: user.id }
     },
     nwcConnection: async (user: { id: string }, { id }: { id: string }) => {
-      const result = await getNwcConnectionById(id)
+      const result = await getNwcConnectionByIdForUser(user.id, id)
       if (result instanceof Error) return null
       return stripSensitiveFields(result)
     },

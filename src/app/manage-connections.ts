@@ -195,6 +195,27 @@ export const getNwcConnectionById = async (
   return connection
 }
 
+export const getNwcConnectionByIdForUser = async (
+  userId: string,
+  connectionId: string,
+): Promise<NwcConnection | ApplicationError> => {
+  const checkedUserId = checkedToUserId(userId)
+  if (checkedUserId instanceof Error) {
+    return checkedUserId
+  }
+
+  const connection = await getNwcConnectionById(connectionId)
+  if (connection instanceof Error) {
+    return connection
+  }
+
+  if (connection.userId !== checkedUserId) {
+    return new CouldNotFindNwcConnectionFromIdError()
+  }
+
+  return connection
+}
+
 export const nwcConnectionsByUserId = async (
   userId: string,
   includeRevoked = false,

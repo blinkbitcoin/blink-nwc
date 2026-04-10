@@ -6,6 +6,7 @@ import {
   softDeleteNwcConnection,
   deleteNwcConnection,
   getNwcConnectionById,
+  getNwcConnectionByIdForUser,
   nwcConnectionsByUserId,
   nwcConnectionsByWalletId,
 } from "@/app/manage-connections"
@@ -347,6 +348,34 @@ describe("manage-connections", () => {
       )
 
       const result = await getNwcConnectionById(randomUUID() as NwcConnectionId)
+
+      expect(result).toBeInstanceOf(CouldNotFindNwcConnectionFromIdError)
+    })
+  })
+
+  describe("getNwcConnectionByIdForUser", () => {
+    it("should return connection for matching user", async () => {
+      mockConnectionsRepository.findById.mockResolvedValue(mockConnection)
+
+      const result = await getNwcConnectionByIdForUser(
+        mockAccount.kratosUserId,
+        mockConnection.id,
+      )
+
+      expect(result).toEqual(mockConnection)
+      expect(mockConnectionsRepository.findById).toHaveBeenCalledWith(mockConnection.id)
+    })
+
+    it("should return not found when connection belongs to another user", async () => {
+      mockConnectionsRepository.findById.mockResolvedValue({
+        ...mockConnection,
+        userId: randomUUID() as UserId,
+      })
+
+      const result = await getNwcConnectionByIdForUser(
+        mockAccount.kratosUserId,
+        mockConnection.id,
+      )
 
       expect(result).toBeInstanceOf(CouldNotFindNwcConnectionFromIdError)
     })
