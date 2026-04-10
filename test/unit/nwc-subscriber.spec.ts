@@ -179,6 +179,28 @@ describe("NwcSubscriber", () => {
     await stop()
   })
 
+  it("subscribes with a since filter to avoid replaying historical events", async () => {
+    const nowSpy = jest.spyOn(Date, "now").mockReturnValue(1710000000000)
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    expect(mockSubscribe).toHaveBeenCalledWith(
+      [
+        {
+          "kinds": [23194],
+          "#p": ["a".repeat(64)],
+          "since": 1710000000,
+        },
+      ],
+      {},
+    )
+
+    nowSpy.mockRestore()
+    await stop()
+  })
+
   it("retries relay publish failures that escape event processing", async () => {
     let publishAttempts = 0
     mockPublish.mockImplementation(async (event: { kind?: number }) => {

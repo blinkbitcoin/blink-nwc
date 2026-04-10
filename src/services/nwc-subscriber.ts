@@ -56,6 +56,7 @@ export const NwcSubscriber = () => {
     let isRunning = true
     let sub: Subscription | undefined
     let retries = 0
+    let requestSince = Math.floor(Date.now() / 1000)
 
     const run = async () => {
       while (isRunning) {
@@ -76,6 +77,7 @@ export const NwcSubscriber = () => {
               {
                 "kinds": [EventKind.Request],
                 "#p": [serverKeypair.pubkey],
+                "since": requestSince,
               },
             ],
             {},
@@ -84,6 +86,9 @@ export const NwcSubscriber = () => {
           retries = 0
 
           sub.onevent = (event) => {
+            if (typeof event.created_at === "number") {
+              requestSince = Math.max(requestSince, event.created_at)
+            }
             handleEvent(event, handle).catch((err) => {
               logger.error({ err, eventId: event.id }, "failed to handle event")
             })
