@@ -1,7 +1,7 @@
 import WebSocket from "ws"
 ;(global as any).WebSocket = WebSocket
 
-import { EventTemplate, finalizeEvent, Relay, verifyEvent } from "nostr-tools"
+import { Event, EventTemplate, finalizeEvent, Relay, verifyEvent } from "nostr-tools"
 import { Subscription } from "nostr-tools/lib/types/abstract-relay"
 
 import { NOSTR_RELAY_URL, SUPPORTED_NWC_METHODS } from "@/config"
@@ -119,7 +119,7 @@ export const NwcSubscriber = () => {
       error instanceof RetryableEventProcessingError
 
     const handleEvent = async (
-      event: any,
+      event: Event,
       handle: (
         request: { method: Nip47MethodType; params: unknown },
         connection: NwcConnection,
@@ -157,7 +157,7 @@ export const NwcSubscriber = () => {
     }
 
     const processEvent = async (
-      event: any,
+      event: Event,
       handle: (
         request: { method: Nip47MethodType; params: unknown },
         connection: NwcConnection,
