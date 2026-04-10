@@ -318,11 +318,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
         if (statusRes?.lnInvoicePaymentStatusByPaymentRequest) {
           const status = statusRes.lnInvoicePaymentStatusByPaymentRequest
           if (status.paymentHash) {
-            return BlinkCoreService().lookupInvoice(
-              apiKey,
-              walletId,
-              status.paymentHash as PaymentHash,
-            )
+            return lookupInvoice(apiKey, walletId, status.paymentHash as PaymentHash)
           }
           return new InvalidResponseError("Tx doesn't contain payment hash!")
         }
