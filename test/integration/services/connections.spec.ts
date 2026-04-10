@@ -20,8 +20,6 @@ import { UserId, WalletId } from "@/domain/core/index.types"
 import {
   CouldNotFindNwcConnectionFromAppPubkeyError,
   CouldNotFindNwcConnectionFromIdError,
-  CouldNotFindNwcConnectionFromUserIdError,
-  CouldNotFindNwcConnectionFromWalletIdError,
   UniqueConstraintViolationError,
 } from "@/domain/errors"
 import { Nip47Method } from "@/domain/nostr"
@@ -518,13 +516,13 @@ describe("ConnectionsRepository", () => {
       })
     })
 
-    it("should return error when no connections found", async () => {
+    it("should return an empty array when no connections found", async () => {
       const repo = ConnectionsRepository()
       const walletId = randomUUID() as WalletId
 
       const result = await repo.findByWalletId(walletId)
 
-      expect(result).toBeInstanceOf(CouldNotFindNwcConnectionFromWalletIdError)
+      expect(result).toEqual([])
     })
 
     it("should include revoked connections", async () => {
@@ -605,13 +603,13 @@ describe("ConnectionsRepository", () => {
       })
     })
 
-    it("should return error when no connections found", async () => {
+    it("should return an empty array when no connections found", async () => {
       const repo = ConnectionsRepository()
       const userId = randomUUID() as UserId
 
       const result = await repo.findByUserId(userId)
 
-      expect(result).toBeInstanceOf(CouldNotFindNwcConnectionFromUserIdError)
+      expect(result).toEqual([])
     })
 
     it("should find connections across multiple wallets", async () => {

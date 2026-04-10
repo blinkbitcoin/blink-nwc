@@ -14,8 +14,6 @@ import { AccountId, UserId, WalletId } from "@/domain/core/index.types"
 import {
   CouldNotFindNwcConnectionFromAppPubkeyError,
   CouldNotFindNwcConnectionFromIdError,
-  CouldNotFindNwcConnectionFromUserIdError,
-  CouldNotFindNwcConnectionFromWalletIdError,
   RepositoryError,
 } from "@/domain/errors"
 import { parseRepositoryError } from "@/services/db/index"
@@ -178,7 +176,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
       })
 
       if (!docs || !docs.length) {
-        return new CouldNotFindNwcConnectionFromWalletIdError()
+        return []
       }
 
       return docs.map(translateConnection)
@@ -231,7 +229,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
       })
 
       if (!docs || !docs.length) {
-        return new CouldNotFindNwcConnectionFromUserIdError()
+        return []
       }
 
       return docs.map(translateConnection)
