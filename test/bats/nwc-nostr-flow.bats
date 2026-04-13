@@ -4,7 +4,7 @@ load "helpers/setup-and-teardown"
 
 NWC_CONNECTION_URI_CACHE_KEY="alice_nwc_connection_uri"
 NWC_CONNECTION_ALIAS="bats-smoke"
-NWC_DEFAULT_ALIAS="blink_user"
+NWC_DEFAULT_ALIAS="Blink"
 
 setup_file() {
   start_server
