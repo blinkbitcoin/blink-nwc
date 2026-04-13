@@ -8,6 +8,7 @@ import {
   Nip47ListTransactionsRequest,
   Nip47LookupInvoiceRequest,
   Nip47MethodType,
+  NwcPermissionType,
   Nip47PayInvoiceRequest,
   NwcConnectionAlias,
   NwcConnectionId,
@@ -24,7 +25,9 @@ import {
   InvalidHash,
   InvalidInvoice,
   InvalidNwcAlias,
+  InvalidNwcBudget,
   InvalidNwcConnectionId,
+  InvalidNwcUri,
   InvalidPaymentDirection,
   InvalidPermissions,
   InvalidUnixTimestamp,
@@ -37,6 +40,12 @@ import { UserId, WalletId } from "@/domain/core/index.types"
 import { Nip47MakeInvoiceRequest } from "@/domain/nostr/index.types"
 import { PaymentDirection as pt } from "@/domain/nostr/payment-direction"
 import { SUPPORTED_NWC_METHODS } from "@/config"
+import { SUPPORTED_NWC_NOTIFICATION_PERMISSIONS } from "@/domain/nostr/notification-type"
+import {
+  isNwcBudgetPeriod,
+  NwcBudgetInput,
+  NwcBudgetPeriodType,
+} from "@/domain/nwc-budget"
 
 // borrowed from
 // https://github.com/blinkbitcoin/blink/blob/3c8841395f94346024c85c0137236ac4ca4d8d70/core/api/src/domain/shared/validation.ts
@@ -86,20 +95,35 @@ export const checkedToApiKeyId = (apiKeyId: string): ApiKeyId | InvalidApiKey =>
   return apiKeyId as ApiKeyId
 }
 
+export const checkedToNwcUri = (uri: unknown): string | InvalidNwcUri => {
+  if (typeof uri !== "string" || uri.trim().length === 0) {
+    return new InvalidNwcUri("NWC URI cannot be empty")
+  }
+
+  return uri.trim()
+}
+
 export const checkedToPermissions = (
   permissions: string[],
-): Nip47MethodType[] | ValidationError => {
+): NwcPermissionType[] | ValidationError => {
   if (!Array.isArray(permissions)) {
     return new InvalidPermissions("Permissions must be an array")
   }
 
   for (const permission of permissions) {
-    if (!SUPPORTED_NWC_METHODS.includes(permission as Nip47MethodType)) {
+    const isMethodPermission = SUPPORTED_NWC_METHODS.includes(
+      permission as Nip47MethodType,
+    )
+    const isNotificationPermission = SUPPORTED_NWC_NOTIFICATION_PERMISSIONS.includes(
+      permission as (typeof SUPPORTED_NWC_NOTIFICATION_PERMISSIONS)[number],
+    )
+
+    if (!isMethodPermission && !isNotificationPermission) {
       return new InvalidPermissions(`Invalid permission: ${permission}`)
     }
   }
 
-  return permissions as Nip47MethodType[]
+  return permissions as NwcPermissionType[]
 }
 
 export const checkedToNwcAlias = (
@@ -125,6 +149,36 @@ export const checkedToNwcAlias = (
   return alias as NwcConnectionAlias
 }
 
+export const checkedToNwcBudgetInput = (
+  budget: unknown,
+): NwcBudgetInput | null | ValidationError => {
+  if (budget == null) {
+    return null
+  }
+
+  if (typeof budget !== "object" || Array.isArray(budget)) {
+    return new InvalidNwcBudget("Budget must be an object")
+  }
+
+  const { amountSats, period } = budget as {
+    amountSats?: unknown
+    period?: unknown
+  }
+
+  if (!isPositiveInteger(amountSats)) {
+    return new InvalidNwcBudget("Budget amount must be a positive integer")
+  }
+
+  if (!isNwcBudgetPeriod(period)) {
+    return new InvalidNwcBudget(`Invalid budget period: ${String(period)}`)
+  }
+
+  return {
+    amountSats,
+    period: period as NwcBudgetPeriodType,
+  }
+}
+
 export const checkedToConnectionId = (
   connectionId: unknown,
 ): NwcConnectionId | ValidationError => {
@@ -144,7 +198,7 @@ export const checkedToNwcUpdates = (updates: {
 }) => {
   const checkedUpdates: Partial<{
     alias: NwcConnectionAlias | null
-    permissions: Nip47MethodType[]
+    permissions: NwcPermissionType[]
   }> = {}
 
   if ("alias" in updates) {
