@@ -14,11 +14,12 @@ import {
   ConnectionSecret,
   WalletCurrency,
   Nip47MethodType,
+  NwcPermissionType,
 } from "./index.types"
 
 import { NOSTR_PRIVATE_KEY } from "@/config"
 import { AccountId, UserId, WalletId } from "@/domain/core/index.types"
-import { RepositoryError } from "@/domain/errors"
+import { InvalidNwcUri, RepositoryError } from "@/domain/errors"
 
 export interface IConnectionsRepository {
   create(
@@ -40,6 +41,7 @@ export interface IConnectionsRepository {
         | "apiKeyId"
         | "appPubkey"
         | "connectionSecret"
+        | "notificationsEnabled"
         | "createdAt"
         | "updatedAt"
         | "revoked"
@@ -61,7 +63,7 @@ export interface IConnectionsRepository {
 
   updatePermissions(
     id: NwcConnectionId,
-    permissions: Nip47MethodType[],
+    permissions: NwcPermissionType[],
   ): Promise<NwcConnection | RepositoryError>
 
   updateLastUsed(id: NwcConnectionId): Promise<void | RepositoryError>
@@ -86,7 +88,7 @@ export interface NwcConnection {
 
   alias: NwcConnectionAlias | null
   appPubkey: NwcAppPubkey
-  permissions: Nip47MethodType[]
+  permissions: NwcPermissionType[]
   notificationsEnabled: boolean
 
   revoked: boolean
@@ -102,6 +104,13 @@ export interface NwcUriParams {
   pubkey: ServerNostrPubkey
   relay: NwcRelay
   secret: NwcSecret
+}
+
+export interface ParsedNwcUri {
+  serverPubkey: ServerNostrPubkey
+  relay: NwcRelay
+  secret: NwcSecret
+  appPubkey: NwcAppPubkey
 }
 
 /**
@@ -122,6 +131,47 @@ export const stringifyNwcUri = ({ pubkey, relay, secret }: NwcUriParams): NwcUri
     secret: secret,
   })
   return `nostr+walletconnect://${pubkey}?${params.toString()}` as NwcUri
+}
+
+export const parseNwcUri = (uri: string): ParsedNwcUri | InvalidNwcUri => {
+  let parsed: URL
+
+  try {
+    parsed = new URL(uri)
+  } catch {
+    return new InvalidNwcUri("NWC URI must be a valid URL")
+  }
+
+  if (parsed.protocol !== "nostr+walletconnect:") {
+    return new InvalidNwcUri("NWC URI must use nostr+walletconnect://")
+  }
+
+  if (!/^[0-9a-f]{64}$/i.test(parsed.host)) {
+    return new InvalidNwcUri("NWC URI contains an invalid server pubkey")
+  }
+
+  const relay = parsed.searchParams.get("relay")
+  if (!relay) {
+    return new InvalidNwcUri("NWC URI must include relay information")
+  }
+
+  const secret = parsed.searchParams.get("secret")
+  if (!secret) {
+    return new InvalidNwcUri("NWC URI must include a secret")
+  }
+
+  if (!/^[0-9a-f]{64}$/i.test(secret)) {
+    return new InvalidNwcUri("NWC URI secret must be a 64-character hex key")
+  }
+
+  const appPubkey = getPublicKey(Buffer.from(secret, "hex")) as NwcAppPubkey
+
+  return {
+    serverPubkey: parsed.host as ServerNostrPubkey,
+    relay: relay as NwcRelay,
+    secret: secret as NwcSecret,
+    appPubkey,
+  }
 }
 
 export const hasPermission = (method: Nip47MethodType, connection: NwcConnection) => {

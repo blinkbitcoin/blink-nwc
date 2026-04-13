@@ -25,6 +25,8 @@ export class InvalidUserId extends ValidationError {}
 export class InvalidApiKey extends ValidationError {}
 export class InvalidPermissions extends ValidationError {}
 export class InvalidNwcConnectionId extends ValidationError {}
+export class InvalidNwcUri extends ValidationError {}
+export class InvalidNwcBudget extends ValidationError {}
 export class InvalidInvoice extends ValidationError {}
 export class InvalidAmount extends ValidationError {}
 export class InvalidNwcAlias extends ValidationError {}

@@ -3,10 +3,11 @@ import { ApolloClient, ApolloLink, InMemoryCache, HttpLink } from "@apollo/clien
 import { ROUTER_URL } from "@/config"
 
 const authLink = new ApolloLink((operation, forward) => {
-  const { apiKey } = operation.getContext()
+  const { apiKey, authorization } = operation.getContext()
   operation.setContext({
     headers: {
-      Authorization: apiKey ? `Bearer ${apiKey}` : "",
+      ...(apiKey ? { "X-API-KEY": apiKey } : {}),
+      ...(authorization ? { Authorization: authorization } : {}),
     },
   })
   return forward(operation)

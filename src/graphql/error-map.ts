@@ -38,6 +38,8 @@ export const mapError = (error: ApplicationError): CustomGraphQLError => {
     case "InvalidApiKey":
     case "InvalidPermissions":
     case "InvalidNwcConnectionId":
+    case "InvalidNwcUri":
+    case "InvalidNwcBudget":
     case "InvalidInvoice":
     case "InvalidAmount":
     case "InvalidNwcAlias":

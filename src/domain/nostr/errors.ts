@@ -47,6 +47,11 @@ export class Nip47InternalError extends Nip47Error {
     super(message, "INTERNAL")
   }
 }
+export class Nip47UnsupportedEncryptionError extends Nip47Error {
+  constructor(message: string) {
+    super(message, "UNSUPPORTED_ENCRYPTION")
+  }
+}
 export class Nip47OtherError extends Nip47Error {
   constructor(message: string) {
     super(message, "OTHER")
