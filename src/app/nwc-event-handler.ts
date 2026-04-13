@@ -4,6 +4,7 @@ import {
   WALLET_ALIAS,
   WALLET_COLOR,
 } from "@/config"
+import { parseErrorForNip47Response } from "@/app/nwc-event-handler.error"
 import { getServerKeypair } from "@/domain/connection"
 import { NwcConnection, hasPermission } from "@/domain/connection"
 import { ErrorLevel } from "@/domain/errors"
@@ -21,6 +22,7 @@ import {
   recordExceptionInCurrentSpan,
   wrapAsyncToRunInSpan,
 } from "@/services/tracing"
+import { toMilliSatoshis } from "@/domain/units"
 
 const NwcEventHandler = () => {
   const logger = baseLogger.child({ module: "nwc-event-handler" })
@@ -108,6 +110,21 @@ const NwcEventHandler = () => {
           block_hash: info.blockHash,
         }
       }
+    } else if (request.method === "get_balance") {
+      addAttributesToCurrentSpan({
+        walletId: connection.walletId,
+        userId: connection.userId,
+        connectionId: connection.id,
+      })
+
+      const result = await blinkCoreService.getBalance(
+        connection.apiKey,
+        connection.walletId,
+      )
+      response =
+        result instanceof Error
+          ? parseErrorForNip47Response(result)
+          : { balance: toMilliSatoshis(result.balance) }
     } else {
       response = new Nip47NotImplementedError(
         `Method not implemented yet: ${request.method}`,
