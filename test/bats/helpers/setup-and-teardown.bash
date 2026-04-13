@@ -4,7 +4,16 @@ source $(dirname "$BASH_SOURCE")/common.bash
 SERVER_PID_FILE=$REPO_ROOT/test/bats/.galoy_server_pid
 
 start_server() {
-  background env RUN_CRON_IN_GQL_SERVER=true node lib/src/server/subgraph.js > .e2e-server.log
+  background env \
+    RUN_CRON_IN_GQL_SERVER=true \
+    DATA_ENCRYPTION_KEY="${DATA_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}" \
+    NOSTR_PRIVATE_KEY="${NOSTR_PRIVATE_KEY:-1111111111111111111111111111111111111111111111111111111111111111}" \
+    DB_HOST="${DB_HOST:-localhost}" \
+    DB_PORT="${DB_PORT:-5435}" \
+    DB_USER="${DB_USER:-blink-nwc-usr}" \
+    DB_PWD="${DB_PWD:-blink-nwc-pwd}" \
+    DB_DB="${DB_DB:-blink-nwc}" \
+    node lib/src/server/subgraph.js > .e2e-server.log
   echo $! > $SERVER_PID_FILE
 
   server_is_up() {
