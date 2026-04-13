@@ -23,6 +23,7 @@ import {
   UniqueConstraintViolationError,
 } from "@/domain/errors"
 import { Nip47Method } from "@/domain/nostr"
+import { toNotificationPermission } from "@/domain/nostr/notification-type"
 
 describe("ConnectionsRepository", () => {
   beforeAll(async () => {
@@ -239,7 +240,10 @@ describe("ConnectionsRepository", () => {
     })
     it("should create connection with notifications disabled", async () => {
       const repo = ConnectionsRepository()
-      const testConn = createTestConnection({ notificationsEnabled: false })
+      const testConn = createTestConnection({
+        permissions: [Nip47Method.GetInfo],
+        notificationsEnabled: false,
+      })
 
       const result = await repo.create(testConn)
 
@@ -263,7 +267,10 @@ describe("ConnectionsRepository", () => {
     })
     it("should create connection with notifications enabled", async () => {
       const repo = ConnectionsRepository()
-      const testConn = createTestConnection({ notificationsEnabled: true })
+      const testConn = createTestConnection({
+        permissions: [Nip47Method.GetInfo, "notifications:payment_received" as any],
+        notificationsEnabled: true,
+      })
 
       const result = await repo.create(testConn)
 
@@ -318,6 +325,7 @@ describe("ConnectionsRepository", () => {
         return
       }
       expect(result.permissions).toEqual(newPermissions)
+      expect(result.notificationsEnabled).toBe(false)
     })
 
     it("should update both alias and permissions", async () => {
@@ -350,23 +358,6 @@ describe("ConnectionsRepository", () => {
         return
       }
       expect(result.alias).toBeNull()
-    })
-
-    it("should update notifications", async () => {
-      const repo = ConnectionsRepository()
-      const testConn = createTestConnection()
-      const inserted = await insertTestConnection(testConn)
-      expect(inserted.notifications_enabled).toBe(false)
-
-      const result = await repo.update(inserted.id as NwcConnectionId, {
-        notificationsEnabled: true,
-      })
-
-      expect(result).not.toBeInstanceOf(Error)
-      if (result instanceof Error) {
-        return
-      }
-      expect(result.notificationsEnabled).toBe(true)
     })
 
     it("should return error when updating non-existent connection", async () => {
@@ -780,6 +771,28 @@ describe("ConnectionsRepository", () => {
       }
       expect(result.updatedAt.getTime()).toBeGreaterThan(inserted.updated_at.getTime())
     })
+
+    it("should derive notifications from updated permissions", async () => {
+      const repo = ConnectionsRepository()
+      const inserted = await insertTestConnection(
+        createTestConnection({
+          permissions: [Nip47Method.GetInfo],
+          notificationsEnabled: false,
+        }),
+      )
+
+      const result = await repo.updatePermissions(inserted.id as NwcConnectionId, [
+        Nip47Method.GetInfo,
+        toNotificationPermission("payment_received"),
+      ])
+
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) {
+        return
+      }
+      expect(result.permissions).toContain("notifications:payment_received")
+      expect(result.notificationsEnabled).toBe(true)
+    })
   })
 
   describe("Edge Cases & Integration", () => {
@@ -1046,7 +1059,7 @@ describe("ConnectionsRepository", () => {
       expect(result).toHaveLength(0)
     })
 
-    it("should exclude connections with notifications disabled", async () => {
+    it("should match on notification permission even when the legacy flag is false", async () => {
       const repo = ConnectionsRepository()
       const walletId = randomUUID() as WalletId
 
@@ -1065,7 +1078,7 @@ describe("ConnectionsRepository", () => {
 
       expect(result).not.toBeInstanceOf(Error)
       if (result instanceof Error) return
-      expect(result).toHaveLength(0)
+      expect(result).toHaveLength(1)
     })
 
     it("should return empty array when no matches", async () => {

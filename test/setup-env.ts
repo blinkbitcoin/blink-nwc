@@ -1,7 +1,18 @@
-process.env.NOSTR_PRIVATE_KEY ??= "1".repeat(64)
-process.env.DATA_ENCRYPTION_KEY ??= "0".repeat(64)
-process.env.DB_HOST ??= "localhost"
-process.env.DB_PORT ??= "5435"
-process.env.DB_USER ??= "blink-nwc-usr"
-process.env.DB_PWD ??= "blink-nwc-pwd"
-process.env.DB_DB ??= "blink-nwc"
+import fs from "fs"
+import path from "path"
+
+const defaultsPath = path.join(__dirname, "test-env.defaults")
+const defaults = fs.readFileSync(defaultsPath, "utf8")
+
+for (const line of defaults.split("\n")) {
+  const trimmedLine = line.trim()
+  if (!trimmedLine || trimmedLine.startsWith("#")) continue
+
+  const separatorIndex = trimmedLine.indexOf("=")
+  if (separatorIndex === -1) continue
+
+  const key = trimmedLine.slice(0, separatorIndex).trim()
+  const value = trimmedLine.slice(separatorIndex + 1).trim()
+
+  process.env[key] ??= value
+}

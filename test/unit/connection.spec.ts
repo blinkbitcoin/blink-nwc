@@ -1,4 +1,11 @@
-import { getServerKeypair, stringifyNwcUri, hasPermission } from "@/domain/connection"
+import { getPublicKey } from "nostr-tools"
+
+import {
+  getServerKeypair,
+  stringifyNwcUri,
+  parseNwcUri,
+  hasPermission,
+} from "@/domain/connection"
 import { NwcRelay, NwcSecret } from "@/domain/index.types"
 import { Nip47Method } from "@/domain/nostr"
 import { NOSTR_PRIVATE_KEY } from "@/config"
@@ -177,6 +184,49 @@ describe("connection", () => {
       })
 
       expect(uri1).not.toBe(uri2)
+    })
+  })
+
+  describe("parseNwcUri", () => {
+    const mockPubkey = "a".repeat(64)
+    const mockRelay = "ws://relay.example.com" as NwcRelay
+    const mockSecret = "b".repeat(64) as NwcSecret
+
+    it("should parse a valid NWC URI", () => {
+      const uri = stringifyNwcUri({
+        pubkey: mockPubkey as any,
+        relay: mockRelay,
+        secret: mockSecret,
+      })
+
+      const parsed = parseNwcUri(uri)
+
+      expect(parsed).not.toBeInstanceOf(Error)
+      if (parsed instanceof Error) return
+
+      expect(parsed.serverPubkey).toBe(mockPubkey)
+      expect(parsed.relay).toBe(mockRelay)
+      expect(parsed.secret).toBe(mockSecret)
+      expect(parsed.appPubkey).toBe(getPublicKey(Buffer.from(mockSecret, "hex")))
+    })
+
+    it("should reject non-NWC URI schemes", () => {
+      const parsed = parseNwcUri("https://example.com")
+      expect(parsed).toBeInstanceOf(Error)
+    })
+
+    it("should reject URIs missing a relay", () => {
+      const parsed = parseNwcUri(
+        `nostr+walletconnect://${mockPubkey}?secret=${mockSecret}`,
+      )
+      expect(parsed).toBeInstanceOf(Error)
+    })
+
+    it("should reject URIs missing a secret", () => {
+      const parsed = parseNwcUri(
+        `nostr+walletconnect://${mockPubkey}?relay=${encodeURIComponent(mockRelay)}`,
+      )
+      expect(parsed).toBeInstanceOf(Error)
     })
   })
 

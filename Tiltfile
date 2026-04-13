@@ -1,9 +1,24 @@
 is_ci = sys.argv[1] == "ci" if len(sys.argv) > 1 else False
 
+nwc_local_env = {
+  "DB_HOST": "localhost",
+  "DB_PORT": "5435",
+  "DB_USER": "blink-nwc-usr",
+  "DB_PWD": "blink-nwc-pwd",
+  "DB_DB": "blink-nwc",
+  "DATA_ENCRYPTION_KEY": "0" * 64,
+  "NOSTR_PRIVATE_KEY": "1" * 64,
+  "OATHKEEPER_DECISION_ENDPOINT": "http://localhost:4456",
+  "ROUTER_URL": "http://localhost:4004/graphql",
+  "NOSTR_RELAY_URL": "ws://localhost:7777",
+  "NOSTR_RELAY_PUBLIC_URL": "ws://localhost:7777",
+}
+
 local_resource(
   name='setup-nwc-db',
   labels = ['dev-setup'],
   cmd='pnpm db:migrate',
+  env = nwc_local_env,
   resource_deps = [
     "nwc-pg",
   ]
@@ -13,6 +28,7 @@ local_resource(
   name='seed-nwc-db',
   labels = ['dev-setup'],
   cmd='pnpm db:seed',
+  env = nwc_local_env,
   resource_deps = [
     "setup-nwc-db",
   ]
@@ -29,6 +45,8 @@ local_resource(
   labels = ['nwc'],
   cmd='pnpm build',
   serve_cmd='pnpm dev',
+  env = nwc_local_env,
+  serve_env = nwc_local_env,
   links = [
     link("http://localhost:4010/graphql", "graphql-playground"),
   ],

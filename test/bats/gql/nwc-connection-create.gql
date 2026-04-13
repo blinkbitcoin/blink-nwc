@@ -1,0 +1,21 @@
+mutation NwcConnectionCreate($input: NwcConnectionCreateInput!) {
+  nwcConnectionCreate(input: $input) {
+    errors {
+      message
+      code
+      path
+    }
+    connectionUri
+    connection {
+      id
+      alias
+      appPubkey
+      permissions
+      revoked
+      budget {
+        amountSats
+        period
+      }
+    }
+  }
+}

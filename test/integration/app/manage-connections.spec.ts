@@ -11,19 +11,27 @@ import {
   nwcConnectionsByWalletId,
   revokeNwcConnection,
 } from "@/app/manage-connections"
-import { NwcConnection } from "@/domain/connection"
-import { Nip47Method } from "@/domain/nostr"
-import { Account, UserId, WalletId } from "@/domain/core/index.types"
-import { AccountId, ApiKey, NwcAppPubkey, NwcConnectionId } from "@/domain/index.types"
 import {
+  getServerKeypair,
+  NwcConnection,
+  parseNwcUri,
+  stringifyNwcUri,
+} from "@/domain/connection"
+import { Nip47Method } from "@/domain/nostr"
+import { AccountId, UserId, WalletId } from "@/domain/core/index.types"
+import { ApiKey, NwcAppPubkey, NwcConnectionId, NwcSecret } from "@/domain/index.types"
+import {
+  InvalidNwcUri,
   InvalidWalletId,
   InvalidPermissions,
   InvalidNwcAlias,
-  InvalidApiKey,
   InvalidNwcConnectionId,
   InvalidUserId,
   CouldNotFindNwcConnectionFromIdError,
 } from "@/domain/errors"
+import { NOSTR_RELAY_PUBLIC_URL } from "@/config"
+import { Scope } from "@/graphql/internal-client/generated"
+import { NwcBudgetPeriod } from "@/domain/nwc-budget"
 
 const mockConnectionsRepository = {
   create: jest.fn(),
@@ -35,32 +43,71 @@ const mockConnectionsRepository = {
   delete: jest.fn(),
 }
 
+const mockGetAuthenticatedWallet = jest.fn()
+const mockCreateApiKeyForNwc = jest.fn()
+const mockSetApiKeyLimitForNwc = jest.fn()
+const mockRemoveApiKeyLimitForNwc = jest.fn()
+const mockRevokeApiKeyForNwc = jest.fn()
+const mockGetApiKeysForNwc = jest.fn()
+
 jest.mock("@/services/db/connections", () => ({
   ConnectionsRepository: () => mockConnectionsRepository,
 }))
 
-describe("manage-connections", () => {
-  const mockAccount: Account = {
-    id: randomUUID() as AccountId,
-    kratosUserId: randomUUID() as UserId,
-    username: undefined,
-  }
+jest.mock("@/graphql/internal-client/queries/get-authenticated-wallet", () => ({
+  getAuthenticatedWallet: (...args: unknown[]) => mockGetAuthenticatedWallet(...args),
+}))
 
+jest.mock("@/graphql/internal-client/queries/api-key-create", () => ({
+  createApiKeyForNwc: (...args: unknown[]) => mockCreateApiKeyForNwc(...args),
+}))
+
+jest.mock("@/graphql/internal-client/queries/api-key-set-limit", () => ({
+  setApiKeyLimitForNwc: (...args: unknown[]) => mockSetApiKeyLimitForNwc(...args),
+}))
+
+jest.mock("@/graphql/internal-client/queries/api-key-remove-limit", () => ({
+  removeApiKeyLimitForNwc: (...args: unknown[]) => mockRemoveApiKeyLimitForNwc(...args),
+}))
+
+jest.mock("@/graphql/internal-client/queries/api-key-revoke", () => ({
+  revokeApiKeyForNwc: (...args: unknown[]) => mockRevokeApiKeyForNwc(...args),
+}))
+
+jest.mock("@/graphql/internal-client/queries/api-keys", () => ({
+  getApiKeysForNwc: (...args: unknown[]) => mockGetApiKeysForNwc(...args),
+}))
+
+describe("manage-connections", () => {
+  const mockUserId = randomUUID() as UserId
+  const mockAccountId = randomUUID() as AccountId
   const mockWalletId = randomUUID()
   const mockApiKey = randomUUID()
+  const mockApiKeyId = randomUUID()
   const mockPermissions = [Nip47Method.GetInfo, Nip47Method.GetBalance]
   const mockAlias = "TestWallet"
+  const mockAuthorization = "Bearer test-auth-token"
+  const mockNwcUri = stringifyNwcUri({
+    pubkey: getServerKeypair().pubkey,
+    relay: NOSTR_RELAY_PUBLIC_URL,
+    secret: "c".repeat(64) as NwcSecret,
+  })
+  const parsedNwcUri = parseNwcUri(mockNwcUri)
+
+  if (parsedNwcUri instanceof Error) {
+    throw parsedNwcUri
+  }
 
   const mockConnection: NwcConnection = {
     id: randomUUID() as NwcConnectionId,
-    userId: mockAccount.kratosUserId,
-    accountId: mockAccount.id,
+    userId: mockUserId,
+    accountId: mockAccountId,
     walletId: mockWalletId as WalletId,
     walletCurrency: "BTC",
     apiKey: mockApiKey as ApiKey,
-    apiKeyId: null,
-    connectionSecret: "test-secret" as any,
-    appPubkey: "a".repeat(64) as NwcAppPubkey,
+    apiKeyId: mockApiKeyId as any,
+    connectionSecret: parsedNwcUri.secret as any,
+    appPubkey: parsedNwcUri.appPubkey as NwcAppPubkey,
     permissions: mockPermissions,
     alias: mockAlias as any,
     notificationsEnabled: false,
@@ -74,37 +121,94 @@ describe("manage-connections", () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    mockGetAuthenticatedWallet.mockResolvedValue({
+      accountId: mockAccountId,
+      id: mockWalletId as WalletId,
+      walletCurrency: "BTC",
+    })
+    mockCreateApiKeyForNwc.mockResolvedValue({
+      id: mockApiKeyId,
+      secret: mockApiKey,
+    })
+    mockSetApiKeyLimitForNwc.mockImplementation(
+      async (_client, _authorization, input) => ({
+        dailyLimitSats: input.limitTimeWindow === "DAILY" ? input.limitSats : null,
+        dailySpentSats: 0,
+        weeklyLimitSats: input.limitTimeWindow === "WEEKLY" ? input.limitSats : null,
+        weeklySpentSats: 0,
+        monthlyLimitSats: input.limitTimeWindow === "MONTHLY" ? input.limitSats : null,
+        monthlySpentSats: 0,
+        annualLimitSats: input.limitTimeWindow === "ANNUAL" ? input.limitSats : null,
+        annualSpentSats: 0,
+      }),
+    )
+    mockRemoveApiKeyLimitForNwc.mockResolvedValue({
+      dailyLimitSats: null,
+      dailySpentSats: 0,
+      weeklyLimitSats: null,
+      weeklySpentSats: 0,
+      monthlyLimitSats: null,
+      monthlySpentSats: 0,
+      annualLimitSats: null,
+      annualSpentSats: 0,
+    })
+    mockRevokeApiKeyForNwc.mockResolvedValue(undefined)
+    mockGetApiKeysForNwc.mockResolvedValue([
+      {
+        id: mockApiKeyId,
+        limits: {
+          dailyLimitSats: 5000,
+          dailySpentSats: 200,
+          weeklyLimitSats: null,
+          weeklySpentSats: 0,
+          monthlyLimitSats: null,
+          monthlySpentSats: 0,
+          annualLimitSats: null,
+          annualSpentSats: 0,
+        },
+      },
+    ])
   })
 
   describe("createNwcConnection", () => {
     it("should create a new NWC connection successfully", async () => {
       mockConnectionsRepository.create.mockResolvedValue(mockConnection)
 
-      const result = await createNwcConnection(
-        mockAccount,
-        mockWalletId,
-        mockApiKey,
-        mockPermissions,
-        mockAlias,
-      )
+      const result = await createNwcConnection(mockUserId, mockAuthorization, {
+        nwcUri: mockNwcUri,
+        walletId: mockWalletId,
+        permissions: mockPermissions,
+        alias: mockAlias,
+      })
 
       expect(result).not.toBeInstanceOf(Error)
       if (result instanceof Error) return
 
       expect(result.connectionObj).toEqual(mockConnection)
-      expect(result.connectionUri).toContain("nostr+walletconnect://")
-      expect(result.connectionUri).toContain("relay=")
-      expect(result.connectionUri).toContain("secret=")
+      expect(result.connectionUri).toBe(mockNwcUri)
+      expect(result.budget).toBeNull()
+
+      expect(mockCreateApiKeyForNwc).toHaveBeenCalledWith(
+        expect.anything(),
+        mockAuthorization,
+        {
+          name: mockAlias,
+          scopes: [Scope.Read],
+        },
+      )
 
       expect(mockConnectionsRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          userId: mockAccount.kratosUserId,
-          accountId: mockAccount.id,
+          userId: mockUserId,
+          accountId: mockAccountId,
           walletId: mockWalletId,
           apiKey: mockApiKey,
+          apiKeyId: mockApiKeyId,
           permissions: mockPermissions,
           alias: mockAlias,
           notificationsEnabled: false,
+          connectionSecret: parsedNwcUri.secret,
+          appPubkey: parsedNwcUri.appPubkey,
         }),
       )
     })
@@ -112,12 +216,11 @@ describe("manage-connections", () => {
     it("should create connection without alias", async () => {
       mockConnectionsRepository.create.mockResolvedValue(mockConnection)
 
-      const result = await createNwcConnection(
-        mockAccount,
-        mockWalletId,
-        mockApiKey,
-        mockPermissions,
-      )
+      const result = await createNwcConnection(mockUserId, mockAuthorization, {
+        nwcUri: mockNwcUri,
+        walletId: mockWalletId,
+        permissions: mockPermissions,
+      })
 
       expect(result).not.toBeInstanceOf(Error)
       expect(mockConnectionsRepository.create).toHaveBeenCalledWith(
@@ -128,21 +231,22 @@ describe("manage-connections", () => {
     })
 
     it("should return error for invalid walletId", async () => {
-      const result = await createNwcConnection(
-        mockAccount,
-        "invalid-wallet-id",
-        mockApiKey,
-        mockPermissions,
-      )
+      const result = await createNwcConnection(mockUserId, mockAuthorization, {
+        nwcUri: mockNwcUri,
+        walletId: "invalid-wallet-id",
+        permissions: mockPermissions,
+      })
 
       expect(result).toBeInstanceOf(InvalidWalletId)
       expect(mockConnectionsRepository.create).not.toHaveBeenCalled()
     })
 
     it("should return error for invalid permissions", async () => {
-      const result = await createNwcConnection(mockAccount, mockWalletId, mockApiKey, [
-        "invalid_permission",
-      ])
+      const result = await createNwcConnection(mockUserId, mockAuthorization, {
+        nwcUri: mockNwcUri,
+        walletId: mockWalletId,
+        permissions: ["invalid_permission"],
+      })
 
       expect(result).toBeInstanceOf(InvalidPermissions)
       expect(mockConnectionsRepository.create).not.toHaveBeenCalled()
@@ -151,42 +255,124 @@ describe("manage-connections", () => {
     it("should return error for invalid alias (too long)", async () => {
       const tooLongAlias = "a".repeat(33) // max is 32
 
-      const result = await createNwcConnection(
-        mockAccount,
-        mockWalletId,
-        mockApiKey,
-        mockPermissions,
-        tooLongAlias,
-      )
+      const result = await createNwcConnection(mockUserId, mockAuthorization, {
+        nwcUri: mockNwcUri,
+        walletId: mockWalletId,
+        permissions: mockPermissions,
+        alias: tooLongAlias,
+      })
 
       expect(result).toBeInstanceOf(InvalidNwcAlias)
       expect(mockConnectionsRepository.create).not.toHaveBeenCalled()
     })
 
-    it("should return error for empty API key", async () => {
-      const result = await createNwcConnection(
-        mockAccount,
-        mockWalletId,
-        "",
-        mockPermissions,
-      )
+    it("should return error for invalid NWC URI", async () => {
+      const result = await createNwcConnection(mockUserId, mockAuthorization, {
+        nwcUri: "https://invalid-uri.example.com",
+        walletId: mockWalletId,
+        permissions: mockPermissions,
+      })
 
-      expect(result).toBeInstanceOf(InvalidApiKey)
+      expect(result).toBeInstanceOf(InvalidNwcUri)
       expect(mockConnectionsRepository.create).not.toHaveBeenCalled()
     })
 
-    it("should propagate repository errors", async () => {
+    it("should reject wallets that do not belong to the authenticated account", async () => {
+      mockGetAuthenticatedWallet.mockResolvedValue(null)
+
+      const result = await createNwcConnection(mockUserId, mockAuthorization, {
+        nwcUri: mockNwcUri,
+        walletId: mockWalletId,
+        permissions: mockPermissions,
+      })
+
+      expect(result).toBeInstanceOf(InvalidWalletId)
+      expect(mockConnectionsRepository.create).not.toHaveBeenCalled()
+    })
+
+    it("should create a budgeted API key when budget is provided", async () => {
+      mockConnectionsRepository.create.mockResolvedValue(mockConnection)
+
+      const result = await createNwcConnection(mockUserId, mockAuthorization, {
+        nwcUri: mockNwcUri,
+        walletId: mockWalletId,
+        permissions: [...mockPermissions, Nip47Method.PayInvoice],
+        budget: {
+          amountSats: 5000,
+          period: NwcBudgetPeriod.Daily,
+        },
+      })
+
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+
+      expect(mockCreateApiKeyForNwc).toHaveBeenCalledWith(
+        expect.anything(),
+        mockAuthorization,
+        {
+          name: `nwc-${parsedNwcUri.appPubkey.slice(0, 8)}`,
+          scopes: [Scope.Read, Scope.Write],
+        },
+      )
+      expect(mockSetApiKeyLimitForNwc).toHaveBeenCalledWith(
+        expect.anything(),
+        mockAuthorization,
+        {
+          id: mockApiKeyId,
+          limitSats: 5000,
+          limitTimeWindow: "DAILY",
+        },
+      )
+      expect(result.budget).toEqual({
+        amountSats: 5000,
+        period: "DAILY",
+        usedSats: 0,
+        remainingSats: 5000,
+        resetsAt: null,
+      })
+    })
+
+    it("should map NEVER budgets to the non-resetting upstream limit window", async () => {
+      mockConnectionsRepository.create.mockResolvedValue(mockConnection)
+
+      const result = await createNwcConnection(mockUserId, mockAuthorization, {
+        nwcUri: mockNwcUri,
+        walletId: mockWalletId,
+        permissions: [Nip47Method.PayInvoice],
+        budget: {
+          amountSats: 5000,
+          period: NwcBudgetPeriod.Never,
+        },
+      })
+
+      expect(result).not.toBeInstanceOf(Error)
+      expect(mockSetApiKeyLimitForNwc).toHaveBeenCalledWith(
+        expect.anything(),
+        mockAuthorization,
+        {
+          id: mockApiKeyId,
+          limitSats: 5000,
+          limitTimeWindow: "ANNUAL",
+        },
+      )
+    })
+
+    it("should revoke the created API key if persistence fails", async () => {
       const repoError = new Error("Database error")
       mockConnectionsRepository.create.mockResolvedValue(repoError)
 
-      const result = await createNwcConnection(
-        mockAccount,
-        mockWalletId,
-        mockApiKey,
-        mockPermissions,
-      )
+      const result = await createNwcConnection(mockUserId, mockAuthorization, {
+        nwcUri: mockNwcUri,
+        walletId: mockWalletId,
+        permissions: mockPermissions,
+      })
 
       expect(result).toBe(repoError)
+      expect(mockRevokeApiKeyForNwc).toHaveBeenCalledWith(
+        expect.anything(),
+        mockAuthorization,
+        mockApiKeyId,
+      )
     })
   })
 
@@ -198,9 +384,14 @@ describe("manage-connections", () => {
         alias: "NewAlias",
       })
 
-      const result = await updateNwcConnection(mockAccount, mockConnection.id, {
-        alias: "NewAlias",
-      })
+      const result = await updateNwcConnection(
+        mockUserId,
+        mockAuthorization,
+        mockConnection.id,
+        {
+          alias: "NewAlias",
+        },
+      )
 
       expect(result).not.toBeInstanceOf(Error)
       if (result instanceof Error) return
@@ -212,28 +403,81 @@ describe("manage-connections", () => {
       })
     })
 
-    it("should update connection permissions", async () => {
-      const newPermissions = [Nip47Method.PayInvoice]
+    it("should update connection budget", async () => {
       mockConnectionsRepository.findById.mockResolvedValue(mockConnection)
       mockConnectionsRepository.update.mockResolvedValue({
         ...mockConnection,
-        permissions: newPermissions,
+        alias: mockConnection.alias,
       })
 
-      const result = await updateNwcConnection(mockAccount, mockConnection.id, {
-        permissions: newPermissions,
-      })
+      const result = await updateNwcConnection(
+        mockUserId,
+        mockAuthorization,
+        mockConnection.id,
+        {
+          budget: {
+            amountSats: 8000,
+            period: NwcBudgetPeriod.Weekly,
+          },
+        },
+      )
 
       expect(result).not.toBeInstanceOf(Error)
       if (result instanceof Error) return
 
-      expect(result.permissions).toEqual(newPermissions)
+      expect(mockSetApiKeyLimitForNwc).toHaveBeenCalledWith(
+        expect.anything(),
+        mockAuthorization,
+        {
+          id: mockApiKeyId,
+          limitSats: 8000,
+          limitTimeWindow: "WEEKLY",
+        },
+      )
+      expect(mockConnectionsRepository.update).toHaveBeenCalledWith(mockConnection.id, {
+        alias: undefined,
+      })
+    })
+
+    it("should remove a connection budget when null is provided", async () => {
+      mockConnectionsRepository.findById.mockResolvedValue(mockConnection)
+      mockConnectionsRepository.update.mockResolvedValue(mockConnection)
+
+      const result = await updateNwcConnection(
+        mockUserId,
+        mockAuthorization,
+        mockConnection.id,
+        {
+          budget: null,
+        },
+      )
+
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+
+      expect(mockGetApiKeysForNwc).toHaveBeenCalledWith(
+        expect.anything(),
+        mockAuthorization,
+      )
+      expect(mockRemoveApiKeyLimitForNwc).toHaveBeenCalledWith(
+        expect.anything(),
+        mockAuthorization,
+        {
+          id: mockApiKeyId,
+          limitTimeWindow: "DAILY",
+        },
+      )
     })
 
     it("should return error for invalid connectionId", async () => {
-      const result = await updateNwcConnection(mockAccount, "invalid-id", {
-        alias: "New Alias",
-      })
+      const result = await updateNwcConnection(
+        mockUserId,
+        mockAuthorization,
+        "invalid-id",
+        {
+          alias: "New Alias",
+        },
+      )
 
       expect(result).toBeInstanceOf(InvalidNwcConnectionId)
       expect(mockConnectionsRepository.findById).not.toHaveBeenCalled()
@@ -244,9 +488,14 @@ describe("manage-connections", () => {
         new CouldNotFindNwcConnectionFromIdError(),
       )
 
-      const result = await updateNwcConnection(mockAccount, randomUUID(), {
-        alias: "NewAlias",
-      })
+      const result = await updateNwcConnection(
+        mockUserId,
+        mockAuthorization,
+        randomUUID(),
+        {
+          alias: "NewAlias",
+        },
+      )
 
       expect(result).toBeInstanceOf(CouldNotFindNwcConnectionFromIdError)
     })
@@ -258,9 +507,14 @@ describe("manage-connections", () => {
         alias: null,
       })
 
-      const result = await updateNwcConnection(mockAccount, mockConnection.id, {
-        alias: null,
-      })
+      const result = await updateNwcConnection(
+        mockUserId,
+        mockAuthorization,
+        mockConnection.id,
+        {
+          alias: null,
+        },
+      )
 
       expect(result).not.toBeInstanceOf(Error)
       if (result instanceof Error) return
@@ -274,14 +528,14 @@ describe("manage-connections", () => {
       mockConnectionsRepository.findById.mockResolvedValue(mockConnection)
       mockConnectionsRepository.softDelete.mockResolvedValue(true)
 
-      const result = await softDeleteNwcConnection(mockAccount, mockConnection.id)
+      const result = await softDeleteNwcConnection(mockUserId, mockConnection.id)
 
       expect(result).toBe(true)
       expect(mockConnectionsRepository.softDelete).toHaveBeenCalledWith(mockConnection.id)
     })
 
     it("should return error for invalid connectionId", async () => {
-      const result = await softDeleteNwcConnection(mockAccount, "invalid-id")
+      const result = await softDeleteNwcConnection(mockUserId, "invalid-id")
 
       expect(result).toBeInstanceOf(InvalidNwcConnectionId)
       expect(mockConnectionsRepository.findById).not.toHaveBeenCalled()
@@ -292,7 +546,7 @@ describe("manage-connections", () => {
         new CouldNotFindNwcConnectionFromIdError(),
       )
 
-      const result = await softDeleteNwcConnection(mockAccount, randomUUID())
+      const result = await softDeleteNwcConnection(mockUserId, randomUUID())
 
       expect(result).toBeInstanceOf(CouldNotFindNwcConnectionFromIdError)
     })
@@ -310,7 +564,7 @@ describe("manage-connections", () => {
         .mockResolvedValueOnce(revokedConnection)
       mockConnectionsRepository.softDelete.mockResolvedValue(true)
 
-      const result = await revokeNwcConnection(mockAccount, mockConnection.id)
+      const result = await revokeNwcConnection(mockUserId, mockConnection.id)
 
       expect(result).toEqual(revokedConnection)
       expect(mockConnectionsRepository.softDelete).toHaveBeenCalledWith(mockConnection.id)
@@ -385,10 +639,7 @@ describe("manage-connections", () => {
     it("should return connection for matching user", async () => {
       mockConnectionsRepository.findById.mockResolvedValue(mockConnection)
 
-      const result = await getNwcConnectionByIdForUser(
-        mockAccount.kratosUserId,
-        mockConnection.id,
-      )
+      const result = await getNwcConnectionByIdForUser(mockUserId, mockConnection.id)
 
       expect(result).toEqual(mockConnection)
       expect(mockConnectionsRepository.findById).toHaveBeenCalledWith(mockConnection.id)
@@ -400,10 +651,7 @@ describe("manage-connections", () => {
         userId: randomUUID() as UserId,
       })
 
-      const result = await getNwcConnectionByIdForUser(
-        mockAccount.kratosUserId,
-        mockConnection.id,
-      )
+      const result = await getNwcConnectionByIdForUser(mockUserId, mockConnection.id)
 
       expect(result).toBeInstanceOf(CouldNotFindNwcConnectionFromIdError)
     })
@@ -414,12 +662,10 @@ describe("manage-connections", () => {
       const connections = [mockConnection]
       mockConnectionsRepository.findByUserId.mockResolvedValue(connections)
 
-      const result = await nwcConnectionsByUserId(mockAccount.kratosUserId)
+      const result = await nwcConnectionsByUserId(mockUserId)
 
       expect(result).toEqual(connections)
-      expect(mockConnectionsRepository.findByUserId).toHaveBeenCalledWith(
-        mockAccount.kratosUserId,
-      )
+      expect(mockConnectionsRepository.findByUserId).toHaveBeenCalledWith(mockUserId)
     })
 
     it("should return empty array when no connections found", async () => {

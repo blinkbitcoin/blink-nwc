@@ -1,5 +1,6 @@
 query NwcServiceInfo {
   nwcServiceInfo {
+    serverPubkey
     supportedMethods
     supportedNotifications
     relayUrl

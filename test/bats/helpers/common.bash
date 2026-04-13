@@ -1,23 +1,37 @@
 REPO_ROOT=$(git rev-parse --show-toplevel)
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-${REPO_ROOT##*/}}"
+TEST_ENV_DEFAULTS_FILE="${REPO_ROOT}/test/test-env.defaults"
 
-CACHE_DIR=${BATS_TMPDIR:-tmp/bats}/blink-bats-cache
+CACHE_DIR="${REPO_ROOT}/tmp/bats/blink-bats-cache"
 mkdir -p $CACHE_DIR
 
+load_test_env_defaults() {
+  while IFS='=' read -r key value; do
+    if [[ -z "$key" || "$key" == \#* ]]; then
+      continue
+    fi
+
+    if [[ -z "${!key+x}" ]]; then
+      export "$key=$value"
+    fi
+  done < "$TEST_ENV_DEFAULTS_FILE"
+}
+
+load_test_env_defaults
+
 GALOY_ENDPOINT=${GALOY_ENDPOINT:-http://localhost:4455}
-NWC_ENDPOINT=${NWC_ENDPOINT:-http://localhost:4010}
 
 ALICE_TOKEN_NAME="alice"
-ALICE_PHONE="+16505554328"
+ALICE_PHONE="${ALICE_PHONE:-+16505554328}"
 
 BOB_TOKEN_NAME="bob"
-BOB_PHONE="+16505554350"
+BOB_PHONE="${BOB_PHONE:-+16505554350}"
 
 CHARLIE_TOKEN_NAME="charlie"
-CHARLIE_PHONE="+16505554354"
+CHARLIE_PHONE="${CHARLIE_PHONE:-+16505554354}"
 
 
-CODE="000000"
+CODE="${CODE:-000000}"
 
 cache_value() {
   echo $2 > ${CACHE_DIR}/$1

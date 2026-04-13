@@ -30,7 +30,7 @@ import {
   SUPPORTED_NWC_NOTIFICATIONS,
 } from "@/config"
 import type { NwcConnection } from "@/domain/connection"
-import type { Account, WalletId } from "@/domain/core/index.types"
+import type { Account, UserId, WalletId } from "@/domain/core/index.types"
 import { InvalidWalletId } from "@/domain/errors"
 import { ExampleError } from "@/domain/example/errors"
 import type { ApiKey, NwcAppPubkey, NwcConnectionId } from "@/domain/index.types"
@@ -64,7 +64,6 @@ describe("graphql resolvers", () => {
     kratosUserId: connection.userId,
     username: undefined,
   }
-
   beforeEach(() => {
     jest.clearAllMocks()
   })
@@ -350,8 +349,8 @@ describe("graphql resolvers", () => {
     mockSoftDeleteNwcConnection.mockResolvedValue(true)
     const deleteResolver = resolvers.Mutation!.nwcConnectionDelete as (
       parent: unknown,
-      args: { input: { id: string } },
-      context: { domainAccount: Account },
+      args: { input: { connectionId: string } },
+      context: { user: { id: UserId } },
       info: unknown,
     ) => Promise<unknown>
 
@@ -406,13 +405,14 @@ describe("graphql resolvers", () => {
 
     const result = await revokeResolver(
       {},
-      { input: { id: connection.id } },
-      { domainAccount },
+      { input: { connectionId: connection.id } },
+      { user: { id: connection.userId } },
       {} as never,
     )
 
     expect(result).toEqual({
       errors: [],
+      success: true,
       connection: expect.objectContaining({
         id: connection.id,
         revoked: true,

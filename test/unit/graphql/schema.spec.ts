@@ -7,20 +7,41 @@ import { Nip47Method } from "@/domain/nostr"
 const schemaPath = path.resolve(__dirname, "../../../src/graphql/schema.graphql")
 
 describe("graphql schema", () => {
-  it("does not expose unsupported budget fields in the NWC contract", () => {
+  it("exposes the architecture budget and permission types in the NWC contract", () => {
     const schema = readFileSync(schemaPath, "utf8")
 
-    expect(schema).not.toContain("budget: NwcBudget")
-    expect(schema).not.toContain("budget: NwcBudgetInput")
-    expect(schema).not.toContain("type NwcBudget")
-    expect(schema).not.toContain("input NwcBudgetInput")
-    expect(schema).not.toContain("enum NwcBudgetPeriod")
+    expect(schema).toContain("budget: NwcBudget")
+    expect(schema).toContain("budget: NwcBudgetInput")
+    expect(schema).toContain("type NwcBudget")
+    expect(schema).toContain("input NwcBudgetInput")
+    expect(schema).toContain("enum NwcBudgetPeriod")
+    expect(schema).toContain("enum NwcPermission")
+  })
+
+  it("matches the documented root query and connection update contract", () => {
+    const schema = readFileSync(schemaPath, "utf8")
+
+    expect(schema).toContain("nwcConnection(id: ID!): NwcConnection")
+    expect(schema).toContain("nwcConnections(includeRevoked: Boolean = false)")
+    expect(schema).toContain("connectionId: ID!")
+    expect(schema).toMatch(
+      /input NwcConnectionUpdateInput\s*\{[\s\S]*connectionId: ID![\s\S]*budget: NwcBudgetInput[\s\S]*\}/,
+    )
+    expect(schema).not.toMatch(
+      /input NwcConnectionUpdateInput\s*\{[\s\S]*permissions: \[NwcPermission!\][\s\S]*\}/,
+    )
+  })
+
+  it("removes client-supplied API key fields from connection creation", () => {
+    const schema = readFileSync(schemaPath, "utf8")
+
+    expect(schema).toContain("nwcUri: String!")
+    expect(schema).not.toContain("apiKey: String!")
+    expect(schema).not.toContain("apiKeyId: String")
+    expect(schema).not.toContain("notificationsEnabled")
   })
 
   it("keeps the public Nip47Method enum aligned with supported methods", () => {
-    const schema = readFileSync(schemaPath, "utf8")
-
-    expect(schema).not.toContain("GET_BUDGET")
     expect(SUPPORTED_NWC_METHODS).toEqual(Object.values(Nip47Method))
   })
 })

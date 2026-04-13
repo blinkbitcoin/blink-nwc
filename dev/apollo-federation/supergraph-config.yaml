@@ -1,9 +1,17 @@
 federation_version: =2.3.2
 subgraphs:
-  galoy:
+  public:
     routing_url: http://galoy:4012/graphql # https://api.staging.galoy.io/graphql
     schema:
-      file: ../../vendor/blink-quickstart/dev/config/apollo-federation/supergraph.graphql
+      file: ${env.PUBLIC_SCHEMA:-../../vendor/blink-quickstart/graphql/schemas/public/schema.graphql}
+  api_keys:
+    routing_url: http://api-keys:5397/graphql
+    schema:
+      file: ${env.API_KEYS_SCHEMA:-../../../blink/core/api-keys/subgraph/schema.graphql}
+  notifications:
+    routing_url: http://notifications:6684/graphql
+    schema:
+      file: ${env.NOTIFICATIONS_SCHEMA:-../../../blink/core/notifications/subgraph/schema.graphql}
   nostr-wallet-connect:
     routing_url: http://nostr-wallet-connect:4010/graphql
     schema:

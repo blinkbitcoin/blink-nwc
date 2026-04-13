@@ -1,0 +1,13 @@
+query MeForNwcBootstrap {
+  me {
+    id
+    username
+    defaultAccount {
+      id
+      wallets {
+        id
+        walletCurrency
+      }
+    }
+  }
+}
