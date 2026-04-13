@@ -107,15 +107,10 @@ describe("Encryption Functions", () => {
     describe("with nip04 encryption", () => {
       const encryptionType: Nip47EncryptionType = "nip04"
 
-      it("should call nip04.encrypt with correct parameters", async () => {
-        ;(nip04.encrypt as jest.Mock).mockResolvedValue(encryptedContent)
+      it("should call nip04.encrypt with correct parameters", () => {
+        ;(nip04.encrypt as jest.Mock).mockReturnValue(encryptedContent)
 
-        const result = await encrypt(
-          serverKeypair,
-          appPubkey,
-          testContent,
-          encryptionType,
-        )
+        const result = encrypt(serverKeypair, appPubkey, testContent, encryptionType)
 
         expect(nip04.encrypt).toHaveBeenCalledTimes(1)
         expect(nip04.encrypt).toHaveBeenCalledWith(
@@ -126,34 +121,29 @@ describe("Encryption Functions", () => {
         expect(result).toBe(encryptedContent)
       })
 
-      it("should not call nip44 functions when using nip04", async () => {
-        ;(nip04.encrypt as jest.Mock).mockResolvedValue(encryptedContent)
+      it("should not call nip44 functions when using nip04", () => {
+        ;(nip04.encrypt as jest.Mock).mockReturnValue(encryptedContent)
 
-        await encrypt(serverKeypair, appPubkey, testContent, encryptionType)
+        encrypt(serverKeypair, appPubkey, testContent, encryptionType)
 
         expect(nip44.getConversationKey).not.toHaveBeenCalled()
         expect(nip44.encrypt).not.toHaveBeenCalled()
       })
 
-      it("should handle empty content", async () => {
-        ;(nip04.encrypt as jest.Mock).mockResolvedValue("")
+      it("should handle empty content", () => {
+        ;(nip04.encrypt as jest.Mock).mockReturnValue("")
 
-        const result = await encrypt(serverKeypair, appPubkey, "", encryptionType)
+        const result = encrypt(serverKeypair, appPubkey, "", encryptionType)
 
         expect(nip04.encrypt).toHaveBeenCalledWith(serverKeypair.privkey, appPubkey, "")
         expect(result).toBe("")
       })
 
-      it("should handle long content", async () => {
+      it("should handle long content", () => {
         const longContent = "a".repeat(10000)
-        ;(nip04.encrypt as jest.Mock).mockResolvedValue("encrypted_long")
+        ;(nip04.encrypt as jest.Mock).mockReturnValue("encrypted_long")
 
-        const result = await encrypt(
-          serverKeypair,
-          appPubkey,
-          longContent,
-          encryptionType,
-        )
+        const result = encrypt(serverKeypair, appPubkey, longContent, encryptionType)
 
         expect(nip04.encrypt).toHaveBeenCalledWith(
           serverKeypair.privkey,
@@ -163,16 +153,11 @@ describe("Encryption Functions", () => {
         expect(result).toBe("encrypted_long")
       })
 
-      it("should handle special characters in content", async () => {
+      it("should handle special characters in content", () => {
         const specialContent = '{"test": "value", "emoji": "🎉"}'
-        ;(nip04.encrypt as jest.Mock).mockResolvedValue("encrypted_special")
+        ;(nip04.encrypt as jest.Mock).mockReturnValue("encrypted_special")
 
-        const result = await encrypt(
-          serverKeypair,
-          appPubkey,
-          specialContent,
-          encryptionType,
-        )
+        const result = encrypt(serverKeypair, appPubkey, specialContent, encryptionType)
 
         expect(nip04.encrypt).toHaveBeenCalledWith(
           serverKeypair.privkey,
@@ -192,13 +177,8 @@ describe("Encryption Functions", () => {
         ;(nip44.encrypt as jest.Mock).mockReturnValue(encryptedContent)
       })
 
-      it("should call nip44 functions with correct parameters", async () => {
-        const result = await encrypt(
-          serverKeypair,
-          appPubkey,
-          testContent,
-          encryptionType,
-        )
+      it("should call nip44 functions with correct parameters", () => {
+        const result = encrypt(serverKeypair, appPubkey, testContent, encryptionType)
 
         expect(nip44.getConversationKey).toHaveBeenCalledTimes(1)
         expect(nip44.getConversationKey).toHaveBeenCalledWith(
@@ -210,55 +190,45 @@ describe("Encryption Functions", () => {
         expect(result).toBe(encryptedContent)
       })
 
-      it("should convert privkey to Uint8Array", async () => {
-        await encrypt(serverKeypair, appPubkey, testContent, encryptionType)
+      it("should convert privkey to Uint8Array", () => {
+        encrypt(serverKeypair, appPubkey, testContent, encryptionType)
 
         const callArgs = (nip44.getConversationKey as jest.Mock).mock.calls[0][0]
         expect(callArgs).toBeInstanceOf(Uint8Array)
         expect(callArgs.length).toBe(32)
       })
 
-      it("should not call nip04 functions when using nip44", async () => {
-        await encrypt(serverKeypair, appPubkey, testContent, encryptionType)
+      it("should not call nip04 functions when using nip44", () => {
+        encrypt(serverKeypair, appPubkey, testContent, encryptionType)
 
         expect(nip04.encrypt).not.toHaveBeenCalled()
         expect(nip04.decrypt).not.toHaveBeenCalled()
       })
 
-      it("should handle empty content", async () => {
+      it("should handle empty content", () => {
         ;(nip44.encrypt as jest.Mock).mockReturnValue("")
 
-        const result = await encrypt(serverKeypair, appPubkey, "", encryptionType)
+        const result = encrypt(serverKeypair, appPubkey, "", encryptionType)
 
         expect(nip44.encrypt).toHaveBeenCalledWith("", mockConversationKey)
         expect(result).toBe("")
       })
 
-      it("should handle long content", async () => {
+      it("should handle long content", () => {
         const longContent = "a".repeat(10000)
         ;(nip44.encrypt as jest.Mock).mockReturnValue("encrypted_long")
 
-        const result = await encrypt(
-          serverKeypair,
-          appPubkey,
-          longContent,
-          encryptionType,
-        )
+        const result = encrypt(serverKeypair, appPubkey, longContent, encryptionType)
 
         expect(nip44.encrypt).toHaveBeenCalledWith(longContent, mockConversationKey)
         expect(result).toBe("encrypted_long")
       })
 
-      it("should handle JSON content", async () => {
+      it("should handle JSON content", () => {
         const jsonContent = JSON.stringify({ method: "get_balance", params: {} })
         ;(nip44.encrypt as jest.Mock).mockReturnValue("encrypted_json")
 
-        const result = await encrypt(
-          serverKeypair,
-          appPubkey,
-          jsonContent,
-          encryptionType,
-        )
+        const result = encrypt(serverKeypair, appPubkey, jsonContent, encryptionType)
 
         expect(nip44.encrypt).toHaveBeenCalledWith(jsonContent, mockConversationKey)
         expect(result).toBe("encrypted_json")
@@ -270,15 +240,10 @@ describe("Encryption Functions", () => {
     describe("with nip04 encryption", () => {
       const encryptionType: Nip47EncryptionType = "nip04"
 
-      it("should call nip04.decrypt with correct parameters", async () => {
-        ;(nip04.decrypt as jest.Mock).mockResolvedValue(testContent)
+      it("should call nip04.decrypt with correct parameters", () => {
+        ;(nip04.decrypt as jest.Mock).mockReturnValue(testContent)
 
-        const result = await decrypt(
-          serverKeypair,
-          appPubkey,
-          encryptedContent,
-          encryptionType,
-        )
+        const result = decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType)
 
         expect(nip04.decrypt).toHaveBeenCalledTimes(1)
         expect(nip04.decrypt).toHaveBeenCalledWith(
@@ -289,63 +254,50 @@ describe("Encryption Functions", () => {
         expect(result).toBe(testContent)
       })
 
-      it("should not call nip44 functions when using nip04", async () => {
-        ;(nip04.decrypt as jest.Mock).mockResolvedValue(testContent)
+      it("should not call nip44 functions when using nip04", () => {
+        ;(nip04.decrypt as jest.Mock).mockReturnValue(testContent)
 
-        await decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType)
+        decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType)
 
         expect(nip44.getConversationKey).not.toHaveBeenCalled()
         expect(nip44.decrypt).not.toHaveBeenCalled()
       })
 
-      it("should handle empty decrypted content", async () => {
-        ;(nip04.decrypt as jest.Mock).mockResolvedValue("")
+      it("should handle empty decrypted content", () => {
+        ;(nip04.decrypt as jest.Mock).mockReturnValue("")
 
-        const result = await decrypt(
-          serverKeypair,
-          appPubkey,
-          encryptedContent,
-          encryptionType,
-        )
+        const result = decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType)
 
         expect(result).toBe("")
       })
 
-      it("should handle long decrypted content", async () => {
+      it("should handle long decrypted content", () => {
         const longContent = "a".repeat(10000)
-        ;(nip04.decrypt as jest.Mock).mockResolvedValue(longContent)
+        ;(nip04.decrypt as jest.Mock).mockReturnValue(longContent)
 
-        const result = await decrypt(
-          serverKeypair,
-          appPubkey,
-          encryptedContent,
-          encryptionType,
-        )
+        const result = decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType)
 
         expect(result).toBe(longContent)
       })
 
-      it("should handle JSON decrypted content", async () => {
+      it("should handle JSON decrypted content", () => {
         const jsonContent = '{"method":"get_balance"}'
-        ;(nip04.decrypt as jest.Mock).mockResolvedValue(jsonContent)
+        ;(nip04.decrypt as jest.Mock).mockReturnValue(jsonContent)
 
-        const result = await decrypt(
-          serverKeypair,
-          appPubkey,
-          encryptedContent,
-          encryptionType,
-        )
+        const result = decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType)
 
         expect(result).toBe(jsonContent)
       })
 
-      it("should propagate nip04.decrypt errors", async () => {
+      it("should propagate nip04.decrypt errors", () => {
         const error = new Error("Decryption failed")
-        ;(nip04.decrypt as jest.Mock).mockRejectedValue(error)
+        ;(nip04.decrypt as jest.Mock).mockImplementation(() => {
+          throw error
+        })
 
-        await expect(
+        expect(() =>
           decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType),
-        ).rejects.toThrow("Decryption failed")
+        ).toThrow("Decryption failed")
       })
     })
 
@@ -358,13 +310,8 @@ describe("Encryption Functions", () => {
         ;(nip44.decrypt as jest.Mock).mockReturnValue(testContent)
       })
 
-      it("should call nip44 functions with correct parameters", async () => {
-        const result = await decrypt(
-          serverKeypair,
-          appPubkey,
-          encryptedContent,
-          encryptionType,
-        )
+      it("should call nip44 functions with correct parameters", () => {
+        const result = decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType)
 
         expect(nip44.getConversationKey).toHaveBeenCalledTimes(1)
         expect(nip44.getConversationKey).toHaveBeenCalledWith(
@@ -376,107 +323,87 @@ describe("Encryption Functions", () => {
         expect(result).toBe(testContent)
       })
 
-      it("should convert privkey to Uint8Array", async () => {
-        await decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType)
+      it("should convert privkey to Uint8Array", () => {
+        decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType)
 
         const callArgs = (nip44.getConversationKey as jest.Mock).mock.calls[0][0]
         expect(callArgs).toBeInstanceOf(Uint8Array)
         expect(callArgs.length).toBe(32)
       })
 
-      it("should not call nip04 functions when using nip44", async () => {
-        await decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType)
+      it("should not call nip04 functions when using nip44", () => {
+        decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType)
 
         expect(nip04.encrypt).not.toHaveBeenCalled()
         expect(nip04.decrypt).not.toHaveBeenCalled()
       })
 
-      it("should handle empty decrypted content", async () => {
+      it("should handle empty decrypted content", () => {
         ;(nip44.decrypt as jest.Mock).mockReturnValue("")
 
-        const result = await decrypt(
-          serverKeypair,
-          appPubkey,
-          encryptedContent,
-          encryptionType,
-        )
+        const result = decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType)
 
         expect(result).toBe("")
       })
 
-      it("should handle long decrypted content", async () => {
+      it("should handle long decrypted content", () => {
         const longContent = "a".repeat(10000)
         ;(nip44.decrypt as jest.Mock).mockReturnValue(longContent)
 
-        const result = await decrypt(
-          serverKeypair,
-          appPubkey,
-          encryptedContent,
-          encryptionType,
-        )
+        const result = decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType)
 
         expect(result).toBe(longContent)
       })
 
-      it("should handle JSON decrypted content", async () => {
+      it("should handle JSON decrypted content", () => {
         const jsonContent = '{"result":{"balance":1000000}}'
         ;(nip44.decrypt as jest.Mock).mockReturnValue(jsonContent)
 
-        const result = await decrypt(
-          serverKeypair,
-          appPubkey,
-          encryptedContent,
-          encryptionType,
-        )
+        const result = decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType)
 
         expect(result).toBe(jsonContent)
       })
 
-      it("should propagate nip44.decrypt errors", async () => {
+      it("should propagate nip44.decrypt errors", () => {
         const error = new Error("Decryption failed")
         ;(nip44.decrypt as jest.Mock).mockImplementation(() => {
           throw error
         })
 
-        await expect(
+        expect(() =>
           decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType),
-        ).rejects.toThrow("Decryption failed")
+        ).toThrow("Decryption failed")
       })
 
-      it("should propagate nip44.getConversationKey errors", async () => {
+      it("should propagate nip44.getConversationKey errors", () => {
         const error = new Error("Invalid keypair")
         ;(nip44.getConversationKey as jest.Mock).mockImplementation(() => {
           throw error
         })
 
-        await expect(
+        expect(() =>
           decrypt(serverKeypair, appPubkey, encryptedContent, encryptionType),
-        ).rejects.toThrow("Invalid keypair")
+        ).toThrow("Invalid keypair")
       })
     })
   })
 
   describe("encrypt/decrypt round-trip", () => {
-    it("should successfully round-trip with nip04", async () => {
+    it("should successfully round-trip with nip04", () => {
       const originalContent = "test message for round trip"
       const encrypted = "encrypted_data"
 
-      ;(nip04.encrypt as jest.Mock).mockResolvedValue(encrypted)
-      ;(nip04.decrypt as jest.Mock).mockResolvedValue(originalContent)
+      ;(nip04.encrypt as jest.Mock).mockReturnValue(encrypted)
+      ;(nip04.decrypt as jest.Mock).mockReturnValue(originalContent)
 
-      const encryptedResult = await encrypt(
-        serverKeypair,
-        appPubkey,
-        originalContent,
-        "nip04",
-      )
+      const encryptedResult = encrypt(serverKeypair, appPubkey, originalContent, "nip04")
       expect(encryptedResult).toBe(encrypted)
 
-      const decryptedResult = await decrypt(serverKeypair, appPubkey, encrypted, "nip04")
+      const decryptedResult = decrypt(serverKeypair, appPubkey, encrypted, "nip04")
       expect(decryptedResult).toBe(originalContent)
     })
 
-    it("should successfully round-trip with nip44", async () => {
+    it("should successfully round-trip with nip44", () => {
       const originalContent = '{"method":"pay_invoice","params":{"invoice":"lnbc..."}}'
       const encrypted = "encrypted_data_nip44"
       const mockKey = new Uint8Array(32)
@@ -485,7 +412,7 @@ describe("Encryption Functions", () => {
       ;(nip44.encrypt as jest.Mock).mockReturnValue(encrypted)
       ;(nip44.decrypt as jest.Mock).mockReturnValue(originalContent)
 
-      const encryptedResult = await encrypt(
+      const encryptedResult = encrypt(
         serverKeypair,
         appPubkey,
         originalContent,
@@ -493,18 +420,13 @@ describe("Encryption Functions", () => {
       )
       expect(encryptedResult).toBe(encrypted)
 
-      const decryptedResult = await decrypt(
-        serverKeypair,
-        appPubkey,
-        encrypted,
-        "nip44_v2",
-      )
+      const decryptedResult = decrypt(serverKeypair, appPubkey, encrypted, "nip44_v2")
       expect(decryptedResult).toBe(originalContent)
     })
   })
 
   describe("edge cases", () => {
-    it("should handle different keypair formats", async () => {
+    it("should handle different keypair formats", () => {
       const shortKeypair: ServerNostrKeypair = {
         pubkey: "1234567890abcdef".repeat(4) as ServerNostrPubkey,
         privkey: "fedcba0987654321".repeat(4) as ServerNostrPrivkey,
@@ -513,17 +435,17 @@ describe("Encryption Functions", () => {
       ;(nip44.getConversationKey as jest.Mock).mockReturnValue(mockKey)
       ;(nip44.encrypt as jest.Mock).mockReturnValue("encrypted")
 
-      const result = await encrypt(shortKeypair, appPubkey, testContent, "nip44_v2")
+      const result = encrypt(shortKeypair, appPubkey, testContent, "nip44_v2")
 
       expect(result).toBe("encrypted")
       expect(nip44.getConversationKey).toHaveBeenCalled()
     })
 
-    it("should handle Unicode content in nip04", async () => {
+    it("should handle Unicode content in nip04", () => {
       const unicodeContent = "Hello 世界 🌍 émojis"
-      ;(nip04.encrypt as jest.Mock).mockResolvedValue("encrypted_unicode")
+      ;(nip04.encrypt as jest.Mock).mockReturnValue("encrypted_unicode")
 
-      const result = await encrypt(serverKeypair, appPubkey, unicodeContent, "nip04")
+      const result = encrypt(serverKeypair, appPubkey, unicodeContent, "nip04")
 
       expect(nip04.encrypt).toHaveBeenCalledWith(
         serverKeypair.privkey,
@@ -533,13 +455,13 @@ describe("Encryption Functions", () => {
       expect(result).toBe("encrypted_unicode")
     })
 
-    it("should handle Unicode content in nip44", async () => {
+    it("should handle Unicode content in nip44", () => {
       const unicodeContent = "Payment: 1000 sats ⚡️"
       const mockKey = new Uint8Array(32)
       ;(nip44.getConversationKey as jest.Mock).mockReturnValue(mockKey)
       ;(nip44.encrypt as jest.Mock).mockReturnValue("encrypted_unicode")
 
-      const result = await encrypt(serverKeypair, appPubkey, unicodeContent, "nip44_v2")
+      const result = encrypt(serverKeypair, appPubkey, unicodeContent, "nip44_v2")
 
       expect(nip44.encrypt).toHaveBeenCalledWith(unicodeContent, mockKey)
       expect(result).toBe("encrypted_unicode")

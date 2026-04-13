@@ -121,13 +121,13 @@ describe("NwcSubscriber", () => {
     })
     mockUpdateLastUsed.mockResolvedValue(undefined)
     mockHandle.mockResolvedValue({ balance: 1000 })
-    mockDecrypt.mockResolvedValue(
+    mockDecrypt.mockReturnValue(
       JSON.stringify({
         method: "get_balance",
         params: {},
       }),
     )
-    mockEncrypt.mockResolvedValue("encrypted-response")
+    mockEncrypt.mockReturnValue("encrypted-response")
     mockSleep.mockResolvedValue(undefined)
     mockParseNip47Response.mockImplementation((result: unknown) => {
       if (
@@ -147,7 +147,7 @@ describe("NwcSubscriber", () => {
     })
   })
 
-  it("awaits nip04 encryption before publishing the response event", async () => {
+  it("publishes the synchronously encrypted response event", async () => {
     const subscriber = NwcSubscriber()
     const stop = subscriber.subscribe(mockHandle)
 
@@ -284,7 +284,7 @@ describe("NwcSubscriber", () => {
   it("rejects requests for methods outside the connection allowlist", async () => {
     const subscriber = NwcSubscriber()
     const stop = subscriber.subscribe(mockHandle)
-    mockDecrypt.mockResolvedValue(
+    mockDecrypt.mockReturnValue(
       JSON.stringify({
         method: "pay_invoice",
         params: {},

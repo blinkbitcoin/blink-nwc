@@ -12,7 +12,7 @@ jest.mock("@/domain/connection", () => ({
 }))
 
 jest.mock("@/domain/nostr", () => ({
-  encrypt: jest.fn().mockResolvedValue("encrypted_content"),
+  encrypt: jest.fn().mockReturnValue("encrypted_content"),
   hexToBytes: jest.fn().mockReturnValue(new Uint8Array(32)),
 }))
 

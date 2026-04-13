@@ -19,7 +19,7 @@ export const NotificationService = (relay: Relay) => {
         kind: 23197,
         created_at: Math.floor(Date.now() / 1000),
         tags: [["p", appPubkey]],
-        content: await encrypt(
+        content: encrypt(
           serverKeypair,
           appPubkey,
           JSON.stringify(notification),

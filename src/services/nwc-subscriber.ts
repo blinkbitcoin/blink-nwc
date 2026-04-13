@@ -185,7 +185,7 @@ export const NwcSubscriber = () => {
 
       let decryptedContent: string
       try {
-        decryptedContent = await decrypt(
+        decryptedContent = decrypt(
           serverKeypair,
           event.pubkey as NwcAppPubkey,
           event.content,
@@ -337,7 +337,7 @@ export const NwcSubscriber = () => {
     encryptionType: Nip47EncryptionType,
     response: Nip47Response,
   ) => {
-    const encryptedContent = await encrypt(
+    const encryptedContent = encrypt(
       serverKeypair,
       appPk,
       JSON.stringify({
