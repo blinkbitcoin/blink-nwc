@@ -21,6 +21,7 @@ import {
 import {
   Nip47Error,
   Nip47InternalError,
+  Nip47NotFoundError,
   Nip47NotImplementedError,
   Nip47OtherError,
   Nip47RestrictedError,
@@ -32,8 +33,10 @@ import {
   recordExceptionInCurrentSpan,
   wrapAsyncToRunInSpan,
 } from "@/services/tracing"
+import { toNwcTx } from "@/domain/utils"
 import { ensureUnixSeconds, toMilliSatoshis, toMinutes, toSatoshis } from "@/domain/units"
 import {
+  checkedToNip47LookupInvoiceRequest,
   checkedToNip47MakeInvoiceRequest,
   checkedToNip47PayInvoiceRequest,
 } from "@/domain/validation"
@@ -253,6 +256,30 @@ const NwcEventHandler = () => {
               ? error
               : new Nip47OtherError("Invalid invoice")
         }
+      }
+    } else if (request.method === "lookup_invoice") {
+      const parsed = checkedToNip47LookupInvoiceRequest(request.params)
+      if (parsed instanceof Error) {
+        response = new Nip47OtherError(parsed.message)
+      } else {
+        const result = await blinkCoreService.lookupInvoice(
+          connection.apiKey,
+          connection.walletId,
+          parsed.payment_hash,
+          parsed.invoice,
+        )
+
+        response =
+          result instanceof Error
+            ? result.name === "InvalidResponseError" ||
+              result.name === "InvoiceNotFoundError"
+              ? new Nip47NotFoundError("Invoice not found")
+              : parseErrorForNip47Response(result)
+            : {
+                ...toNwcTx(result),
+                expires_at: result.expiresAt,
+                settled_at: result.settledAt,
+              }
       }
     } else {
       response = new Nip47NotImplementedError(

@@ -62,9 +62,7 @@ export function mergeTxs(
 export const toNwcTx = (tx: CoreServiceTx): Nip47Transaction => {
   const {
     amount: satoshis,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     settledAt,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     expiresAt,
     paymentHash,
     createdAt,
@@ -77,9 +75,11 @@ export const toNwcTx = (tx: CoreServiceTx): Nip47Transaction => {
     ...rest,
     amount: toMilliSatoshis(satoshis),
     created_at: ensureUnixSeconds(createdAt),
+    expires_at: expiresAt,
     fees_paid: toMilliSatoshis(feesPaid),
     metadata: undefined,
     payment_hash: paymentHash,
+    settled_at: settledAt,
     description_hash: descriptionHash,
   }
 }

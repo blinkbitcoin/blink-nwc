@@ -60,6 +60,8 @@ export type Nip47Transaction = {
   amount: MilliSatoshis
   fees_paid: MilliSatoshis
   created_at: UnixTimestamp
+  expires_at?: UnixTimestamp
+  settled_at?: UnixTimestamp
   metadata?: object
 }
 
