@@ -8,12 +8,8 @@ import {
   SUPPORTED_NWC_METHODS,
   SUPPORTED_NWC_NOTIFICATIONS,
 } from "@/config"
-import {
-  getServerKeypair,
-  hasPermission,
-  isConnectionExpired,
-  NwcConnection,
-} from "@/domain/connection"
+import { validateConnectionForRequest } from "@/app/connection-validator"
+import { getServerKeypair, NwcConnection } from "@/domain/connection"
 import { parseErrorFromUnknown } from "@/domain/errors"
 import {
   Nip47EncryptionType,
@@ -27,10 +23,9 @@ import {
   encrypt,
   EventKind,
   hexToBytes,
-  Nip47UnauthorizedError,
   Nip47InternalError,
-  Nip47RestrictedError,
   Nip47UnsupportedEncryptionError,
+  Nip47UnauthorizedError,
   parseNip47Response,
 } from "@/domain/nostr"
 import { ConnectionsRepository, ProcessedNwcRequestsRepository } from "@/services/db"
@@ -355,7 +350,7 @@ export const NwcSubscriber = () => {
           event.pubkey as NwcAppPubkey,
         )
 
-        if (userConnection instanceof Error || userConnection.revoked) {
+        if (userConnection instanceof Error) {
           eventLogger.warn("no active connection found for pubkey")
           await sendNwcResponse(
             event.id,
@@ -370,34 +365,25 @@ export const NwcSubscriber = () => {
           return
         }
 
-        if (isConnectionExpired(userConnection)) {
-          eventLogger.warn({ connectionId: userConnection.id }, "connection has expired")
-          await sendNwcResponse(
-            event.id,
-            event.pubkey as NwcAppPubkey,
-            request.method,
-            encryptionType as Nip47EncryptionType,
-            parseNip47Response(new Nip47UnauthorizedError("Connection has expired")),
-          )
-          await markEventProcessed(event.id, expirationTimestamp)
-          return
-        }
-
-        if (!hasPermission(request.method, userConnection)) {
+        const validationError = validateConnectionForRequest(
+          userConnection,
+          request.method,
+        )
+        if (validationError) {
           eventLogger.warn(
-            { connectionId: userConnection.id, method: request.method },
-            "connection is not permitted to use method",
+            {
+              connectionId: userConnection.id,
+              method: request.method,
+              errorCode: validationError.code,
+            },
+            validationError.message,
           )
           await sendNwcResponse(
             event.id,
             event.pubkey as NwcAppPubkey,
             request.method,
             encryptionType as Nip47EncryptionType,
-            parseNip47Response(
-              new Nip47RestrictedError(
-                "Connection does not have permission for this method",
-              ),
-            ),
+            parseNip47Response(validationError),
           )
           await markEventProcessed(event.id, expirationTimestamp)
           return

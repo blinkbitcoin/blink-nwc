@@ -333,12 +333,99 @@ describe("NwcSubscriber", () => {
         result_type: "pay_invoice",
         error: {
           code: "RESTRICTED",
-          message: "Connection does not have permission for this method",
+          message:
+            "Connection does not have permission for requested operation: pay_invoice",
         },
       }),
       "nip04",
     )
 
+    await stop()
+  })
+
+  it("rejects revoked connections before invoking the handler", async () => {
+    mockFindByPubkey.mockResolvedValue({
+      id: "connection-id",
+      appPubkey: "c".repeat(64),
+      permissions: ["get_balance"],
+      revoked: true,
+      expiresAt: null,
+    })
+
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+
+    await flushMicrotasks()
+
+    expect(mockHandle).not.toHaveBeenCalled()
+    expect(mockUpdateLastUsed).not.toHaveBeenCalled()
+    expect(mockEncrypt).toHaveBeenCalledWith(
+      expect.objectContaining({ pubkey: "a".repeat(64) }),
+      "c".repeat(64),
+      JSON.stringify({
+        result_type: "get_balance",
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Connection has been revoked",
+        },
+      }),
+      "nip04",
+    )
+
+    await stop()
+  })
+
+  it("rejects expired connections before invoking the handler", async () => {
+    mockFindByPubkey.mockResolvedValue({
+      id: "connection-id",
+      appPubkey: "c".repeat(64),
+      permissions: ["get_balance"],
+      revoked: false,
+      expiresAt: new Date("2026-01-01T00:00:00.000Z"),
+    })
+    jest
+      .spyOn(Date, "now")
+      .mockReturnValue(new Date("2026-01-02T00:00:00.000Z").getTime())
+
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+
+    await flushMicrotasks()
+
+    expect(mockHandle).not.toHaveBeenCalled()
+    expect(mockUpdateLastUsed).not.toHaveBeenCalled()
+    expect(mockEncrypt).toHaveBeenCalledWith(
+      expect.objectContaining({ pubkey: "a".repeat(64) }),
+      "c".repeat(64),
+      JSON.stringify({
+        result_type: "get_balance",
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Connection has expired",
+        },
+      }),
+      "nip04",
+    )
+
+    jest.restoreAllMocks()
     await stop()
   })
 

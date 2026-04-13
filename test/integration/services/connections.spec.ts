@@ -15,7 +15,7 @@ import {
 
 import { ConnectionsRepository } from "@/services/db/connections"
 import { closeDbConnections } from "@/services/db/query-builder"
-import { NwcConnectionAlias, NwcConnectionId } from "@/domain/index.types"
+import { ApiKeyId, NwcConnectionAlias, NwcConnectionId } from "@/domain/index.types"
 import { UserId, WalletId } from "@/domain/core/index.types"
 import {
   CouldNotFindNwcConnectionFromAppPubkeyError,
@@ -23,7 +23,14 @@ import {
   UniqueConstraintViolationError,
 } from "@/domain/errors"
 import { Nip47Method } from "@/domain/nostr"
-import { toNotificationPermission } from "@/domain/nostr/notification-type"
+import {
+  NwcNotificationType,
+  toNotificationPermission,
+} from "@/domain/nostr/notification-type"
+
+const paymentReceivedPermission = toNotificationPermission(
+  NwcNotificationType.PaymentReceived,
+)
 
 describe("ConnectionsRepository", () => {
   beforeAll(async () => {
@@ -268,7 +275,7 @@ describe("ConnectionsRepository", () => {
     it("should create connection with notifications enabled", async () => {
       const repo = ConnectionsRepository()
       const testConn = createTestConnection({
-        permissions: [Nip47Method.GetInfo, "notifications:payment_received" as any],
+        permissions: [Nip47Method.GetInfo, paymentReceivedPermission],
         notificationsEnabled: true,
       })
 
@@ -548,6 +555,25 @@ describe("ConnectionsRepository", () => {
 
       expect(result).not.toBeInstanceOf(Error)
       expect(result).toBe(2)
+    })
+
+    it("should exclude expired connections from the active count", async () => {
+      const repo = ConnectionsRepository()
+      const walletId = randomUUID() as WalletId
+
+      await insertTestConnection(createTestConnection({ walletId, revoked: false }))
+      await insertTestConnection(
+        createTestConnection({
+          walletId,
+          revoked: false,
+          expiresAt: new Date("2020-01-01T00:00:00.000Z"),
+        }),
+      )
+
+      const result = await repo.countActiveByWalletId(walletId)
+
+      expect(result).not.toBeInstanceOf(Error)
+      expect(result).toBe(1)
     })
 
     it("should return 0 when no active connections", async () => {
@@ -936,7 +962,7 @@ describe("ConnectionsRepository", () => {
     it("should persist and return apiKeyId when provided", async () => {
       const repo = ConnectionsRepository()
       const apiKeyId = "12345678-1234-1234-1234-123456789abc"
-      const testConn = createTestConnection({ apiKeyId: apiKeyId as any })
+      const testConn = createTestConnection({ apiKeyId: apiKeyId as ApiKeyId })
       const result = await repo.create(testConn)
       expect(result).not.toBeInstanceOf(Error)
       if (result instanceof Error) return
@@ -1013,7 +1039,7 @@ describe("ConnectionsRepository", () => {
       await insertTestConnection(
         createTestConnection({
           walletId,
-          permissions: [Nip47Method.GetInfo, "notifications:payment_received" as any],
+          permissions: [Nip47Method.GetInfo, paymentReceivedPermission],
           notificationsEnabled: true,
         }),
       )
@@ -1043,9 +1069,32 @@ describe("ConnectionsRepository", () => {
       await insertTestConnection(
         createTestConnection({
           walletId,
-          permissions: ["notifications:payment_received" as any],
+          permissions: [paymentReceivedPermission],
           notificationsEnabled: true,
           revoked: true,
+        }),
+      )
+
+      const result = await repo.findByWalletIdWithNotificationPerm(
+        walletId,
+        "notifications:payment_received",
+      )
+
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) return
+      expect(result).toHaveLength(0)
+    })
+
+    it("should exclude expired connections", async () => {
+      const repo = ConnectionsRepository()
+      const walletId = randomUUID() as WalletId
+
+      await insertTestConnection(
+        createTestConnection({
+          walletId,
+          permissions: [paymentReceivedPermission],
+          notificationsEnabled: true,
+          expiresAt: new Date("2020-01-01T00:00:00.000Z"),
         }),
       )
 
@@ -1066,7 +1115,7 @@ describe("ConnectionsRepository", () => {
       await insertTestConnection(
         createTestConnection({
           walletId,
-          permissions: ["notifications:payment_received" as any],
+          permissions: [paymentReceivedPermission],
           notificationsEnabled: false,
         }),
       )
