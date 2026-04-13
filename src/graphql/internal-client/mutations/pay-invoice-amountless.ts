@@ -1,59 +1,74 @@
 import { ApolloClient, gql } from "@apollo/client"
 
-import { Description, InvoiceBolt11, Satoshis } from "@/domain/index.types"
 import {
-  LnNoAmountInvoicePaymentSendOnBehalfOfRecipient,
-  LnNoAmountInvoicePaymentSendOnBehalfOfRecipientMutation,
-  LnNoAmountInvoicePaymentSendOnBehalfOfRecipientMutationVariables,
+  LnNoAmountInvoicePaymentSend,
+  LnNoAmountInvoicePaymentSendMutation,
+  LnNoAmountInvoicePaymentSendMutationVariables,
 } from "@/graphql/internal-client/generated"
+import { ApiKey, Description, InvoiceBolt11, Satoshis } from "@/domain/index.types"
 import { WalletId } from "@/domain/core/index.types"
 
 // eslint-disable-next-line @typescript-eslint/no-unused-expressions
 gql`
-  mutation LnNoAmountInvoicePaymentSendOnBehalfOfRecipient(
-    $input: LnNoAmountInvoicePaymentInput!
-  ) {
+  mutation LnNoAmountInvoicePaymentSend($input: LnNoAmountInvoicePaymentInput!) {
     lnNoAmountInvoicePaymentSend(input: $input) {
-      status
-      errors {
-        message
-        path
-        code
-      }
       transaction {
+        createdAt
+        direction
+        id
+        initiationVia {
+          ... on InitiationViaLn {
+            paymentHash
+            paymentRequest
+          }
+        }
+        memo
+        settlementFee
+        settlementAmount
+        settlementCurrency
         settlementVia {
           ... on SettlementViaLn {
             preImage
           }
+          ... on SettlementViaIntraLedger {
+            preImage
+          }
         }
-        settlementFee
+        status
       }
+      errors {
+        code
+        message
+        path
+      }
+      status
     }
   }
 `
 
 export async function payInvoiceAmountless(
   client: ApolloClient,
-  apiKey: string,
-  paymentRequest: InvoiceBolt11,
+  apiKey: ApiKey,
+  bolt11: InvoiceBolt11,
   walletId: WalletId,
   amount: Satoshis,
   memo?: Description,
 ) {
   const { data } = await client.mutate<
-    LnNoAmountInvoicePaymentSendOnBehalfOfRecipientMutation,
-    LnNoAmountInvoicePaymentSendOnBehalfOfRecipientMutationVariables
+    LnNoAmountInvoicePaymentSendMutation,
+    LnNoAmountInvoicePaymentSendMutationVariables
   >({
-    mutation: LnNoAmountInvoicePaymentSendOnBehalfOfRecipient,
+    mutation: LnNoAmountInvoicePaymentSend,
     variables: {
       input: {
-        paymentRequest,
-        walletId,
         amount,
-        memo: memo ?? undefined,
+        paymentRequest: bolt11,
+        memo,
+        walletId,
       },
     },
     context: { apiKey },
+    fetchPolicy: "no-cache",
   })
   return data
 }
