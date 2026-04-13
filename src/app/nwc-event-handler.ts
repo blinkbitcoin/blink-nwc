@@ -7,8 +7,7 @@ import {
   WALLET_COLOR,
 } from "@/config"
 import { parseErrorForNip47Response } from "@/app/nwc-event-handler.error"
-import { getServerKeypair } from "@/domain/connection"
-import { NwcConnection, hasPermission } from "@/domain/connection"
+import { getServerKeypair, NwcConnection, hasPermission } from "@/domain/connection"
 import { ErrorLevel } from "@/domain/errors"
 import {
   CoreServiceTx,
@@ -162,9 +161,9 @@ const NwcEventHandler = () => {
       } else {
         const { amount, description, description_hash, expiry } = parsed
         addAttributesToCurrentSpan({
-          walletId: connection.walletId,
-          userId: connection.userId,
-          connectionId: connection.id,
+          "walletId": connection.walletId,
+          "userId": connection.userId,
+          "connectionId": connection.id,
           "invoice.amount": amount,
           "invoice.hasDescription": !!description,
           "invoice.hasDescriptionHash": !!description_hash,
@@ -220,9 +219,9 @@ const NwcEventHandler = () => {
         response = new Nip47OtherError(parsed.message)
       } else {
         addAttributesToCurrentSpan({
-          walletId: connection.walletId,
-          userId: connection.userId,
-          connectionId: connection.id,
+          "walletId": connection.walletId,
+          "userId": connection.userId,
+          "connectionId": connection.id,
           "payment.invoice_present": true,
         })
 
@@ -262,9 +261,7 @@ const NwcEventHandler = () => {
             level: ErrorLevel.Warn,
           })
           response =
-            error instanceof Nip47Error
-              ? error
-              : new Nip47OtherError("Invalid invoice")
+            error instanceof Nip47Error ? error : new Nip47OtherError("Invalid invoice")
         }
       }
     } else if (request.method === "lookup_invoice") {
@@ -374,4 +371,3 @@ const NwcEventHandler = () => {
 }
 
 export default NwcEventHandler
-import { decode as decodeBolt11 } from "bolt11"
