@@ -106,6 +106,12 @@ describe("Validation Functions", () => {
       expect(result).toEqual(allMethods)
     })
 
+    it("should accept notification permissions", () => {
+      const permissions = ["get_info", "notifications:payment_sent"]
+      const result = checkedToPermissions(permissions)
+      expect(result).toEqual(permissions)
+    })
+
     it("should reject array with invalid permission", () => {
       const invalidPermissions = ["get_info", "invalid_method"]
       const result = checkedToPermissions(invalidPermissions)
@@ -587,6 +593,15 @@ describe("Validation Functions", () => {
       const result = checkedToNip47MakeInvoiceRequest(req)
       expect(result).toBeInstanceOf(ValidationError)
     })
+
+    it("should reject description_hash for amountless invoices", () => {
+      const req = { description_hash: "a".repeat(64) }
+      const result = checkedToNip47MakeInvoiceRequest(req)
+      expect(result).toBeInstanceOf(ValidationError)
+      expect((result as ValidationError).message).toContain(
+        "description_hash is not supported for amountless invoices",
+      )
+    })
   })
 
   describe("checkedToNip47PayInvoiceRequest", () => {
@@ -594,6 +609,12 @@ describe("Validation Functions", () => {
       const req = { invoice: "lnbc1000n1..." }
       const result = checkedToNip47PayInvoiceRequest(req)
       expect(result).toEqual({ invoice: req.invoice })
+    })
+
+    it("should accept valid request with amount", () => {
+      const req = { invoice: "lnbc1000n1...", amount: 25000 }
+      const result = checkedToNip47PayInvoiceRequest(req)
+      expect(result).toEqual(req)
     })
 
     it("should reject missing invoice", () => {
@@ -611,6 +632,12 @@ describe("Validation Functions", () => {
 
     it("should reject non-string invoice", () => {
       const req = { invoice: 12345 }
+      const result = checkedToNip47PayInvoiceRequest(req)
+      expect(result).toBeInstanceOf(ValidationError)
+    })
+
+    it("should reject invalid amount", () => {
+      const req = { invoice: "lnbc1000n1...", amount: -1 }
       const result = checkedToNip47PayInvoiceRequest(req)
       expect(result).toBeInstanceOf(ValidationError)
     })
