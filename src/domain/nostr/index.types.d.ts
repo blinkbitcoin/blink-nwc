@@ -16,6 +16,7 @@ import {
   UnixTimestamp,
 } from "@/domain/index.types"
 import { Nip47Error } from "@/domain/nostr/errors"
+import { NwcNotificationTypeValue } from "@/domain/nostr/notification-type"
 
 export type PaymentDirection =
   (typeof import("./payment-direction").PaymentDirection)[keyof typeof import("./payment-direction").PaymentDirection]
@@ -69,6 +70,7 @@ export type Nip47GetInfoResult = {
   block_height: BlockHeight
   block_hash: BlockHash
   methods: Nip47MethodType[]
+  notifications: NwcNotificationTypeValue[]
 }
 
 export type Nip47GetBalanceResult = {

@@ -19,6 +19,7 @@ import {
 import { BlinkServiceError } from "@/services/core/errors"
 
 export interface IBlinkCoreService {
+  getUsername(apiKey: ApiKey): Promise<string | null | BlinkServiceError>
   getNodeInfo(): Promise<
     | { blockHeight: BlockHeight; blockHash: BlockHash; network: Network }
     | BlinkServiceError

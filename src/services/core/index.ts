@@ -22,6 +22,7 @@ import { DescriptionHash, PaymentHash, WalletId } from "@/domain/core/index.type
 import { payInvoice as payInvoiceGql } from "@/graphql/internal-client/mutations/pay-invoice"
 import { IError } from "@/graphql/index.types"
 import { getBalance as getBalanceGql } from "@/graphql/internal-client/queries/get-balance"
+import { getUsername as getUsernameGql } from "@/graphql/internal-client/queries/get-username"
 import {
   BlinkServiceError,
   CouldNotAuthorizeError,
@@ -48,6 +49,14 @@ import { wrapAsyncFunctionsToRunInSpan } from "@/services/tracing"
 import { mergeTxs, translateStatus } from "@/domain/utils"
 
 export const BlinkCoreService = (): IBlinkCoreService => {
+  const getUsername = async (apiKey: ApiKey) => {
+    try {
+      return await getUsernameGql(client, apiKey)
+    } catch {
+      return new UnknownBlinkServiceError()
+    }
+  }
+
   const getNodeInfo = async () => {
     try {
       const nodeInfo = await fetchNodeInfo(client)
@@ -599,6 +608,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
   return wrapAsyncFunctionsToRunInSpan({
     namespace: "services.blinkCore",
     fns: {
+      getUsername,
       getNodeInfo,
       getBalance,
       createInvoice,
