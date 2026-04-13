@@ -3,6 +3,8 @@ extend schema @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@
 type Query {
     hello: String!
     nwcServiceInfo: NwcServiceInfo!
+    nwcPermissionPresets: [NwcPermissionPreset!]!
+    nwcKnownApp(pubkey: String!): NwcKnownApp
     nwcConnection(id: ID!): NwcConnection
     nwcConnections(includeRevoked: Boolean = false): [NwcConnection!]!
 }
@@ -44,6 +46,28 @@ type NwcServiceInfo {
     supportedMethods: [Nip47Method!]!
     supportedNotifications: [NwcNotificationType!]!
     relayUrl: String!
+}
+
+type NwcPermissionPreset {
+    id: NwcPermissionPresetId!
+    name: String!
+    description: String!
+    permissions: [NwcPermission!]!
+}
+
+enum NwcPermissionPresetId {
+    SATSBACK_USER
+    SATSBACK_MERCHANT
+    NOSTR_ZAPPER
+    READ_ONLY
+}
+
+type NwcKnownApp {
+    pubkey: String!
+    name: String!
+    iconUrl: String
+    description: String!
+    recommendedPreset: NwcPermissionPreset!
 }
 
 type NwcConnection @key(fields: "id") {

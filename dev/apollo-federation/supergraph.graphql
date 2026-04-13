@@ -1656,6 +1656,16 @@ type NwcConnectionUpdatePayload
   connection: NwcConnection
 }
 
+type NwcKnownApp
+  @join__type(graph: NOSTR_WALLET_CONNECT)
+{
+  pubkey: String!
+  name: String!
+  iconUrl: String
+  description: String!
+  recommendedPreset: NwcPermissionPreset!
+}
+
 enum NwcNotificationType
   @join__type(graph: NOSTR_WALLET_CONNECT)
 {
@@ -1674,6 +1684,24 @@ enum NwcPermission
   LIST_TRANSACTIONS @join__enumValue(graph: NOSTR_WALLET_CONNECT)
   NOTIFICATIONS_PAYMENT_SENT @join__enumValue(graph: NOSTR_WALLET_CONNECT)
   NOTIFICATIONS_PAYMENT_RECEIVED @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+}
+
+type NwcPermissionPreset
+  @join__type(graph: NOSTR_WALLET_CONNECT)
+{
+  id: NwcPermissionPresetId!
+  name: String!
+  description: String!
+  permissions: [NwcPermission!]!
+}
+
+enum NwcPermissionPresetId
+  @join__type(graph: NOSTR_WALLET_CONNECT)
+{
+  SATSBACK_USER @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  SATSBACK_MERCHANT @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  NOSTR_ZAPPER @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  READ_ONLY @join__enumValue(graph: NOSTR_WALLET_CONNECT)
 }
 
 type NwcServiceInfo
@@ -1987,6 +2015,8 @@ type Query
 {
   hello: String! @join__field(graph: NOSTR_WALLET_CONNECT)
   nwcServiceInfo: NwcServiceInfo! @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcPermissionPresets: [NwcPermissionPreset!]! @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcKnownApp(pubkey: String!): NwcKnownApp @join__field(graph: NOSTR_WALLET_CONNECT)
   nwcConnection(id: ID!): NwcConnection @join__field(graph: NOSTR_WALLET_CONNECT)
   nwcConnections(includeRevoked: Boolean = false): [NwcConnection!]! @join__field(graph: NOSTR_WALLET_CONNECT)
   accountDefaultWallet(username: Username!, walletCurrency: WalletCurrency): PublicWallet! @join__field(graph: PUBLIC)

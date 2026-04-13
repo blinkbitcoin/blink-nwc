@@ -22,8 +22,13 @@ import {
   SUPPORTED_NWC_NOTIFICATIONS,
   NOSTR_RELAY_PUBLIC_URL,
 } from "@/config"
+import { findKnownAppByPubkey } from "@/config/nwc-known-apps"
 import { getServerKeypair, NwcConnection } from "@/domain/connection"
 import { toNwcBudgetFromApiKeyLimits } from "@/domain/nwc-budget"
+import {
+  NWC_PERMISSION_PRESETS,
+  NwcPermissionPresetId,
+} from "@/domain/nwc-permission-preset"
 import { GraphqlNwcPermission } from "@/domain/nwc-permission"
 import { Nip47Method } from "@/domain/nostr/nip47-method"
 import { NwcNotificationType } from "@/domain/nostr/notification-type"
@@ -80,6 +85,7 @@ export const resolvers: Resolvers = {
   Nip47Method: toEnumResolver(Nip47Method),
   NwcPermission: GraphqlNwcPermission,
   NwcNotificationType: toEnumResolver(NwcNotificationType),
+  NwcPermissionPresetId: toEnumResolver(NwcPermissionPresetId),
   Query: {
     hello: {
       resolve: async () => {
@@ -130,6 +136,9 @@ export const resolvers: Resolvers = {
       supportedNotifications: SUPPORTED_NWC_NOTIFICATIONS,
       relayUrl: NOSTR_RELAY_PUBLIC_URL,
     }),
+    nwcPermissionPresets: () => [...NWC_PERMISSION_PRESETS],
+    nwcKnownApp: (_: unknown, { pubkey }: { pubkey: string }) =>
+      findKnownAppByPubkey(pubkey),
   },
   User: {
     __resolveReference: async (user: { id: string }) => {

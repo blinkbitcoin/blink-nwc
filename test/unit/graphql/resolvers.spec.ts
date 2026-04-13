@@ -1,3 +1,5 @@
+import { NWC_KNOWN_APPS } from "@/config/nwc-known-apps"
+
 const mockExampleHello = jest.fn()
 const mockCreateNwcConnection = jest.fn()
 const mockGetApiKeysForNwc = jest.fn()
@@ -48,6 +50,7 @@ import type {
 import { NwcBudgetPeriod } from "@/domain/nwc-budget"
 import { Nip47Method } from "@/domain/nostr"
 import { resolvers } from "@/graphql/resolvers"
+import { NwcPermissionPresetId } from "@/domain/nwc-permission-preset"
 
 describe("graphql resolvers", () => {
   const userId = "user-1" as UserId
@@ -574,5 +577,56 @@ describe("graphql resolvers", () => {
       errors: [],
       revokedCount: 2,
     })
+  })
+
+  it("returns the configured permission presets", async () => {
+    const nwcPermissionPresetsResolver = resolvers.Query!.nwcPermissionPresets as (
+      parent: unknown,
+      args: unknown,
+      context: unknown,
+      info: unknown,
+    ) => Promise<unknown> | unknown
+
+    const result = await nwcPermissionPresetsResolver({}, {}, {}, {} as never)
+
+    expect(result).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: NwcPermissionPresetId.SatsbackUser,
+          name: "Satsback User",
+        }),
+        expect.objectContaining({
+          id: NwcPermissionPresetId.ReadOnly,
+          name: "Read-Only",
+        }),
+      ]),
+    )
+  })
+
+  it("returns known app metadata by pubkey", async () => {
+    const nwcKnownAppResolver = resolvers.Query!.nwcKnownApp as (
+      parent: unknown,
+      args: { pubkey: string },
+      context: unknown,
+      info: unknown,
+    ) => Promise<unknown> | unknown
+    const knownApp = NWC_KNOWN_APPS[0]
+
+    const result = await nwcKnownAppResolver(
+      {},
+      { pubkey: knownApp.pubkey },
+      {},
+      {} as never,
+    )
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        pubkey: knownApp.pubkey,
+        name: "Satsback",
+        recommendedPreset: expect.objectContaining({
+          id: NwcPermissionPresetId.SatsbackUser,
+        }),
+      }),
+    )
   })
 })

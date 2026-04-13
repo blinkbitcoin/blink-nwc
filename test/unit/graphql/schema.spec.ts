@@ -23,6 +23,8 @@ describe("graphql schema", () => {
 
     expect(schema).toContain("nwcConnection(id: ID!): NwcConnection")
     expect(schema).toContain("nwcConnections(includeRevoked: Boolean = false)")
+    expect(schema).toContain("nwcPermissionPresets: [NwcPermissionPreset!]!")
+    expect(schema).toContain("nwcKnownApp(pubkey: String!): NwcKnownApp")
     expect(schema).toContain("connectionId: ID!")
     expect(schema).toMatch(
       /input NwcConnectionUpdateInput\s*\{[\s\S]*connectionId: ID![\s\S]*budget: NwcBudgetInput[\s\S]*\}/,
@@ -43,5 +45,14 @@ describe("graphql schema", () => {
 
   it("keeps the public Nip47Method enum aligned with supported methods", () => {
     expect(SUPPORTED_NWC_METHODS).toEqual(Object.values(Nip47Method))
+  })
+
+  it("exposes permission preset and known app metadata types", () => {
+    const schema = readFileSync(schemaPath, "utf8")
+
+    expect(schema).toContain("type NwcPermissionPreset")
+    expect(schema).toContain("enum NwcPermissionPresetId")
+    expect(schema).toContain("type NwcKnownApp")
+    expect(schema).toContain("recommendedPreset: NwcPermissionPreset!")
   })
 })
