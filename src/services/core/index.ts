@@ -572,7 +572,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
     /*
      * filter out txs older than "from" and apply offset
      */
-    return allTxs.filter((tx) => tx.createdAt > from).slice(offset, totalLimit)
+    return allTxs.filter((tx) => tx.createdAt >= from).slice(offset, totalLimit)
   }
 
   const fetchInvoicesInRange = async (
@@ -612,7 +612,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
       }
 
       const oldestInvTimestamp = invoices[invoices.length - 1].createdAt
-      if (from !== undefined && oldestInvTimestamp <= from) {
+      if (from !== undefined && oldestInvTimestamp < from) {
         break
       }
 
@@ -626,7 +626,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
       }
     }
 
-    return allInvoices.filter((inv) => inv.createdAt > from).slice(offset, totalLimit)
+    return allInvoices.filter((inv) => inv.createdAt >= from).slice(offset, totalLimit)
   }
 
   return wrapAsyncFunctionsToRunInSpan({

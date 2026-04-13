@@ -11,6 +11,7 @@ import { getServerKeypair } from "@/domain/connection"
 import { NwcConnection, hasPermission } from "@/domain/connection"
 import { ErrorLevel } from "@/domain/errors"
 import {
+  CoreServiceTx,
   MilliSatoshis,
   Nip47MethodType,
   Nip47Result,
@@ -33,15 +34,24 @@ import {
   recordExceptionInCurrentSpan,
   wrapAsyncToRunInSpan,
 } from "@/services/tracing"
-import { toNwcTx } from "@/domain/utils"
-import { ensureUnixSeconds, toMilliSatoshis, toMinutes, toSatoshis } from "@/domain/units"
+import { mergeTxs, toNwcTx } from "@/domain/utils"
 import {
+  ensureUnixSeconds,
+  toCursor,
+  toMilliSatoshis,
+  toMinutes,
+  toSatoshis,
+} from "@/domain/units"
+import {
+  checkedToNip47ListTransactionsRequest,
   checkedToNip47LookupInvoiceRequest,
   checkedToNip47MakeInvoiceRequest,
   checkedToNip47PayInvoiceRequest,
 } from "@/domain/validation"
 
 const DEFAULT_INVOICE_EXPIRY_SECONDS = 24 * 60 * 60
+const DEFAULT_BATCH_SIZE = 10
+const MAX_BATCH_SIZE = 100
 
 const NwcEventHandler = () => {
   const logger = baseLogger.child({ module: "nwc-event-handler" })
@@ -280,6 +290,57 @@ const NwcEventHandler = () => {
                 expires_at: result.expiresAt,
                 settled_at: result.settledAt,
               }
+      }
+    } else if (request.method === "list_transactions") {
+      const parsed = checkedToNip47ListTransactionsRequest(request.params)
+      if (parsed instanceof Error) {
+        response = new Nip47OtherError(parsed.message)
+      } else {
+        const { unpaid, type } = parsed
+        const limit = Math.min(
+          Math.max(parsed.limit ?? DEFAULT_BATCH_SIZE, 1),
+          MAX_BATCH_SIZE,
+        )
+        const offset = parsed.offset || 0
+        const mergedLimit = offset + limit
+        const from = parsed.from || (0 as UnixTimestamp)
+        const until = parsed.until || (Math.round(Date.now() / 1000) as UnixTimestamp)
+
+        const transactions = await blinkCoreService.fetchTransactionsInRange(
+          connection.apiKey,
+          connection.walletId,
+          from,
+          toCursor(until)!,
+          unpaid ? 0 : offset,
+          unpaid ? mergedLimit : limit,
+          type,
+        )
+        if (transactions instanceof Error) {
+          response = parseErrorForNip47Response(transactions)
+        } else {
+          let result: CoreServiceTx[]
+
+          if (unpaid) {
+            const invoices = await blinkCoreService.fetchInvoicesInRange(
+              connection.apiKey,
+              connection.walletId,
+              from,
+              toCursor(until)!,
+              0,
+              mergedLimit,
+              type,
+            )
+            if (invoices instanceof Error) {
+              response = parseErrorForNip47Response(invoices)
+            } else {
+              result = mergeTxs(invoices, transactions).slice(offset, mergedLimit)
+              response = { transactions: result.map((tx) => toNwcTx(tx)) }
+            }
+          } else {
+            result = transactions
+            response = { transactions: result.map((tx) => toNwcTx(tx)) }
+          }
+        }
       }
     } else {
       response = new Nip47NotImplementedError(
