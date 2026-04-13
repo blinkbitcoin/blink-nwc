@@ -13,6 +13,10 @@ import {
 } from "@/domain/index.types"
 import { Nip47Error, Nip47Method } from "@/domain/nostr"
 import {
+  NwcNotificationType,
+  toNotificationPermission,
+} from "@/domain/nostr/notification-type"
+import {
   TEST_USERS,
   createRuntimeConnection,
   getWalletByCurrency,
@@ -87,6 +91,8 @@ describeRealCore("NwcEventHandler with real BlinkCoreService", () => {
       Nip47Method.PayInvoice,
       Nip47Method.LookupInvoice,
       Nip47Method.ListTransactions,
+      toNotificationPermission(NwcNotificationType.PaymentSent),
+      toNotificationPermission(NwcNotificationType.PaymentReceived),
     ]
 
     // The current local stack exposes the user-auth GraphQL path reliably for these
@@ -156,7 +162,14 @@ describeRealCore("NwcEventHandler with real BlinkCoreService", () => {
     expect(result.alias).toBeDefined()
     expect(result.color).toBeDefined()
     expect(result.pubkey).toHaveLength(64)
-    expect(result.methods).toEqual(aliceConnection.permissions)
+    expect(result.methods).toEqual([
+      Nip47Method.GetInfo,
+      Nip47Method.GetBalance,
+      Nip47Method.MakeInvoice,
+      Nip47Method.PayInvoice,
+      Nip47Method.LookupInvoice,
+      Nip47Method.ListTransactions,
+    ])
     expect(result.notifications).toHaveLength(2)
     expect(typeof result.block_height).toBe("number")
     expect(result.block_hash).toHaveLength(64)

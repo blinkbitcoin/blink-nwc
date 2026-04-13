@@ -20,6 +20,7 @@ import {
 import { NOSTR_PRIVATE_KEY } from "@/config"
 import { AccountId, UserId, WalletId } from "@/domain/core/index.types"
 import { InvalidNwcUri, RepositoryError } from "@/domain/errors"
+import { hasMethodPermission } from "@/domain/nwc-permission"
 
 export interface IConnectionsRepository {
   create(
@@ -175,7 +176,7 @@ export const parseNwcUri = (uri: string): ParsedNwcUri | InvalidNwcUri => {
 }
 
 export const hasPermission = (method: Nip47MethodType, connection: NwcConnection) => {
-  return connection.permissions.includes(method)
+  return hasMethodPermission(connection.permissions, method)
 }
 
 export const isConnectionExpired = (

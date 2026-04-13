@@ -16,13 +16,16 @@ import * as BlinkService from "@/services/core"
 import {
   InvoiceBolt11,
   Nip47ListTransactionsResult,
-  NwcPermissionType,
   PaymentHash,
   Satoshis,
   UnixTimestamp,
 } from "@/domain/index.types"
 import { UserId, WalletId } from "@/domain/core/index.types"
 import { SUPPORTED_NWC_NOTIFICATIONS, WALLET_ALIAS, WALLET_COLOR } from "@/config"
+import {
+  NwcNotificationType,
+  toNotificationPermission,
+} from "@/domain/nostr/notification-type"
 import {
   InvoiceNotFoundError,
   PaymentTimedOutError,
@@ -83,10 +86,10 @@ describe("NwcEventHandler", () => {
     Nip47Method.LookupInvoice,
     Nip47Method.ListTransactions,
   ]
-  const notificationPermissions: NwcPermissionType[] = [
-    "notifications:payment_sent",
-    "notifications:payment_received",
-  ]
+  const notificationPermissions = [
+    toNotificationPermission(NwcNotificationType.PaymentSent),
+    toNotificationPermission(NwcNotificationType.PaymentReceived),
+  ] as const
 
   const mockConnection: NwcConnection = {
     id: "conn-123" as any,
@@ -271,7 +274,7 @@ describe("NwcEventHandler", () => {
       })
     })
 
-    it("should return empty notifications when notifications are disabled", async () => {
+    it("should return only the granted notification permissions", async () => {
       const handler = NwcEventHandler()
       mockBlinkCoreService.getNodeInfo.mockResolvedValue({
         network: "mainnet" as any,
@@ -281,12 +284,19 @@ describe("NwcEventHandler", () => {
 
       const result = await handler.handle(
         { method: Nip47Method.GetInfo, params: {} },
-        { ...mockConnection, notificationsEnabled: false },
+        {
+          ...mockConnection,
+          permissions: [
+            ...methodPermissions,
+            toNotificationPermission(NwcNotificationType.PaymentSent),
+          ],
+          notificationsEnabled: false,
+        },
       )
 
       expect(result).toMatchObject({
         methods: methodPermissions,
-        notifications: [],
+        notifications: [NwcNotificationType.PaymentSent],
       })
     })
 
