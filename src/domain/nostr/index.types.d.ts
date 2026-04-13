@@ -32,6 +32,7 @@ export type Nip47MakeInvoiceRequest = {
 
 export type Nip47PayInvoiceRequest = {
   invoice: InvoiceBolt11
+  amount?: MilliSatoshis
 }
 
 export type Nip47LookupInvoiceRequest = {

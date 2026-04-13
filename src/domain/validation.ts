@@ -404,5 +404,11 @@ export const checkedToNip47PayInvoiceRequest = (
   if (invoice instanceof ValidationError) {
     return invoice
   }
-  return { invoice }
+
+  const amount = req?.amount !== undefined ? checkedToMsatAmount(req.amount) : undefined
+  if (amount instanceof ValidationError) {
+    return amount
+  }
+
+  return { invoice, amount }
 }

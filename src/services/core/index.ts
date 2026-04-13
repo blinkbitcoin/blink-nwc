@@ -1,4 +1,5 @@
 import { CombinedGraphQLErrors, ServerError } from "@apollo/client"
+import { decode as decodeBolt11 } from "bolt11"
 import { GraphQLError } from "graphql"
 
 import client from "@/graphql/internal-client"
@@ -20,6 +21,7 @@ import {
 import { createInvoice as createInv } from "@/graphql/internal-client/mutations/create-invoice"
 import { DescriptionHash, PaymentHash, WalletId } from "@/domain/core/index.types"
 import { payInvoice as payInvoiceGql } from "@/graphql/internal-client/mutations/pay-invoice"
+import { payInvoiceAmountless as payInvoiceAmountlessGql } from "@/graphql/internal-client/mutations/pay-invoice-amountless"
 import { IError } from "@/graphql/index.types"
 import { getBalance as getBalanceGql } from "@/graphql/internal-client/queries/get-balance"
 import { getUsername as getUsernameGql } from "@/graphql/internal-client/queries/get-username"
@@ -49,6 +51,21 @@ import { wrapAsyncFunctionsToRunInSpan } from "@/services/tracing"
 import { mergeTxs, translateStatus } from "@/domain/utils"
 
 export const BlinkCoreService = (): IBlinkCoreService => {
+  const expiresAtFromInvoice = (paymentRequest?: InvoiceBolt11) => {
+    if (!paymentRequest) {
+      return undefined
+    }
+
+    try {
+      const decoded = decodeBolt11(paymentRequest)
+      return typeof decoded.timeExpireDate === "number"
+        ? (decoded.timeExpireDate as UnixTimestamp)
+        : undefined
+    } catch {
+      return undefined
+    }
+  }
+
   const getUsername = async (apiKey: ApiKey) => {
     try {
       return await getUsernameGql(client, apiKey)
@@ -163,11 +180,18 @@ export const BlinkCoreService = (): IBlinkCoreService => {
     apiKey: ApiKey,
     walletId: WalletId,
     invoice: InvoiceBolt11,
+    amount?: Satoshis,
     memo?: Description,
   ) => {
     try {
-      const res = await payInvoiceGql(client, apiKey, invoice, walletId, memo)
-      const payload = res?.lnInvoicePaymentSend
+      const res =
+        amount !== undefined
+          ? await payInvoiceAmountlessGql(client, apiKey, invoice, walletId, amount, memo)
+          : await payInvoiceGql(client, apiKey, invoice, walletId, memo)
+      const payload =
+        res && "lnInvoicePaymentSend" in res
+          ? res.lnInvoicePaymentSend
+          : res?.lnNoAmountInvoicePaymentSend
       if (!payload) {
         return new InvalidResponseError()
       }
@@ -250,7 +274,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
               amount: satoshis as Satoshis,
               feesPaid: 0 as Satoshis,
               createdAt: inv.createdAt as UnixTimestamp, // real invoice creation time
-              expiresAt: undefined,
+              expiresAt: expiresAtFromInvoice(inv.paymentRequest as InvoiceBolt11),
               settledAt: undefined, // invoice doesn't know settlement time
             }
           }
@@ -454,7 +478,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
           feesPaid: 0 as Satoshis,
           createdAt,
           settledAt: undefined, // invoice itself doesn't contain settled_at
-          expiresAt: undefined,
+          expiresAt: expiresAtFromInvoice(node.paymentRequest as InvoiceBolt11),
         }
       })
 

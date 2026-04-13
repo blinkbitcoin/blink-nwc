@@ -1,3 +1,5 @@
+import { decode as decodeBolt11 } from "bolt11"
+
 import {
   SUPPORTED_NWC_METHODS,
   SUPPORTED_NWC_NOTIFICATIONS,
@@ -31,7 +33,10 @@ import {
   wrapAsyncToRunInSpan,
 } from "@/services/tracing"
 import { ensureUnixSeconds, toMilliSatoshis, toMinutes, toSatoshis } from "@/domain/units"
-import { checkedToNip47MakeInvoiceRequest } from "@/domain/validation"
+import {
+  checkedToNip47MakeInvoiceRequest,
+  checkedToNip47PayInvoiceRequest,
+} from "@/domain/validation"
 
 const DEFAULT_INVOICE_EXPIRY_SECONDS = 24 * 60 * 60
 
@@ -195,6 +200,60 @@ const NwcEventHandler = () => {
           }
         }
       }
+    } else if (request.method === "pay_invoice") {
+      const parsed = checkedToNip47PayInvoiceRequest(request.params)
+      if (parsed instanceof Error) {
+        recordExceptionInCurrentSpan({ error: parsed, level: ErrorLevel.Warn })
+        response = new Nip47OtherError(parsed.message)
+      } else {
+        addAttributesToCurrentSpan({
+          walletId: connection.walletId,
+          userId: connection.userId,
+          connectionId: connection.id,
+          "payment.invoice_present": true,
+        })
+
+        try {
+          const decodedInvoice = decodeBolt11(parsed.invoice)
+          const decodedInvoiceAmountMsats =
+            typeof decodedInvoice.millisatoshis === "string"
+              ? Number(decodedInvoice.millisatoshis)
+              : undefined
+
+          addAttributesToCurrentSpan({
+            "payment.amountOverrideMsats": parsed.amount,
+            "payment.amountMsats": decodedInvoice.millisatoshis || undefined,
+            "payment.amountSats": decodedInvoice.satoshis || undefined,
+          })
+
+          if (decodedInvoiceAmountMsats === undefined && parsed.amount === undefined) {
+            response = new Nip47OtherError("Amount is required for amountless invoices")
+          } else {
+            const result = await blinkCoreService.payInvoice(
+              connection.apiKey,
+              connection.walletId,
+              parsed.invoice,
+              parsed.amount !== undefined ? toSatoshis(parsed.amount) : undefined,
+            )
+            response =
+              result instanceof Error
+                ? parseErrorForNip47Response(result)
+                : {
+                    preimage: result.preimage,
+                    fees_paid: toMilliSatoshis(result.feesPaid),
+                  }
+          }
+        } catch (error) {
+          recordExceptionInCurrentSpan({
+            error: error instanceof Error ? error : new Error("Invoice decode failed"),
+            level: ErrorLevel.Warn,
+          })
+          response =
+            error instanceof Nip47Error
+              ? error
+              : new Nip47OtherError("Invalid invoice")
+        }
+      }
     } else {
       response = new Nip47NotImplementedError(
         `Method not implemented yet: ${request.method}`,
@@ -227,3 +286,4 @@ const NwcEventHandler = () => {
 }
 
 export default NwcEventHandler
+import { decode as decodeBolt11 } from "bolt11"

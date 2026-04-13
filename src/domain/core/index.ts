@@ -62,6 +62,7 @@ export interface IBlinkCoreService {
     apiKey: ApiKey,
     walletId: WalletId,
     invoice: InvoiceBolt11,
+    amount?: Satoshis,
     memo?: Description,
   ): Promise<{ preimage: Preimage; feesPaid: Satoshis } | BlinkServiceError>
   lookupInvoice(
