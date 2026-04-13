@@ -47,6 +47,7 @@ import {
   checkedToNip47MakeInvoiceRequest,
   checkedToNip47PayInvoiceRequest,
 } from "@/domain/validation"
+import { toNotificationTypeFromPermission } from "@/domain/nostr/notification-type"
 
 const DEFAULT_INVOICE_EXPIRY_SECONDS = 24 * 60 * 60
 const DEFAULT_BATCH_SIZE = 10
@@ -57,7 +58,23 @@ const NwcEventHandler = () => {
   const blinkCoreService = BlinkCoreService()
 
   const enabledNotifications = (connection: NwcConnection) => {
-    return connection.notificationsEnabled ? SUPPORTED_NWC_NOTIFICATIONS : []
+    if (!connection.notificationsEnabled) {
+      return []
+    }
+
+    return [
+      ...new Set(
+        connection.permissions
+          .map((permission) => toNotificationTypeFromPermission(permission))
+          .filter(
+            (
+              notification,
+            ): notification is (typeof SUPPORTED_NWC_NOTIFICATIONS)[number] =>
+              notification !== undefined &&
+              SUPPORTED_NWC_NOTIFICATIONS.includes(notification),
+          ),
+      ),
+    ]
   }
 
   const allowedMethods = (connection: NwcConnection): Nip47MethodType[] => {

@@ -463,6 +463,9 @@ export const checkedToNip47PayInvoiceRequest = (
   if (amount instanceof ValidationError) {
     return amount
   }
+  if (amount === 0) {
+    return new InvalidAmount("Amount must be a positive integer")
+  }
 
   return { invoice, amount }
 }

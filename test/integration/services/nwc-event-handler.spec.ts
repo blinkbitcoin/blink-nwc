@@ -15,6 +15,7 @@ import * as BlinkService from "@/services/core"
 import {
   InvoiceBolt11,
   Nip47ListTransactionsResult,
+  NwcPermissionType,
   PaymentHash,
   Satoshis,
   UnixTimestamp,
@@ -77,6 +78,10 @@ describe("NwcEventHandler", () => {
     Nip47Method.LookupInvoice,
     Nip47Method.ListTransactions,
   ]
+  const notificationPermissions: NwcPermissionType[] = [
+    "notifications:payment_sent",
+    "notifications:payment_received",
+  ]
 
   const mockConnection: NwcConnection = {
     id: "conn-123" as any,
@@ -89,7 +94,7 @@ describe("NwcEventHandler", () => {
     connectionSecret: "test-secret" as any,
     appPubkey: ("0".repeat(63) + "1") as any,
     alias: "Test Connection" as any,
-    permissions: methodPermissions,
+    permissions: [...methodPermissions, ...notificationPermissions],
     notificationsEnabled: true,
     revoked: false,
     expiresAt: null,
@@ -256,6 +261,28 @@ describe("NwcEventHandler", () => {
       expect(result).toMatchObject({
         methods: methodPermissions,
         notifications: [],
+      })
+    })
+
+    it("should only return granted notifications", async () => {
+      const handler = NwcEventHandler()
+      mockBlinkCoreService.getNodeInfo.mockResolvedValue({
+        network: "mainnet" as any,
+        blockHeight: 800000 as any,
+        blockHash: "0".repeat(64) as any,
+      })
+
+      const result = await handler.handle(
+        { method: Nip47Method.GetInfo, params: {} },
+        {
+          ...mockConnection,
+          permissions: [...methodPermissions, "notifications:payment_received"],
+        },
+      )
+
+      expect(result).toMatchObject({
+        methods: methodPermissions,
+        notifications: ["payment_received"],
       })
     })
 

@@ -641,6 +641,13 @@ describe("Validation Functions", () => {
       const result = checkedToNip47PayInvoiceRequest(req)
       expect(result).toBeInstanceOf(ValidationError)
     })
+
+    it("should reject zero amount", () => {
+      const req = { invoice: "lnbc1000n1...", amount: 0 }
+      const result = checkedToNip47PayInvoiceRequest(req)
+      expect(result).toBeInstanceOf(ValidationError)
+      expect((result as ValidationError).message).toContain("positive integer")
+    })
   })
 
   describe("checkedToNip47LookupInvoiceRequest", () => {
