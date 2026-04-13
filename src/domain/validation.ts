@@ -309,6 +309,12 @@ export const checkedToNip47MakeInvoiceRequest = (
   const expiry = req?.expiry !== undefined ? checkedToSeconds(req.expiry) : undefined
   if (expiry instanceof ValidationError) return expiry
 
+  if (amount === 0 && descriptionHash !== undefined) {
+    return new ValidationError(
+      "description_hash is not supported for amountless invoices",
+    )
+  }
+
   return {
     amount,
     description,

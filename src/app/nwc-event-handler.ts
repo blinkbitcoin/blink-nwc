@@ -8,11 +8,19 @@ import { parseErrorForNip47Response } from "@/app/nwc-event-handler.error"
 import { getServerKeypair } from "@/domain/connection"
 import { NwcConnection, hasPermission } from "@/domain/connection"
 import { ErrorLevel } from "@/domain/errors"
-import { Nip47MethodType, Nip47Result, NwcServerAlias } from "@/domain/index.types"
+import {
+  MilliSatoshis,
+  Nip47MethodType,
+  Nip47Result,
+  NwcServerAlias,
+  Seconds,
+  UnixTimestamp,
+} from "@/domain/index.types"
 import {
   Nip47Error,
   Nip47InternalError,
   Nip47NotImplementedError,
+  Nip47OtherError,
   Nip47RestrictedError,
 } from "@/domain/nostr"
 import { BlinkCoreService } from "@/services"
@@ -22,7 +30,10 @@ import {
   recordExceptionInCurrentSpan,
   wrapAsyncToRunInSpan,
 } from "@/services/tracing"
-import { toMilliSatoshis } from "@/domain/units"
+import { ensureUnixSeconds, toMilliSatoshis, toMinutes, toSatoshis } from "@/domain/units"
+import { checkedToNip47MakeInvoiceRequest } from "@/domain/validation"
+
+const DEFAULT_INVOICE_EXPIRY_SECONDS = 24 * 60 * 60
 
 const NwcEventHandler = () => {
   const logger = baseLogger.child({ module: "nwc-event-handler" })
@@ -125,6 +136,65 @@ const NwcEventHandler = () => {
         result instanceof Error
           ? parseErrorForNip47Response(result)
           : { balance: toMilliSatoshis(result.balance) }
+    } else if (request.method === "make_invoice") {
+      const parsed = checkedToNip47MakeInvoiceRequest(request.params)
+      if (parsed instanceof Error) {
+        recordExceptionInCurrentSpan({ error: parsed, level: ErrorLevel.Warn })
+        response = new Nip47OtherError(parsed.message)
+      } else {
+        const { amount, description, description_hash, expiry } = parsed
+        addAttributesToCurrentSpan({
+          walletId: connection.walletId,
+          userId: connection.userId,
+          connectionId: connection.id,
+          "invoice.amount": amount,
+          "invoice.hasDescription": !!description,
+          "invoice.hasDescriptionHash": !!description_hash,
+        })
+
+        const satoshis = toSatoshis(amount)
+        const expiryMinutes = toMinutes(expiry)
+        const invoice =
+          amount === 0
+            ? await blinkCoreService.createInvoiceAmountless(
+                connection.apiKey,
+                connection.walletId,
+                description,
+                expiryMinutes,
+              )
+            : await blinkCoreService.createInvoice(
+                connection.apiKey,
+                connection.walletId,
+                satoshis,
+                description,
+                description_hash,
+                expiryMinutes,
+              )
+
+        if (invoice instanceof Error) {
+          response = parseErrorForNip47Response(invoice)
+        } else {
+          const createdAt = ensureUnixSeconds(invoice.createdAt)
+          const expiresIn = (
+            typeof expiryMinutes === "number"
+              ? Math.floor(expiryMinutes * 60)
+              : DEFAULT_INVOICE_EXPIRY_SECONDS
+          ) as Seconds
+
+          response = {
+            type: "incoming",
+            amount: toMilliSatoshis(satoshis),
+            state: "pending",
+            created_at: createdAt,
+            description,
+            description_hash,
+            expires_at: (createdAt + expiresIn) as UnixTimestamp,
+            fees_paid: 0 as MilliSatoshis,
+            invoice: invoice.paymentRequest,
+            payment_hash: invoice.paymentHash,
+          }
+        }
+      }
     } else {
       response = new Nip47NotImplementedError(
         `Method not implemented yet: ${request.method}`,
