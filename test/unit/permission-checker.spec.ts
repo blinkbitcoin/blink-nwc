@@ -14,12 +14,13 @@ describe("permission-checker", () => {
     permissions: [
       Nip47Method.GetInfo,
       Nip47Method.GetBalance,
+      Nip47Method.GetInfo,
       toNotificationPermission(NwcNotificationType.PaymentSent),
       toNotificationPermission(NwcNotificationType.PaymentSent),
     ],
   } as const
 
-  it("returns only method permissions for allowed methods", () => {
+  it("returns only method permissions for allowed methods and de-duplicates them", () => {
     expect(allowedMethods(connection)).toEqual([
       Nip47Method.GetInfo,
       Nip47Method.GetBalance,

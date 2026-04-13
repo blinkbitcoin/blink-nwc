@@ -22,6 +22,8 @@ type NwcKnownAppConfig = {
   recommendedPresetId: NwcPermissionPresetIdType
 }
 
+const normalizePubkey = (pubkey: string) => pubkey.toLowerCase()
+
 const toKnownApp = (config: NwcKnownAppConfig): NwcKnownApp => {
   const recommendedPreset = findNwcPermissionPresetById(config.recommendedPresetId)
   if (!recommendedPreset) {
@@ -29,7 +31,7 @@ const toKnownApp = (config: NwcKnownAppConfig): NwcKnownApp => {
   }
 
   return {
-    pubkey: config.pubkey as NwcAppPubkey,
+    pubkey: normalizePubkey(config.pubkey) as NwcAppPubkey,
     name: config.name,
     iconUrl: config.iconUrl,
     description: config.description,
@@ -41,4 +43,4 @@ export const NWC_KNOWN_APPS: readonly NwcKnownApp[] =
   NWC_KNOWN_APPS_CONFIG.map(toKnownApp)
 
 export const findKnownAppByPubkey = (pubkey: string): NwcKnownApp | null =>
-  NWC_KNOWN_APPS.find((app) => app.pubkey === pubkey) ?? null
+  NWC_KNOWN_APPS.find((app) => app.pubkey === normalizePubkey(pubkey)) ?? null

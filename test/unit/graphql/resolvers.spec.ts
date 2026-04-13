@@ -629,4 +629,27 @@ describe("graphql resolvers", () => {
       }),
     )
   })
+
+  it("matches known app metadata case-insensitively by pubkey", async () => {
+    const nwcKnownAppResolver = resolvers.Query!.nwcKnownApp as (
+      parent: unknown,
+      args: { pubkey: string },
+      context: unknown,
+      info: unknown,
+    ) => Promise<unknown> | unknown
+    const knownApp = NWC_KNOWN_APPS[0]
+
+    const result = await nwcKnownAppResolver(
+      {},
+      { pubkey: knownApp.pubkey.toUpperCase() },
+      {},
+      {} as never,
+    )
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        pubkey: knownApp.pubkey,
+      }),
+    )
+  })
 })

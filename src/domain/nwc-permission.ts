@@ -35,7 +35,7 @@ export const hasMethodPermission = (
 export const grantedMethodPermissions = (
   permissions: readonly NwcPermissionType[],
 ): Nip47MethodType[] =>
-  permissions.filter((permission): permission is Nip47MethodType =>
+  [...new Set(permissions)].filter((permission): permission is Nip47MethodType =>
     Object.values(Nip47Method).includes(permission as Nip47MethodType),
   )
 
