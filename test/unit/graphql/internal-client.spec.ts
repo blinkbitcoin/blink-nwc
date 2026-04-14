@@ -7,6 +7,7 @@ import type {
 } from "@/domain/index.types"
 import type { Description, DescriptionHash, WalletId } from "@/domain/core/index.types"
 import type { Minutes } from "@/domain/units/index.types"
+import { PUBLIC_GRAPHQL_URL } from "@/config"
 import { createInvoiceAmountless } from "@/graphql/internal-client/mutations/create-invoice-amountless"
 import { createInvoice } from "@/graphql/internal-client/mutations/create-invoice"
 import { payInvoice } from "@/graphql/internal-client/mutations/pay-invoice"
@@ -157,6 +158,8 @@ describe("graphql internal client wrappers", () => {
 
     expect(client.query).toHaveBeenCalledWith({
       query: expect.anything(),
+      context: { uri: PUBLIC_GRAPHQL_URL },
+      fetchPolicy: "no-cache",
     })
     expect(result).toBe(data.globals)
   })
