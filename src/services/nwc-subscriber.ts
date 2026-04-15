@@ -1,5 +1,4 @@
 import WebSocket from "ws"
-;(global as any).WebSocket = WebSocket
 
 import { Event, EventTemplate, finalizeEvent, Relay, verifyEvent } from "nostr-tools"
 import { Subscription } from "nostr-tools/lib/types/abstract-relay"
@@ -44,9 +43,22 @@ class RetryableEventProcessingError extends Error {
   }
 }
 
+type GlobalWithWebSocket = typeof globalThis & {
+  WebSocket?: typeof WebSocket
+}
+
+const ensureWebSocketGlobal = () => {
+  const globalWithWebSocket = globalThis as GlobalWithWebSocket
+  if (globalWithWebSocket.WebSocket === undefined) {
+    globalWithWebSocket.WebSocket =
+      WebSocket as unknown as GlobalWithWebSocket["WebSocket"]
+  }
+}
+
 export const NwcSubscriber = () => {
   const logger = baseLogger.child({ module: "nwc-subscriber" })
-  const r = new Relay(NOSTR_RELAY_URL)
+  ensureWebSocketGlobal()
+  const relay = new Relay(NOSTR_RELAY_URL)
   const serverKeypair = getServerKeypair()
   const connectionsRepository = ConnectionsRepository()
   const processedNwcRequestsRepository = ProcessedNwcRequestsRepository()
@@ -130,7 +142,7 @@ export const NwcSubscriber = () => {
           await publishInfoEvent()
 
           logger.info("subscribing to relay")
-          sub = r.subscribe(
+          sub = relay.subscribe(
             [
               {
                 "kinds": [EventKind.Request],
@@ -153,13 +165,13 @@ export const NwcSubscriber = () => {
           }
 
           await new Promise<void>((resolve) => {
-            r.onclose = () => {
+            relay.onclose = () => {
               logger.warn("relay disconnected")
               resolve()
             }
           })
 
-          r.onclose = null
+          relay.onclose = null
         } catch (err) {
           logger.error({ err }, "error subscribing to requests")
         }
@@ -269,7 +281,7 @@ export const NwcSubscriber = () => {
           await sendNwcResponse(
             event.id,
             event.pubkey as NwcAppPubkey,
-            "unknown" as Nip47MethodType,
+            undefined,
             "nip04",
             parseNip47Response(
               new Nip47UnsupportedEncryptionError(
@@ -308,7 +320,7 @@ export const NwcSubscriber = () => {
           await sendNwcResponse(
             event.id,
             event.pubkey as NwcAppPubkey,
-            "unknown" as Nip47MethodType,
+            undefined,
             encryptionType as Nip47EncryptionType,
             parseNip47Response(new Nip47InternalError("Decryption failed")),
           )
@@ -324,7 +336,7 @@ export const NwcSubscriber = () => {
           await sendNwcResponse(
             event.id,
             event.pubkey as NwcAppPubkey,
-            "unknown" as Nip47MethodType,
+            undefined,
             encryptionType as Nip47EncryptionType,
             parseNip47Response(new Nip47InternalError("Invalid request format")),
           )
@@ -416,7 +428,7 @@ export const NwcSubscriber = () => {
         sub = undefined
       }
 
-      r.close()
+      relay.close()
       logger.info("subscriber stopped")
     }
 
@@ -429,8 +441,8 @@ export const NwcSubscriber = () => {
 
   const checkConnected = async () => {
     try {
-      if (!r.connected) {
-        await r.connect()
+      if (!relay.connected) {
+        await relay.connect()
       }
     } catch (err) {
       logger.error({ err, relayUrl: NOSTR_RELAY_URL }, "failed to connect to relay")
@@ -450,24 +462,28 @@ export const NwcSubscriber = () => {
     }
 
     const infoEvent = finalizeEvent(infoEventTemplate, hexToBytes(serverKeypair.privkey))
-    await r.publish(infoEvent)
+    await relay.publish(infoEvent)
     logger.info("published info event to relay")
   }
 
   const sendNwcResponse = async (
     eventId: string,
     appPk: NwcAppPubkey,
-    resultType: Nip47MethodType,
+    resultType: Nip47MethodType | undefined,
     encryptionType: Nip47EncryptionType,
     response: Nip47Response,
   ) => {
+    const payload =
+      resultType === undefined
+        ? response
+        : {
+            result_type: resultType,
+            ...response,
+          }
     const encryptedContent = encrypt(
       serverKeypair,
       appPk,
-      JSON.stringify({
-        result_type: resultType,
-        ...response,
-      }),
+      JSON.stringify(payload),
       encryptionType,
     )
 
@@ -486,7 +502,7 @@ export const NwcSubscriber = () => {
       hexToBytes(serverKeypair.privkey),
     )
     try {
-      await r.publish(responseEvent)
+      await relay.publish(responseEvent)
     } catch (err) {
       throw new RetryableEventProcessingError("Failed to publish NWC response", err)
     }
@@ -496,7 +512,7 @@ export const NwcSubscriber = () => {
     const SECOND = 1000
     const MAX_BACKOFF_MS = SECOND * 60 * 5
     const delay = Math.min(SECOND * Math.pow(2, retries), MAX_BACKOFF_MS)
-    const jitter = Math.random() * delay * 0.1
+    const jitter = (Math.random() - 0.5) * delay * 0.2
     logger.info(
       { delaySec: Math.round((delay + jitter) / 1000), retry: retries },
       "backing off before retry",

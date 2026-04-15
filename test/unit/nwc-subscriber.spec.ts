@@ -388,7 +388,6 @@ describe("NwcSubscriber", () => {
       expect.objectContaining({ pubkey: "a".repeat(64) }),
       "c".repeat(64),
       JSON.stringify({
-        result_type: "unknown",
         error: {
           code: "UNSUPPORTED_ENCRYPTION",
           message: "Unsupported encryption type: nip99",
