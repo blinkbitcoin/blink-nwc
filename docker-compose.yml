@@ -27,7 +27,7 @@ services:
       - "7777:7777"
     volumes:
       - strfry-data:/app/strfry-db
-      - ${HOST_PROJECT_PATH:-.}/strfry.conf:/etc/strfry.conf:ro
+      - ${HOST_PROJECT_PATH:-.}/strfry.compose.conf:/etc/strfry.conf:ro
       - strfry-policy-bin:/policy:ro
     entrypoint: /bin/sh
     command: ["-c", "while [ ! -f /policy/strfry-policy ]; do echo 'Waiting for policy binary...'; sleep 2; done && cp /policy/strfry-policy /app/strfry-policy && chmod +x /app/strfry-policy && /app/strfry relay"]
