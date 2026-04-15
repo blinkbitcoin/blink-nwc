@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'chore(release): [ci skip] bump quickstart image to sha256@578ec0ece545fdc756d73620cd92525940f888738e03d57c9e042852a81c9e03'
-      sha: 68716b493cd256c5a98a91aa91ce955efbb996b3
+      commitTitle: 'chore(release): [ci skip] bump quickstart image to sha256@1cfdb6eb51c54a975dcd37745ac46d9d3965a5cd4f7b87f96ac440db0490b032'
+      sha: ec3fe880d31cf7f312163c7a34d8e40a4844b4dd
       tags:
-      - 0.21.110-1-g68716b493
+      - 0.22.0-1-gec3fe880d
     path: blink-quickstart
   path: vendor
 kind: LockConfig

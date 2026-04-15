@@ -1,0 +1,7 @@
+query NwcServiceInfo {
+  nwcServiceInfo {
+    supportedMethods
+    supportedNotifications
+    relayUrl
+  }
+}

@@ -21,11 +21,13 @@
       pkgs = import nixpkgs {inherit overlays system;};
       nativeBuildInputs = with pkgs;
         [
+          git
           nodejs
           pnpm
           alejandra
           gnumake
           docker-compose
+          tilt
           shellcheck
           shfmt
           vendir

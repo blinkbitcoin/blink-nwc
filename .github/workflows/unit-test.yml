@@ -16,5 +16,7 @@ jobs:
       - name: Run the Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
       - run: nix develop -c pnpm install --frozen-lockfile
+      - name: Generate types
+        run: nix develop -c pnpm generate-gql-types
       - name: Run unit tests
         run: nix develop -c make unit-test

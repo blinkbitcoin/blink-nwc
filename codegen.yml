@@ -9,4 +9,11 @@ generates:
       - "typescript"
       - "typescript-resolvers"
     config:
+      enumsAsConst: true
       useIndexSignature: true
+      resolverTypeWrapperSignature: 'T'
+      enumValues:
+        Nip47Method: '@/domain/nostr/index.types#Nip47MethodType'
+        NwcNotificationType: '@/domain/nostr/notification-type#NwcNotificationTypeValue'
+      mappers:
+        GraphQLApplicationError: '@/graphql/index.types#IError'

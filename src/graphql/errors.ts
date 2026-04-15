@@ -1,5 +1,7 @@
 import { GraphQLError } from "graphql"
 
+import { CustomGraphQLErrorData, LogFn, PartialBy } from "./index.types"
+
 import { baseLogger } from "@/services/logger"
 
 export class CustomGraphQLError extends GraphQLError {
@@ -54,5 +56,11 @@ export class NotFoundError extends CustomGraphQLError {
 export class UnexpectedClientError extends CustomGraphQLError {
   constructor(errData: CustomGraphQLErrorData) {
     super({ code: "UNEXPECTED_CLIENT_ERROR", forwardToClient: true, ...errData })
+  }
+}
+
+export class DbError extends CustomGraphQLError {
+  constructor(errData: CustomGraphQLErrorData) {
+    super({ code: "DB_ERROR", forwardToClient: true, ...errData })
   }
 }

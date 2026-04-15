@@ -43,6 +43,13 @@ generated.gql
 .e2e-*.log
 .*_pid
 
-.vscode
-
 .direnv
+
+strfry-policy/target/
+
+# Auto-generated GraphQL types (regenerated via codegen)
+src/graphql/internal-client/generated.ts
+src/graphql/__generated__/resolvers-types.ts
+
+# Local docs/tracking (not part of the codebase)
+docs/
