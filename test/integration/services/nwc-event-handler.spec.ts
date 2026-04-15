@@ -125,6 +125,7 @@ describe("NwcEventHandler", () => {
       listInvoices: jest.fn(),
       fetchTransactionsInRange: jest.fn(),
       fetchInvoicesInRange: jest.fn(),
+      fetchMergedTransactionsInRange: jest.fn(),
     } as any
     ;(BlinkService.BlinkCoreService as jest.Mock).mockReturnValue(mockBlinkCoreService)
   })
@@ -1142,24 +1143,7 @@ describe("NwcEventHandler", () => {
     it("should apply pagination after merging paid and unpaid results", async () => {
       const handler = NwcEventHandler()
 
-      mockBlinkCoreService.fetchTransactionsInRange.mockResolvedValue([
-        {
-          type: "incoming",
-          paymentHash: "tx-latest" as any,
-          amount: 100 as Satoshis,
-          feesPaid: 0 as Satoshis,
-          createdAt: 400 as any,
-        },
-        {
-          type: "outgoing",
-          paymentHash: "tx-oldest" as any,
-          amount: 50 as Satoshis,
-          feesPaid: 1 as Satoshis,
-          createdAt: 100 as any,
-        },
-      ])
-
-      mockBlinkCoreService.fetchInvoicesInRange.mockResolvedValue([
+      mockBlinkCoreService.fetchMergedTransactionsInRange.mockResolvedValue([
         {
           type: "incoming",
           paymentHash: "inv-middle-1" as any,
@@ -1195,22 +1179,13 @@ describe("NwcEventHandler", () => {
         ],
       })
       expect((result as Nip47ListTransactionsResult).transactions).toHaveLength(2)
-      expect(mockBlinkCoreService.fetchTransactionsInRange).toHaveBeenCalledWith(
+      expect(mockBlinkCoreService.fetchMergedTransactionsInRange).toHaveBeenCalledWith(
         mockConnection.apiKey,
         mockConnection.walletId,
         0,
         expect.any(String),
-        0,
-        3,
-        undefined,
-      )
-      expect(mockBlinkCoreService.fetchInvoicesInRange).toHaveBeenCalledWith(
-        mockConnection.apiKey,
-        mockConnection.walletId,
-        0,
-        expect.any(String),
-        0,
-        3,
+        1,
+        2,
         undefined,
       )
     })

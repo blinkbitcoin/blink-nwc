@@ -810,4 +810,128 @@ describe("BlinkCoreService", () => {
       }),
     ])
   })
+
+  it("keeps fetching invoice pages while incoming transactions in the prefix are still provisional", async () => {
+    mockTransactionsForWalletId.mockResolvedValueOnce({
+      me: {
+        defaultAccount: {
+          walletById: {
+            transactions: {
+              edges: [
+                {
+                  cursor: "cursor-tx-1",
+                  node: {
+                    createdAt: 500,
+                    direction: "RECEIVE",
+                    initiationVia: { paymentHash: "hash-1", paymentRequest: "ln-1" },
+                    memo: "paid later",
+                    settlementAmount: 100,
+                    settlementFee: 0,
+                    settlementVia: { preImage: "pre-1" },
+                    status: "SUCCESS",
+                  },
+                },
+                {
+                  cursor: "cursor-tx-2",
+                  node: {
+                    createdAt: 450,
+                    direction: "SEND",
+                    initiationVia: { paymentHash: "hash-2", paymentRequest: "ln-2" },
+                    memo: "outgoing",
+                    settlementAmount: -50,
+                    settlementFee: 1,
+                    settlementVia: { preImage: "pre-2" },
+                    status: "SUCCESS",
+                  },
+                },
+              ],
+              pageInfo: {
+                hasNextPage: false,
+                endCursor: null,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    mockInvoicesForWalletId
+      .mockResolvedValueOnce({
+        me: {
+          defaultAccount: {
+            walletById: {
+              invoices: {
+                edges: [
+                  {
+                    cursor: "cursor-inv-1",
+                    node: {
+                      __typename: "LnInvoice",
+                      createdAt: 480,
+                      paymentHash: "hash-3",
+                      paymentRequest: "ln-3",
+                      paymentStatus: "PENDING",
+                      satoshis: 20,
+                    },
+                  },
+                ],
+                pageInfo: {
+                  hasNextPage: true,
+                  endCursor: "cursor-inv-1",
+                },
+              },
+            },
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        me: {
+          defaultAccount: {
+            walletById: {
+              invoices: {
+                edges: [
+                  {
+                    cursor: "cursor-inv-2",
+                    node: {
+                      __typename: "LnInvoice",
+                      createdAt: 100,
+                      paymentHash: "hash-1",
+                      paymentRequest: "ln-1",
+                      paymentStatus: "PAID",
+                      satoshis: 100,
+                    },
+                  },
+                ],
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: null,
+                },
+              },
+            },
+          },
+        },
+      })
+
+    const result = await BlinkCoreService().fetchMergedTransactionsInRange(
+      apiKey,
+      walletId,
+      0 as never,
+      "cursor-0" as Cursor,
+      0,
+      2,
+      PD.Both,
+    )
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        paymentHash: "hash-3",
+        createdAt: 480,
+      }),
+      expect.objectContaining({
+        paymentHash: "hash-2",
+        createdAt: 450,
+      }),
+    ])
+    expect(mockTransactionsForWalletId).toHaveBeenCalledTimes(1)
+    expect(mockInvoicesForWalletId).toHaveBeenCalledTimes(2)
+  })
 })

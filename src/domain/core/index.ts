@@ -126,4 +126,14 @@ export interface IBlinkCoreService {
     limit: number,
     type: PaymentDirection,
   ): Promise<Array<CoreServiceTx> | BlinkServiceError>
+
+  fetchMergedTransactionsInRange(
+    apiKey: ApiKey,
+    walletId: WalletId,
+    from: UnixTimestamp,
+    until: Cursor,
+    offset: number,
+    limit: number,
+    type: PaymentDirection,
+  ): Promise<Array<CoreServiceTx> | BlinkServiceError>
 }

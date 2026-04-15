@@ -631,6 +631,141 @@ export const BlinkCoreService = (): IBlinkCoreService => {
     return allInvoices.filter((inv) => inv.createdAt >= from).slice(offset, totalLimit)
   }
 
+  const fetchMergedTransactionsInRange = async (
+    apiKey: ApiKey,
+    walletId: WalletId,
+    from: UnixTimestamp,
+    until: Cursor,
+    offset: number,
+    limit: number,
+    type: PaymentDirection,
+  ) => {
+    const PAGE_SIZE = 100
+    const totalLimit = offset + limit
+    const allTransactions: CoreServiceTx[] = []
+    const allInvoices: CoreServiceTx[] = []
+    const invoicePaymentHashes = new Set<string>()
+
+    let transactionCursor: Cursor = until
+    let invoiceCursor: Cursor = until
+    let transactionFrontier = Number.POSITIVE_INFINITY
+    let invoiceFrontier = Number.POSITIVE_INFINITY
+    let transactionsExhausted = false
+    let invoicesExhausted = type === PD.Outgoing
+
+    const appendTransactionsPage = async () => {
+      if (transactionsExhausted) {
+        return
+      }
+
+      const res = await listTransactions(apiKey, walletId, {
+        first: PAGE_SIZE,
+        after: transactionCursor,
+      })
+      if (res instanceof Error) {
+        return res
+      }
+
+      const { transactions, pageInfo } = res
+      if (transactions.length === 0) {
+        transactionsExhausted = true
+        transactionFrontier = Number.NEGATIVE_INFINITY
+        return
+      }
+
+      transactionFrontier = transactions[transactions.length - 1].createdAt
+      const rangedTransactions = transactions.filter((tx) => tx.createdAt >= from)
+      const filteredTransactions =
+        type === PD.Both
+          ? rangedTransactions
+          : rangedTransactions.filter((tx) => tx.type === type)
+      allTransactions.push(...filteredTransactions)
+
+      if (transactionFrontier < from || !pageInfo.hasNextPage || !pageInfo.endCursor) {
+        transactionsExhausted = true
+        transactionFrontier = Number.NEGATIVE_INFINITY
+        return
+      }
+
+      transactionCursor = pageInfo.endCursor
+    }
+
+    const appendInvoicesPage = async () => {
+      if (invoicesExhausted) {
+        return
+      }
+
+      const res = await listInvoices(apiKey, walletId, {
+        first: PAGE_SIZE,
+        after: invoiceCursor,
+      })
+      if (res instanceof Error) {
+        return res
+      }
+
+      const { invoices, pageInfo } = res
+      if (invoices.length === 0) {
+        invoicesExhausted = true
+        invoiceFrontier = Number.NEGATIVE_INFINITY
+        return
+      }
+
+      invoiceFrontier = invoices[invoices.length - 1].createdAt
+      const rangedInvoices = invoices.filter((invoice) => invoice.createdAt >= from)
+      for (const invoice of rangedInvoices) {
+        invoicePaymentHashes.add(invoice.paymentHash)
+      }
+      allInvoices.push(...rangedInvoices)
+
+      if (invoiceFrontier < from || !pageInfo.hasNextPage || !pageInfo.endCursor) {
+        invoicesExhausted = true
+        invoiceFrontier = Number.NEGATIVE_INFINITY
+        return
+      }
+
+      invoiceCursor = pageInfo.endCursor
+    }
+
+    const getMergedPrefix = () => mergeTxs(allInvoices, allTransactions).slice(0, totalLimit)
+
+    while (!transactionsExhausted || !invoicesExhausted) {
+      const prefix = getMergedPrefix()
+      const tailCreatedAt = prefix[prefix.length - 1]?.createdAt
+      const hasProvisionalIncomingInPrefix = prefix.some(
+        (tx) => tx.type === PD.Incoming && !invoicePaymentHashes.has(tx.paymentHash),
+      )
+
+      const shouldLoadTransactions =
+        !transactionsExhausted &&
+        (prefix.length < totalLimit ||
+          tailCreatedAt === undefined ||
+          transactionFrontier > tailCreatedAt)
+      const shouldLoadInvoices =
+        !invoicesExhausted &&
+        (prefix.length < totalLimit ||
+          tailCreatedAt === undefined ||
+          invoiceFrontier > tailCreatedAt ||
+          hasProvisionalIncomingInPrefix)
+
+      if (!shouldLoadTransactions && !shouldLoadInvoices) {
+        break
+      }
+
+      const pageResults = await Promise.all([
+        shouldLoadTransactions ? appendTransactionsPage() : undefined,
+        shouldLoadInvoices ? appendInvoicesPage() : undefined,
+      ])
+      const pageError = pageResults.find((result): result is BlinkServiceError =>
+        result instanceof Error,
+      )
+      if (pageError) {
+        return pageError
+      }
+    }
+
+    return mergeTxs(allInvoices, allTransactions).slice(offset, totalLimit)
+  }
+
   return wrapAsyncFunctionsToRunInSpan({
     namespace: "services.blinkCore",
     fns: {
@@ -645,6 +780,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
       listInvoices,
       fetchTransactionsInRange,
       fetchInvoicesInRange,
+      fetchMergedTransactionsInRange,
     },
   })
 }

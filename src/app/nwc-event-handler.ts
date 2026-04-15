@@ -33,7 +33,7 @@ import {
   recordExceptionInCurrentSpan,
   wrapAsyncToRunInSpan,
 } from "@/services/tracing"
-import { mergeTxs, toNwcTx } from "@/domain/utils"
+import { toNwcTx } from "@/domain/utils"
 import {
   ensureUnixSeconds,
   toCursor,
@@ -333,37 +333,19 @@ const NwcEventHandler = () => {
         : { transactions: transactions.map((tx) => toNwcTx(tx)) }
     }
 
-    // TODO: replace offset-based merged pagination with a source-aware merge cursor.
-    const [transactions, invoices] = await Promise.all([
-      blinkCoreService.fetchTransactionsInRange(
-        connection.apiKey,
-        connection.walletId,
-        from,
-        untilCursor,
-        0,
-        endIndex,
-        type,
-      ),
-      blinkCoreService.fetchInvoicesInRange(
-        connection.apiKey,
-        connection.walletId,
-        from,
-        untilCursor,
-        0,
-        endIndex,
-        type,
-      ),
-    ])
+    const transactions = await blinkCoreService.fetchMergedTransactionsInRange(
+      connection.apiKey,
+      connection.walletId,
+      from,
+      untilCursor,
+      offset,
+      limit,
+      type,
+    )
 
-    if (transactions instanceof Error) {
-      return parseErrorForNip47Response(transactions)
-    }
-    if (invoices instanceof Error) {
-      return parseErrorForNip47Response(invoices)
-    }
-
-    const mergedTransactions = mergeTxs(invoices, transactions).slice(offset, endIndex)
-    return { transactions: mergedTransactions.map((tx) => toNwcTx(tx)) }
+    return transactions instanceof Error
+      ? parseErrorForNip47Response(transactions)
+      : { transactions: transactions.map((tx) => toNwcTx(tx)) }
   }
 
   const handlers: Record<Nip47MethodType, MethodHandler> = {
