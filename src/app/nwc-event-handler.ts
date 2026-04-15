@@ -18,7 +18,6 @@ import {
   Nip47MethodType,
   Nip47Result,
   NwcServerAlias,
-  Seconds,
   UnixTimestamp,
 } from "@/domain/index.types"
 import {
@@ -61,7 +60,10 @@ const DEFAULT_BATCH_SIZE = 10
 const MAX_BATCH_SIZE = 100
 
 type NwcRequest = { method: Nip47MethodType; params?: unknown }
-type MethodHandler = (request: NwcRequest, connection: NwcConnection) => Promise<Nip47Result>
+type MethodHandler = (
+  request: NwcRequest,
+  connection: NwcConnection,
+) => Promise<Nip47Result>
 type NwcEventHandlerDeps = {
   blinkCoreService?: IBlinkCoreService
 }
@@ -74,7 +76,9 @@ const asRecord = (value: unknown): Record<string, unknown> | undefined => {
   return value as Record<string, unknown>
 }
 
-const NwcEventHandler = ({ blinkCoreService = BlinkCoreService() }: NwcEventHandlerDeps = {}) => {
+const NwcEventHandler = ({
+  blinkCoreService = BlinkCoreService(),
+}: NwcEventHandlerDeps = {}) => {
   const logger = baseLogger.child({ module: "nwc-event-handler" })
 
   const enabledNotifications = (connection: NwcConnection) => {
@@ -172,7 +176,10 @@ const NwcEventHandler = ({ blinkCoreService = BlinkCoreService() }: NwcEventHand
   }
 
   const getBalance: MethodHandler = async (_request, connection) => {
-    const result = await blinkCoreService.getBalance(connection.apiKey, connection.walletId)
+    const result = await blinkCoreService.getBalance(
+      connection.apiKey,
+      connection.walletId,
+    )
     return result instanceof Error
       ? parseErrorForNip47Response(result)
       : { balance: toMilliSatoshis(result.balance) }
@@ -225,7 +232,8 @@ const NwcEventHandler = ({ blinkCoreService = BlinkCoreService() }: NwcEventHand
       description,
       description_hash,
       expires_at:
-        invoice.expiresAt ?? ((createdAt + DEFAULT_INVOICE_EXPIRY_SECONDS) as UnixTimestamp),
+        invoice.expiresAt ??
+        ((createdAt + DEFAULT_INVOICE_EXPIRY_SECONDS) as UnixTimestamp),
       fees_paid: 0 as MilliSatoshis,
       invoice: invoice.paymentRequest,
       payment_hash: invoice.paymentHash,
@@ -313,7 +321,10 @@ const NwcEventHandler = ({ blinkCoreService = BlinkCoreService() }: NwcEventHand
     }
 
     const { unpaid, type } = parsed
-    const limit = Math.min(Math.max(parsed.limit ?? DEFAULT_BATCH_SIZE, 1), MAX_BATCH_SIZE)
+    const limit = Math.min(
+      Math.max(parsed.limit ?? DEFAULT_BATCH_SIZE, 1),
+      MAX_BATCH_SIZE,
+    )
     const offset = parsed.offset ?? 0
     const from = parsed.from ?? ensureUnixSeconds(0)
     const until = parsed.until ?? ensureUnixSeconds(Date.now() / 1000)
@@ -390,7 +401,9 @@ const NwcEventHandler = ({ blinkCoreService = BlinkCoreService() }: NwcEventHand
     })
 
     if (!SUPPORTED_NWC_METHODS.includes(request.method)) {
-      const response = new Nip47NotImplementedError(`Unsupported method: ${request.method}`)
+      const response = new Nip47NotImplementedError(
+        `Unsupported method: ${request.method}`,
+      )
       requestLogger.info(
         {
           response: {

@@ -4,10 +4,7 @@ import knex, { Knex } from "knex"
 import { generateSecretKey, getPublicKey } from "nostr-tools"
 
 import databaseConfig from "@/config/db"
-import {
-  NwcConnectionRecord,
-  ProcessedNwcRequestRecord,
-} from "@/services/db/index.types"
+import { NwcConnectionRecord, ProcessedNwcRequestRecord } from "@/services/db/index.types"
 import { NwcConnection } from "@/domain/connection"
 import {
   NwcAppPubkey,

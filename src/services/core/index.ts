@@ -726,7 +726,8 @@ export const BlinkCoreService = (): IBlinkCoreService => {
       invoiceCursor = pageInfo.endCursor
     }
 
-    const getMergedPrefix = () => mergeTxs(allInvoices, allTransactions).slice(0, totalLimit)
+    const getMergedPrefix = () =>
+      mergeTxs(allInvoices, allTransactions).slice(0, totalLimit)
 
     while (!transactionsExhausted || !invoicesExhausted) {
       const prefix = getMergedPrefix()
@@ -755,8 +756,8 @@ export const BlinkCoreService = (): IBlinkCoreService => {
         shouldLoadTransactions ? appendTransactionsPage() : undefined,
         shouldLoadInvoices ? appendInvoicesPage() : undefined,
       ])
-      const pageError = pageResults.find((result): result is BlinkServiceError =>
-        result instanceof Error,
+      const pageError = pageResults.find(
+        (result): result is BlinkServiceError => result instanceof Error,
       )
       if (pageError) {
         return pageError

@@ -112,10 +112,7 @@ export const NwcSubscriber = () => {
       getProcessedEventExpiry(expirationTimestamp),
     )
     if (result instanceof Error) {
-      logger.warn(
-        { err: result, eventId },
-        "failed to persist processed NWC request",
-      )
+      logger.warn({ err: result, eventId }, "failed to persist processed NWC request")
     }
   }
 
@@ -301,7 +298,10 @@ export const NwcSubscriber = () => {
         const expiration = event.tags.find((tag) => tag[0] === "expiration")?.[1]
         const expirationTimestamp =
           expiration !== undefined ? Number.parseInt(expiration, 10) : undefined
-        if (typeof expirationTimestamp === "number" && Number.isFinite(expirationTimestamp)) {
+        if (
+          typeof expirationTimestamp === "number" &&
+          Number.isFinite(expirationTimestamp)
+        ) {
           if (Math.floor(Date.now() / 1000) > expirationTimestamp) {
             eventLogger.info(
               { expiration: expirationTimestamp },

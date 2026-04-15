@@ -297,9 +297,9 @@ describe("connection", () => {
 
   describe("isConnectionExpired", () => {
     it("returns false when expiresAt is null", () => {
-      expect(isConnectionExpired({ expiresAt: null } as any, new Date("2026-04-15"))).toBe(
-        false,
-      )
+      expect(
+        isConnectionExpired({ expiresAt: null } as any, new Date("2026-04-15")),
+      ).toBe(false)
     })
 
     it("returns false when expiresAt is in the future", () => {

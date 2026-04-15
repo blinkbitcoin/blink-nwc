@@ -426,7 +426,8 @@ export const checkedToNip47ListTransactionsRequest = (
   if (from instanceof ValidationError) {
     return from
   }
-  const until = input?.until !== undefined ? checkedToUnixTimestamp(input.until) : undefined
+  const until =
+    input?.until !== undefined ? checkedToUnixTimestamp(input.until) : undefined
   if (until instanceof ValidationError) {
     return until
   }
@@ -507,7 +508,8 @@ export const checkedToNip47PayInvoiceRequest = (
     return invoice
   }
 
-  const amount = input?.amount !== undefined ? checkedToMsatAmount(input.amount) : undefined
+  const amount =
+    input?.amount !== undefined ? checkedToMsatAmount(input.amount) : undefined
   if (amount instanceof ValidationError) {
     return amount
   }
