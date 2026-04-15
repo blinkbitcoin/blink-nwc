@@ -320,6 +320,11 @@ export const checkedToDescription = (
   if (typeof description !== "string") {
     return new InvalidDescription(`Description must be a string`)
   }
+
+  if (description.trim().length === 0) {
+    return new InvalidDescription("Description must not be empty")
+  }
+
   return description as Description
 }
 

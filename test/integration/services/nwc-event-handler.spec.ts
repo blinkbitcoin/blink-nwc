@@ -8,6 +8,7 @@ import {
   Nip47Method,
   Nip47NotFoundError,
   Nip47OtherError,
+  Nip47PaymentFailedError,
   Nip47QuotaExceededError,
   Nip47RestrictedError,
 } from "@/domain/nostr"
@@ -22,7 +23,11 @@ import {
 } from "@/domain/index.types"
 import { UserId, WalletId } from "@/domain/core/index.types"
 import { SUPPORTED_NWC_NOTIFICATIONS, WALLET_ALIAS, WALLET_COLOR } from "@/config"
-import { InvoiceNotFoundError, QuotaExceededError } from "@/services/core/errors"
+import {
+  InvoiceNotFoundError,
+  PaymentTimedOutError,
+  QuotaExceededError,
+} from "@/services/core/errors"
 import { PaymentState } from "@/domain/core/payment-state"
 
 jest.mock("@/services/core", () => ({
@@ -869,6 +874,33 @@ describe("NwcEventHandler", () => {
       expect(result).toBeInstanceOf(Nip47QuotaExceededError)
       expect(result.code).toBe("QUOTA_EXCEEDED")
       expect(result.message).toBe("daily budget exceeded")
+    })
+
+    it("should map payment timeouts to PAYMENT_FAILED", async () => {
+      const handler = NwcEventHandler()
+
+      mockBlinkCoreService.payInvoice.mockResolvedValue(
+        new PaymentTimedOutError("payment attempt timed out") as any,
+      )
+
+      const result = await handler.handle(
+        {
+          method: Nip47Method.PayInvoice,
+          params: {
+            invoice: "lnbc1000n1...",
+          },
+        },
+        mockConnection,
+      )
+
+      expect(result).toBeInstanceOf(Nip47Error)
+      if (!(result instanceof Nip47Error)) {
+        return
+      }
+
+      expect(result).toBeInstanceOf(Nip47PaymentFailedError)
+      expect(result.code).toBe("PAYMENT_FAILED")
+      expect(result.message).toBe("payment attempt timed out")
     })
   })
 

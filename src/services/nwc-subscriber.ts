@@ -460,6 +460,9 @@ export const NwcSubscriber = () => {
       kind: EventKind.InfoEvent,
       created_at: Math.floor(Date.now() / 1000),
       tags: [
+        // NIP-47 advertises preferred-to-fallback encryption in this order.
+        // We prefer nip44_v2 for new clients, but still accept nip04 requests
+        // so older clients can interoperate with the same relay connection.
         ["encryption", "nip44_v2 nip04"],
         ["notifications", SUPPORTED_NWC_NOTIFICATIONS.join(" ")],
       ],

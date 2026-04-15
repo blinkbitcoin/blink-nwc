@@ -415,9 +415,14 @@ describe("Validation Functions", () => {
       expect(result).toBe(description)
     })
 
-    it("should accept empty string", () => {
+    it("should reject empty string", () => {
       const result = checkedToDescription("")
-      expect(result).toBe("")
+      expect(result).toBeInstanceOf(ValidationError)
+    })
+
+    it("should reject whitespace-only string", () => {
+      const result = checkedToDescription("   ")
+      expect(result).toBeInstanceOf(ValidationError)
     })
 
     it("should reject non-string input", () => {
@@ -591,6 +596,12 @@ describe("Validation Functions", () => {
 
     it("should reject invalid description", () => {
       const req = { amount: 1000, description: 12345 }
+      const result = checkedToNip47MakeInvoiceRequest(req)
+      expect(result).toBeInstanceOf(ValidationError)
+    })
+
+    it("should reject empty descriptions", () => {
+      const req = { amount: 1000, description: " " }
       const result = checkedToNip47MakeInvoiceRequest(req)
       expect(result).toBeInstanceOf(ValidationError)
     })
