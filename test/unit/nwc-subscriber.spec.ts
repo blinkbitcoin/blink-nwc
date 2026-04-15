@@ -10,10 +10,20 @@ const mockEncrypt = jest.fn()
 const mockHandle = jest.fn()
 const mockSleep = jest.fn()
 const mockConnectionsRepositoryFactory = jest.fn()
+const mockProcessedNwcRequestsRepositoryFactory = jest.fn()
+const mockIsProcessed = jest.fn()
+const mockMarkProcessed = jest.fn()
+const mockPruneExpired = jest.fn()
 
 const mockConnectionsRepository = {
   findByPubkey: mockFindByPubkey,
   updateLastUsed: mockUpdateLastUsed,
+}
+
+const mockProcessedNwcRequestsRepository = {
+  isProcessed: mockIsProcessed,
+  markProcessed: mockMarkProcessed,
+  pruneExpired: mockPruneExpired,
 }
 
 let relayInstance: MockRelay | undefined
@@ -50,6 +60,7 @@ jest.mock("nostr-tools", () => {
 
 jest.mock("@/services/db", () => ({
   ConnectionsRepository: () => mockConnectionsRepositoryFactory(),
+  ProcessedNwcRequestsRepository: () => mockProcessedNwcRequestsRepositoryFactory(),
 }))
 
 jest.mock("@/config", () => ({
@@ -110,6 +121,9 @@ describe("NwcSubscriber", () => {
     }
     mockSubscribe.mockImplementation(() => currentSubscription)
     mockConnectionsRepositoryFactory.mockReturnValue(mockConnectionsRepository)
+    mockProcessedNwcRequestsRepositoryFactory.mockReturnValue(
+      mockProcessedNwcRequestsRepository,
+    )
     mockVerifyEvent.mockReturnValue(true)
     mockFinalizeEvent.mockImplementation((template: unknown) => template)
     mockFindByPubkey.mockResolvedValue({
@@ -129,6 +143,9 @@ describe("NwcSubscriber", () => {
     )
     mockEncrypt.mockReturnValue("encrypted-response")
     mockSleep.mockResolvedValue(undefined)
+    mockIsProcessed.mockResolvedValue(false)
+    mockMarkProcessed.mockResolvedValue(undefined)
+    mockPruneExpired.mockResolvedValue(0)
   })
 
   it("publishes the synchronously encrypted response event", async () => {
@@ -182,6 +199,7 @@ describe("NwcSubscriber", () => {
     await flushMicrotasks()
 
     expect(mockConnectionsRepositoryFactory).toHaveBeenCalledTimes(1)
+    expect(mockProcessedNwcRequestsRepositoryFactory).toHaveBeenCalledTimes(1)
     expect(mockFindByPubkey).toHaveBeenCalledTimes(1)
     expect(mockUpdateLastUsed).toHaveBeenCalledTimes(1)
 
@@ -403,5 +421,41 @@ describe("NwcSubscriber", () => {
     expect(mockHandle).toHaveBeenCalledTimes(1)
 
     await stop()
+  })
+
+  it("ignores request ids that were already persisted by an earlier subscriber instance", async () => {
+    const persistedEventIds = new Set<string>()
+    mockIsProcessed.mockImplementation(async (eventId: string) => {
+      return persistedEventIds.has(eventId)
+    })
+    mockMarkProcessed.mockImplementation(async (eventId: string) => {
+      persistedEventIds.add(eventId)
+    })
+
+    const event = {
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    }
+
+    const firstSubscriber = NwcSubscriber()
+    const firstStop = firstSubscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+    currentSubscription?.onevent?.(event)
+    await flushMicrotasks()
+    await firstStop()
+
+    const secondSubscriber = NwcSubscriber()
+    const secondStop = secondSubscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+    currentSubscription?.onevent?.(event)
+    await flushMicrotasks()
+
+    expect(mockHandle).toHaveBeenCalledTimes(1)
+
+    await secondStop()
   })
 })

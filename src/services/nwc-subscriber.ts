@@ -29,7 +29,7 @@ import {
   Nip47UnsupportedEncryptionError,
   parseNip47Response,
 } from "@/domain/nostr"
-import { ConnectionsRepository } from "@/services/db"
+import { ConnectionsRepository, ProcessedNwcRequestsRepository } from "@/services/db"
 import { baseLogger } from "@/services/logger"
 import { sleep } from "@/domain/utils"
 
@@ -49,10 +49,13 @@ export const NwcSubscriber = () => {
   const r = new Relay(NOSTR_RELAY_URL)
   const serverKeypair = getServerKeypair()
   const connectionsRepository = ConnectionsRepository()
+  const processedNwcRequestsRepository = ProcessedNwcRequestsRepository()
   const processedEventIds = new Map<string, number>()
   const inFlightEventIds = new Set<string>()
 
   const REQUEST_EVENT_TTL_MS = 10 * 60 * 1000
+  const PROCESSED_EVENT_PRUNE_INTERVAL_MS = 60 * 1000
+  let lastProcessedEventPruneAt = 0
 
   const pruneTrackedEventIds = () => {
     const now = Date.now()
@@ -63,8 +66,40 @@ export const NwcSubscriber = () => {
     }
   }
 
-  const markEventProcessed = (eventId: string) => {
+  const getProcessedEventExpiry = (expirationTimestamp?: number) => {
+    const defaultExpiry = Date.now() + REQUEST_EVENT_TTL_MS
+    const expirationMs =
+      typeof expirationTimestamp === "number" ? expirationTimestamp * 1000 : 0
+
+    return new Date(Math.max(defaultExpiry, expirationMs))
+  }
+
+  const pruneExpiredProcessedEvents = async () => {
+    const now = Date.now()
+    if (now - lastProcessedEventPruneAt < PROCESSED_EVENT_PRUNE_INTERVAL_MS) {
+      return
+    }
+
+    lastProcessedEventPruneAt = now
+    const result = await processedNwcRequestsRepository.pruneExpired()
+    if (result instanceof Error) {
+      logger.warn({ err: result }, "failed to prune expired processed NWC requests")
+    }
+  }
+
+  const markEventProcessed = async (eventId: string, expirationTimestamp?: number) => {
     processedEventIds.set(eventId, Date.now())
+
+    const result = await processedNwcRequestsRepository.markProcessed(
+      eventId,
+      getProcessedEventExpiry(expirationTimestamp),
+    )
+    if (result instanceof Error) {
+      logger.warn(
+        { err: result, eventId },
+        "failed to persist processed NWC request",
+      )
+    }
   }
 
   const subscribe = (
@@ -192,6 +227,7 @@ export const NwcSubscriber = () => {
       ) => Promise<Nip47Result>,
     ) => {
       pruneTrackedEventIds()
+      await pruneExpiredProcessedEvents()
 
       if (!verifyEvent(event)) {
         logger.warn({ eventId: event.id }, "rejected event with invalid signature")
@@ -206,6 +242,19 @@ export const NwcSubscriber = () => {
       inFlightEventIds.add(event.id)
 
       try {
+        const wasProcessed = await processedNwcRequestsRepository.isProcessed(event.id)
+        if (wasProcessed instanceof Error) {
+          throw new RetryableEventProcessingError(
+            "Failed to check processed NWC request state",
+            wasProcessed,
+          )
+        }
+        if (wasProcessed) {
+          processedEventIds.set(event.id, Date.now())
+          logger.info({ eventId: event.id }, "ignoring persistently tracked NWC request")
+          return
+        }
+
         const eventLogger = logger.child({
           eventId: event.id,
           appPubkey: event.pubkey,
@@ -228,22 +277,20 @@ export const NwcSubscriber = () => {
               ),
             ),
           )
-          markEventProcessed(event.id)
+          await markEventProcessed(event.id)
           return
         }
 
         const expiration = event.tags.find((tag) => tag[0] === "expiration")?.[1]
-        if (expiration) {
-          const expirationTimestamp = Number.parseInt(expiration, 10)
-          if (
-            Number.isFinite(expirationTimestamp) &&
-            Math.floor(Date.now() / 1000) > expirationTimestamp
-          ) {
+        const expirationTimestamp =
+          expiration !== undefined ? Number.parseInt(expiration, 10) : undefined
+        if (typeof expirationTimestamp === "number" && Number.isFinite(expirationTimestamp)) {
+          if (Math.floor(Date.now() / 1000) > expirationTimestamp) {
             eventLogger.info(
               { expiration: expirationTimestamp },
               "ignoring expired NWC request",
             )
-            markEventProcessed(event.id)
+            await markEventProcessed(event.id, expirationTimestamp)
             return
           }
         }
@@ -265,7 +312,7 @@ export const NwcSubscriber = () => {
             encryptionType as Nip47EncryptionType,
             parseNip47Response(new Nip47InternalError("Decryption failed")),
           )
-          markEventProcessed(event.id)
+          await markEventProcessed(event.id, expirationTimestamp)
           return
         }
 
@@ -281,7 +328,7 @@ export const NwcSubscriber = () => {
             encryptionType as Nip47EncryptionType,
             parseNip47Response(new Nip47InternalError("Invalid request format")),
           )
-          markEventProcessed(event.id)
+          await markEventProcessed(event.id, expirationTimestamp)
           return
         }
 
@@ -302,7 +349,7 @@ export const NwcSubscriber = () => {
               new Nip47UnauthorizedError("No connection found with provided pubkey"),
             ),
           )
-          markEventProcessed(event.id)
+          await markEventProcessed(event.id, expirationTimestamp)
           return
         }
 
@@ -315,7 +362,7 @@ export const NwcSubscriber = () => {
             encryptionType as Nip47EncryptionType,
             parseNip47Response(new Nip47UnauthorizedError("Connection has expired")),
           )
-          markEventProcessed(event.id)
+          await markEventProcessed(event.id, expirationTimestamp)
           return
         }
 
@@ -335,7 +382,7 @@ export const NwcSubscriber = () => {
               ),
             ),
           )
-          markEventProcessed(event.id)
+          await markEventProcessed(event.id, expirationTimestamp)
           return
         }
 
@@ -354,7 +401,7 @@ export const NwcSubscriber = () => {
           encryptionType as Nip47EncryptionType,
           parseNip47Response(response),
         )
-        markEventProcessed(event.id)
+        await markEventProcessed(event.id, expirationTimestamp)
       } finally {
         inFlightEventIds.delete(event.id)
       }
