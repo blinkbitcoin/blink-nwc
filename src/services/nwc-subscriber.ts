@@ -8,7 +8,12 @@ import {
   SUPPORTED_NWC_METHODS,
   SUPPORTED_NWC_NOTIFICATIONS,
 } from "@/config"
-import { getServerKeypair, hasPermission, NwcConnection } from "@/domain/connection"
+import {
+  getServerKeypair,
+  hasPermission,
+  isConnectionExpired,
+  NwcConnection,
+} from "@/domain/connection"
 import { parseErrorFromUnknown } from "@/domain/errors"
 import {
   Nip47EncryptionType,
@@ -365,7 +370,7 @@ export const NwcSubscriber = () => {
           return
         }
 
-        if (userConnection.expiresAt && userConnection.expiresAt <= new Date()) {
+        if (isConnectionExpired(userConnection)) {
           eventLogger.warn({ connectionId: userConnection.id }, "connection has expired")
           await sendNwcResponse(
             event.id,

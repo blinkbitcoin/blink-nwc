@@ -199,6 +199,26 @@ describe("NwcEventHandler", () => {
       expect(result.code).toContain("RESTRICTED")
       expect(result.message).toContain("does not have permission")
     })
+
+    it("should reject expired connections even when called directly", async () => {
+      const handler = NwcEventHandler()
+      const expiredConnection = {
+        ...mockConnection,
+        expiresAt: new Date("2026-04-14T00:00:00.000Z"),
+      }
+
+      const result = await handler.handle(
+        { method: Nip47Method.GetInfo, params: {} },
+        expiredConnection,
+      )
+
+      expect(result).toBeInstanceOf(Nip47Error)
+      if (!(result instanceof Nip47Error)) {
+        return
+      }
+      expect(result.code).toContain("UNAUTHORIZED")
+      expect(result.message).toBe("Connection has expired")
+    })
   })
 
   describe("getInfo", () => {

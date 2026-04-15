@@ -177,3 +177,10 @@ export const parseNwcUri = (uri: string): ParsedNwcUri | InvalidNwcUri => {
 export const hasPermission = (method: Nip47MethodType, connection: NwcConnection) => {
   return connection.permissions.includes(method)
 }
+
+export const isConnectionExpired = (
+  connection: Pick<NwcConnection, "expiresAt">,
+  now: Date = new Date(),
+) => {
+  return connection.expiresAt !== null && connection.expiresAt <= now
+}

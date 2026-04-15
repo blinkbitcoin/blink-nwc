@@ -1,5 +1,3 @@
-import { decode as decodeBolt11 } from "bolt11"
-
 import {
   SUPPORTED_NWC_METHODS,
   SUPPORTED_NWC_NOTIFICATIONS,
@@ -7,10 +5,15 @@ import {
   WALLET_COLOR,
 } from "@/config"
 import { parseErrorForNip47Response } from "@/app/nwc-event-handler.error"
-import { getServerKeypair, NwcConnection, hasPermission } from "@/domain/connection"
+import {
+  getServerKeypair,
+  isConnectionExpired,
+  NwcConnection,
+  hasPermission,
+} from "@/domain/connection"
+import { IBlinkCoreService } from "@/domain/core"
 import { ErrorLevel } from "@/domain/errors"
 import {
-  CoreServiceTx,
   MilliSatoshis,
   Nip47MethodType,
   Nip47Result,
@@ -25,6 +28,7 @@ import {
   Nip47NotImplementedError,
   Nip47OtherError,
   Nip47RestrictedError,
+  Nip47UnauthorizedError,
 } from "@/domain/nostr"
 import { BlinkCoreService } from "@/services"
 import { baseLogger } from "@/services/logger"
@@ -43,12 +47,14 @@ import {
 } from "@/domain/units"
 import {
   checkedToNip47ListTransactionsRequest,
+  checkedToDecodedBolt11Invoice,
   checkedToNip47LookupInvoiceRequest,
   checkedToNip47MakeInvoiceRequest,
   checkedToNip47PayInvoiceRequest,
 } from "@/domain/validation"
 import { toNotificationTypeFromPermission } from "@/domain/nostr/notification-type"
 import { PaymentDirection as PD } from "@/domain/nostr/payment-direction"
+import { InvalidResponseError, InvoiceNotFoundError } from "@/services/core/errors"
 
 const DEFAULT_INVOICE_EXPIRY_SECONDS = 24 * 60 * 60
 const DEFAULT_BATCH_SIZE = 10
@@ -56,6 +62,9 @@ const MAX_BATCH_SIZE = 100
 
 type NwcRequest = { method: Nip47MethodType; params?: unknown }
 type MethodHandler = (request: NwcRequest, connection: NwcConnection) => Promise<Nip47Result>
+type NwcEventHandlerDeps = {
+  blinkCoreService?: IBlinkCoreService
+}
 
 const asRecord = (value: unknown): Record<string, unknown> | undefined => {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -65,9 +74,8 @@ const asRecord = (value: unknown): Record<string, unknown> | undefined => {
   return value as Record<string, unknown>
 }
 
-const NwcEventHandler = () => {
+const NwcEventHandler = ({ blinkCoreService = BlinkCoreService() }: NwcEventHandlerDeps = {}) => {
   const logger = baseLogger.child({ module: "nwc-event-handler" })
-  const blinkCoreService = BlinkCoreService()
 
   const enabledNotifications = (connection: NwcConnection) => {
     if (!connection.notificationsEnabled) {
@@ -235,43 +243,43 @@ const NwcEventHandler = () => {
       "nwc.payment.hasInvoice": true,
     })
 
-    try {
-      const decodedInvoice = decodeBolt11(parsed.invoice)
-      const decodedInvoiceAmountMsats =
-        typeof decodedInvoice.millisatoshis === "string"
-          ? Number(decodedInvoice.millisatoshis)
-          : undefined
-
-      addAttributesToCurrentSpan({
-        "nwc.payment.amountOverrideMsats": parsed.amount,
-        "nwc.payment.amountMsats": decodedInvoice.millisatoshis || undefined,
-        "nwc.payment.amountSats": decodedInvoice.satoshis || undefined,
-      })
-
-      if (decodedInvoiceAmountMsats === undefined && parsed.amount === undefined) {
-        return new Nip47OtherError("Amount is required for amountless invoices")
-      }
-
-      const result = await blinkCoreService.payInvoice(
-        connection.apiKey,
-        connection.walletId,
-        parsed.invoice,
-        parsed.amount !== undefined ? toSatoshis(parsed.amount) : undefined,
-      )
-
-      return result instanceof Error
-        ? parseErrorForNip47Response(result)
-        : {
-            preimage: result.preimage,
-            fees_paid: toMilliSatoshis(result.feesPaid),
-          }
-    } catch (error) {
+    const decodedInvoice = checkedToDecodedBolt11Invoice(parsed.invoice)
+    if (decodedInvoice instanceof Error) {
       recordExceptionInCurrentSpan({
-        error: error instanceof Error ? error : new Error("Invoice decode failed"),
+        error: decodedInvoice,
         level: ErrorLevel.Warn,
       })
-      return new Nip47OtherError("Invalid invoice")
+      return new Nip47OtherError(decodedInvoice.message)
     }
+
+    const decodedInvoiceAmountMsats =
+      typeof decodedInvoice.millisatoshis === "string"
+        ? Number(decodedInvoice.millisatoshis)
+        : undefined
+
+    addAttributesToCurrentSpan({
+      "nwc.payment.amountOverrideMsats": parsed.amount,
+      "nwc.payment.amountMsats": decodedInvoice.millisatoshis ?? undefined,
+      "nwc.payment.amountSats": decodedInvoice.satoshis ?? undefined,
+    })
+
+    if (decodedInvoiceAmountMsats === undefined && parsed.amount === undefined) {
+      return new Nip47OtherError("Amount is required for amountless invoices")
+    }
+
+    const result = await blinkCoreService.payInvoice(
+      connection.apiKey,
+      connection.walletId,
+      parsed.invoice,
+      parsed.amount !== undefined ? toSatoshis(parsed.amount) : undefined,
+    )
+
+    return result instanceof Error
+      ? parseErrorForNip47Response(result)
+      : {
+          preimage: result.preimage,
+          fees_paid: toMilliSatoshis(result.feesPaid),
+        }
   }
 
   const lookupInvoice: MethodHandler = async (request, connection) => {
@@ -288,7 +296,7 @@ const NwcEventHandler = () => {
     )
 
     return result instanceof Error
-      ? result.name === "InvalidResponseError" || result.name === "InvoiceNotFoundError"
+      ? result instanceof InvalidResponseError || result instanceof InvoiceNotFoundError
         ? new Nip47NotFoundError("Invoice not found")
         : parseErrorForNip47Response(result)
       : {
@@ -307,9 +315,8 @@ const NwcEventHandler = () => {
     const { unpaid, type } = parsed
     const limit = Math.min(Math.max(parsed.limit ?? DEFAULT_BATCH_SIZE, 1), MAX_BATCH_SIZE)
     const offset = parsed.offset ?? 0
-    const endIndex = offset + limit
-    const from = parsed.from ?? (0 as UnixTimestamp)
-    const until = parsed.until ?? (Math.round(Date.now() / 1000) as UnixTimestamp)
+    const from = parsed.from ?? ensureUnixSeconds(0)
+    const until = parsed.until ?? ensureUnixSeconds(Date.now() / 1000)
     const untilCursor = toCursor(until)
 
     if (!untilCursor) {
@@ -396,6 +403,23 @@ const NwcEventHandler = () => {
         "completed NWC request",
       )
       return response
+    }
+
+    if (isConnectionExpired(connection)) {
+      const error = new Nip47UnauthorizedError("Connection has expired")
+      recordExceptionInCurrentSpan({ error, level: ErrorLevel.Warn })
+      requestLogger.info(
+        {
+          response: {
+            error: {
+              code: error.code,
+              message: error.message,
+            },
+          },
+        },
+        "completed NWC request",
+      )
+      return error
     }
 
     if (!hasPermission(request.method, connection)) {

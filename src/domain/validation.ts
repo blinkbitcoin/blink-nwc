@@ -1,3 +1,5 @@
+import { decode as decodeBolt11 } from "bolt11"
+
 import {
   ApiKey,
   ApiKeyId,
@@ -321,6 +323,16 @@ export const checkedToDescription = (
   return description as Description
 }
 
+export const checkedToDecodedBolt11Invoice = (
+  invoice: InvoiceBolt11,
+): ReturnType<typeof decodeBolt11> | ValidationError => {
+  try {
+    return decodeBolt11(invoice)
+  } catch {
+    return new InvalidInvoice("Invalid invoice")
+  }
+}
+
 export const checkedToSeconds = (seconds: unknown): Seconds | ValidationError => {
   if (!isNonNegativeInteger(seconds)) {
     return new ValidationError("Seconds must be a positive integer")
@@ -471,7 +483,7 @@ export const checkedToNip47LookupInvoiceRequest = (
   if (invoice instanceof ValidationError) {
     return invoice
   }
-  if (invoice == undefined && payment_hash == undefined) {
+  if (invoice === undefined && payment_hash === undefined) {
     return new ValidationError(
       "Lookup invoice request must contain either invoice or payment_hash!",
     )

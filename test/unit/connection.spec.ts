@@ -2,9 +2,10 @@ import { getPublicKey } from "nostr-tools"
 
 import {
   getServerKeypair,
-  stringifyNwcUri,
-  parseNwcUri,
   hasPermission,
+  isConnectionExpired,
+  parseNwcUri,
+  stringifyNwcUri,
 } from "@/domain/connection"
 import { NwcRelay, NwcSecret } from "@/domain/index.types"
 import { Nip47Method } from "@/domain/nostr"
@@ -291,6 +292,32 @@ describe("connection", () => {
 
       expect(hasPermission(Nip47Method.GetInfo, connection)).toBe(true)
       expect(hasPermission(Nip47Method.GetBalance, connection)).toBe(true)
+    })
+  })
+
+  describe("isConnectionExpired", () => {
+    it("returns false when expiresAt is null", () => {
+      expect(isConnectionExpired({ expiresAt: null } as any, new Date("2026-04-15"))).toBe(
+        false,
+      )
+    })
+
+    it("returns false when expiresAt is in the future", () => {
+      expect(
+        isConnectionExpired(
+          { expiresAt: new Date("2026-04-16T00:00:00.000Z") } as any,
+          new Date("2026-04-15T00:00:00.000Z"),
+        ),
+      ).toBe(false)
+    })
+
+    it("returns true when expiresAt is in the past or exactly now", () => {
+      expect(
+        isConnectionExpired(
+          { expiresAt: new Date("2026-04-15T00:00:00.000Z") } as any,
+          new Date("2026-04-15T00:00:00.000Z"),
+        ),
+      ).toBe(true)
     })
   })
 })
