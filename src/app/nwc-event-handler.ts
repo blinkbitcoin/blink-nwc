@@ -48,10 +48,22 @@ import {
   checkedToNip47PayInvoiceRequest,
 } from "@/domain/validation"
 import { toNotificationTypeFromPermission } from "@/domain/nostr/notification-type"
+import { PaymentDirection as PD } from "@/domain/nostr/payment-direction"
 
 const DEFAULT_INVOICE_EXPIRY_SECONDS = 24 * 60 * 60
 const DEFAULT_BATCH_SIZE = 10
 const MAX_BATCH_SIZE = 100
+
+type NwcRequest = { method: Nip47MethodType; params?: unknown }
+type MethodHandler = (request: NwcRequest, connection: NwcConnection) => Promise<Nip47Result>
+
+const asRecord = (value: unknown): Record<string, unknown> | undefined => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined
+  }
+
+  return value as Record<string, unknown>
+}
 
 const NwcEventHandler = () => {
   const logger = baseLogger.child({ module: "nwc-event-handler" })
@@ -83,21 +95,288 @@ const NwcEventHandler = () => {
     )
   }
 
-  const serializeParamsForLog = (params: unknown): unknown => {
-    if (!params || typeof params !== "object" || Array.isArray(params)) {
+  const serializeParamsForLog = (
+    method: Nip47MethodType,
+    params: unknown,
+  ): Record<string, unknown> | unknown => {
+    const input = asRecord(params)
+    if (!input) {
       return params
     }
 
-    const cloned = { ...(params as Record<string, unknown>) }
-    if ("invoice" in cloned) {
-      cloned.invoice = "[redacted]"
+    switch (method) {
+      case "get_info":
+      case "get_balance":
+        return {}
+      case "make_invoice":
+        return {
+          amount: input.amount,
+          expiry: input.expiry,
+          has_description: input.description !== undefined,
+          has_description_hash: input.description_hash !== undefined,
+        }
+      case "pay_invoice":
+        return {
+          amount: input.amount,
+          has_invoice: input.invoice !== undefined,
+        }
+      case "lookup_invoice":
+        return {
+          has_invoice: input.invoice !== undefined,
+          has_payment_hash: input.payment_hash !== undefined,
+        }
+      case "list_transactions":
+        return {
+          from: input.from,
+          until: input.until,
+          limit: input.limit,
+          offset: input.offset,
+          unpaid: input.unpaid,
+          type: input.type,
+        }
+    }
+  }
+
+  const getInfo: MethodHandler = async (_request, connection) => {
+    const serverPubkey = getServerKeypair().pubkey
+    const username = await blinkCoreService.getUsername(connection.apiKey)
+    const info = await blinkCoreService.getNodeInfo()
+
+    if (info instanceof Error) {
+      return new Nip47InternalError(info.message)
     }
 
-    return cloned
+    const alias =
+      typeof username === "string" && username.length > 0
+        ? (username as NwcServerAlias)
+        : WALLET_ALIAS
+
+    return {
+      alias,
+      color: WALLET_COLOR,
+      pubkey: serverPubkey,
+      methods: allowedMethods(connection),
+      notifications: enabledNotifications(connection),
+      network: info.network,
+      block_height: info.blockHeight,
+      block_hash: info.blockHash,
+    }
+  }
+
+  const getBalance: MethodHandler = async (_request, connection) => {
+    const result = await blinkCoreService.getBalance(connection.apiKey, connection.walletId)
+    return result instanceof Error
+      ? parseErrorForNip47Response(result)
+      : { balance: toMilliSatoshis(result.balance) }
+  }
+
+  const makeInvoice: MethodHandler = async (request, connection) => {
+    const parsed = checkedToNip47MakeInvoiceRequest(request.params)
+    if (parsed instanceof Error) {
+      recordExceptionInCurrentSpan({ error: parsed, level: ErrorLevel.Warn })
+      return new Nip47OtherError(parsed.message)
+    }
+
+    const { amount, description, description_hash, expiry } = parsed
+    addAttributesToCurrentSpan({
+      "nwc.invoice.amountMsats": amount,
+      "nwc.invoice.hasDescription": !!description,
+      "nwc.invoice.hasDescriptionHash": !!description_hash,
+    })
+
+    const satoshis = toSatoshis(amount)
+    const expiryMinutes = toMinutes(expiry)
+    const invoice =
+      amount === 0
+        ? await blinkCoreService.createInvoiceAmountless(
+            connection.apiKey,
+            connection.walletId,
+            description,
+            expiryMinutes,
+          )
+        : await blinkCoreService.createInvoice(
+            connection.apiKey,
+            connection.walletId,
+            satoshis,
+            description,
+            description_hash,
+            expiryMinutes,
+          )
+
+    if (invoice instanceof Error) {
+      return parseErrorForNip47Response(invoice)
+    }
+
+    const createdAt = ensureUnixSeconds(invoice.createdAt)
+
+    return {
+      type: "incoming",
+      amount: toMilliSatoshis(invoice.satoshis),
+      state: "pending",
+      created_at: createdAt,
+      description,
+      description_hash,
+      expires_at:
+        invoice.expiresAt ?? ((createdAt + DEFAULT_INVOICE_EXPIRY_SECONDS) as UnixTimestamp),
+      fees_paid: 0 as MilliSatoshis,
+      invoice: invoice.paymentRequest,
+      payment_hash: invoice.paymentHash,
+    }
+  }
+
+  const payInvoice: MethodHandler = async (request, connection) => {
+    const parsed = checkedToNip47PayInvoiceRequest(request.params)
+    if (parsed instanceof Error) {
+      recordExceptionInCurrentSpan({ error: parsed, level: ErrorLevel.Warn })
+      return new Nip47OtherError(parsed.message)
+    }
+
+    addAttributesToCurrentSpan({
+      "nwc.payment.hasInvoice": true,
+    })
+
+    try {
+      const decodedInvoice = decodeBolt11(parsed.invoice)
+      const decodedInvoiceAmountMsats =
+        typeof decodedInvoice.millisatoshis === "string"
+          ? Number(decodedInvoice.millisatoshis)
+          : undefined
+
+      addAttributesToCurrentSpan({
+        "nwc.payment.amountOverrideMsats": parsed.amount,
+        "nwc.payment.amountMsats": decodedInvoice.millisatoshis || undefined,
+        "nwc.payment.amountSats": decodedInvoice.satoshis || undefined,
+      })
+
+      if (decodedInvoiceAmountMsats === undefined && parsed.amount === undefined) {
+        return new Nip47OtherError("Amount is required for amountless invoices")
+      }
+
+      const result = await blinkCoreService.payInvoice(
+        connection.apiKey,
+        connection.walletId,
+        parsed.invoice,
+        parsed.amount !== undefined ? toSatoshis(parsed.amount) : undefined,
+      )
+
+      return result instanceof Error
+        ? parseErrorForNip47Response(result)
+        : {
+            preimage: result.preimage,
+            fees_paid: toMilliSatoshis(result.feesPaid),
+          }
+    } catch (error) {
+      recordExceptionInCurrentSpan({
+        error: error instanceof Error ? error : new Error("Invoice decode failed"),
+        level: ErrorLevel.Warn,
+      })
+      return new Nip47OtherError("Invalid invoice")
+    }
+  }
+
+  const lookupInvoice: MethodHandler = async (request, connection) => {
+    const parsed = checkedToNip47LookupInvoiceRequest(request.params)
+    if (parsed instanceof Error) {
+      return new Nip47OtherError(parsed.message)
+    }
+
+    const result = await blinkCoreService.lookupInvoice(
+      connection.apiKey,
+      connection.walletId,
+      parsed.payment_hash,
+      parsed.invoice,
+    )
+
+    return result instanceof Error
+      ? result.name === "InvalidResponseError" || result.name === "InvoiceNotFoundError"
+        ? new Nip47NotFoundError("Invoice not found")
+        : parseErrorForNip47Response(result)
+      : {
+          ...toNwcTx(result),
+          expires_at: result.expiresAt,
+          settled_at: result.settledAt,
+        }
+  }
+
+  const listTransactions: MethodHandler = async (request, connection) => {
+    const parsed = checkedToNip47ListTransactionsRequest(request.params)
+    if (parsed instanceof Error) {
+      return new Nip47OtherError(parsed.message)
+    }
+
+    const { unpaid, type } = parsed
+    const limit = Math.min(Math.max(parsed.limit ?? DEFAULT_BATCH_SIZE, 1), MAX_BATCH_SIZE)
+    const offset = parsed.offset ?? 0
+    const endIndex = offset + limit
+    const from = parsed.from ?? (0 as UnixTimestamp)
+    const until = parsed.until ?? (Math.round(Date.now() / 1000) as UnixTimestamp)
+    const untilCursor = toCursor(until)
+
+    if (!untilCursor) {
+      return new Nip47OtherError("Invalid until cursor")
+    }
+
+    const includeUnpaidInvoices = unpaid === true && type !== PD.Outgoing
+    if (!includeUnpaidInvoices) {
+      const transactions = await blinkCoreService.fetchTransactionsInRange(
+        connection.apiKey,
+        connection.walletId,
+        from,
+        untilCursor,
+        offset,
+        limit,
+        type,
+      )
+
+      return transactions instanceof Error
+        ? parseErrorForNip47Response(transactions)
+        : { transactions: transactions.map((tx) => toNwcTx(tx)) }
+    }
+
+    // TODO: replace offset-based merged pagination with a source-aware merge cursor.
+    const [transactions, invoices] = await Promise.all([
+      blinkCoreService.fetchTransactionsInRange(
+        connection.apiKey,
+        connection.walletId,
+        from,
+        untilCursor,
+        0,
+        endIndex,
+        type,
+      ),
+      blinkCoreService.fetchInvoicesInRange(
+        connection.apiKey,
+        connection.walletId,
+        from,
+        untilCursor,
+        0,
+        endIndex,
+        type,
+      ),
+    ])
+
+    if (transactions instanceof Error) {
+      return parseErrorForNip47Response(transactions)
+    }
+    if (invoices instanceof Error) {
+      return parseErrorForNip47Response(invoices)
+    }
+
+    const mergedTransactions = mergeTxs(invoices, transactions).slice(offset, endIndex)
+    return { transactions: mergedTransactions.map((tx) => toNwcTx(tx)) }
+  }
+
+  const handlers: Record<Nip47MethodType, MethodHandler> = {
+    get_info: getInfo,
+    get_balance: getBalance,
+    make_invoice: makeInvoice,
+    pay_invoice: payInvoice,
+    lookup_invoice: lookupInvoice,
+    list_transactions: listTransactions,
   }
 
   const handle = async (
-    request: { method: Nip47MethodType; params?: unknown },
+    request: NwcRequest,
     connection: NwcConnection,
   ): Promise<Nip47Result> => {
     const requestLogger = logger.child({
@@ -109,7 +388,7 @@ const NwcEventHandler = () => {
     })
 
     requestLogger.info(
-      { params: serializeParamsForLog(request.params) },
+      { params: serializeParamsForLog(request.method, request.params) },
       "received NWC request",
     )
 
@@ -121,246 +400,42 @@ const NwcEventHandler = () => {
       "nwc.appPubkey": connection.appPubkey,
     })
 
-    let response: Nip47Result
-
     if (!SUPPORTED_NWC_METHODS.includes(request.method)) {
-      response = new Nip47NotImplementedError(`Unsupported method: ${request.method}`)
-    } else if (!hasPermission(request.method, connection)) {
+      const response = new Nip47NotImplementedError(`Unsupported method: ${request.method}`)
+      requestLogger.info(
+        {
+          response: {
+            error: {
+              code: response.code,
+              message: response.message,
+            },
+          },
+        },
+        "completed NWC request",
+      )
+      return response
+    }
+
+    if (!hasPermission(request.method, connection)) {
       const error = new Nip47RestrictedError(
         `Connection does not have permission for requested operation: ${request.method}`,
       )
       recordExceptionInCurrentSpan({ error, level: ErrorLevel.Warn })
-      response = error
-    } else if (request.method === "get_info") {
-      const serverPubkey = getServerKeypair().pubkey
-      const username = await blinkCoreService.getUsername(connection.apiKey)
-      const info = await blinkCoreService.getNodeInfo()
-
-      if (info instanceof Error) {
-        response = new Nip47InternalError(info.message)
-      } else {
-        const alias =
-          typeof username === "string" && username.length > 0
-            ? (username as NwcServerAlias)
-            : WALLET_ALIAS
-
-        response = {
-          alias,
-          color: WALLET_COLOR,
-          pubkey: serverPubkey,
-          methods: allowedMethods(connection),
-          notifications: enabledNotifications(connection),
-          network: info.network,
-          block_height: info.blockHeight,
-          block_hash: info.blockHash,
-        }
-      }
-    } else if (request.method === "get_balance") {
-      addAttributesToCurrentSpan({
-        walletId: connection.walletId,
-        userId: connection.userId,
-        connectionId: connection.id,
-      })
-
-      const result = await blinkCoreService.getBalance(
-        connection.apiKey,
-        connection.walletId,
+      requestLogger.info(
+        {
+          response: {
+            error: {
+              code: error.code,
+              message: error.message,
+            },
+          },
+        },
+        "completed NWC request",
       )
-      response =
-        result instanceof Error
-          ? parseErrorForNip47Response(result)
-          : { balance: toMilliSatoshis(result.balance) }
-    } else if (request.method === "make_invoice") {
-      const parsed = checkedToNip47MakeInvoiceRequest(request.params)
-      if (parsed instanceof Error) {
-        recordExceptionInCurrentSpan({ error: parsed, level: ErrorLevel.Warn })
-        response = new Nip47OtherError(parsed.message)
-      } else {
-        const { amount, description, description_hash, expiry } = parsed
-        addAttributesToCurrentSpan({
-          "walletId": connection.walletId,
-          "userId": connection.userId,
-          "connectionId": connection.id,
-          "invoice.amount": amount,
-          "invoice.hasDescription": !!description,
-          "invoice.hasDescriptionHash": !!description_hash,
-        })
-
-        const satoshis = toSatoshis(amount)
-        const expiryMinutes = toMinutes(expiry)
-        const invoice =
-          amount === 0
-            ? await blinkCoreService.createInvoiceAmountless(
-                connection.apiKey,
-                connection.walletId,
-                description,
-                expiryMinutes,
-              )
-            : await blinkCoreService.createInvoice(
-                connection.apiKey,
-                connection.walletId,
-                satoshis,
-                description,
-                description_hash,
-                expiryMinutes,
-              )
-
-        if (invoice instanceof Error) {
-          response = parseErrorForNip47Response(invoice)
-        } else {
-          const createdAt = ensureUnixSeconds(invoice.createdAt)
-          const expiresIn = (
-            typeof expiryMinutes === "number"
-              ? Math.floor(expiryMinutes * 60)
-              : DEFAULT_INVOICE_EXPIRY_SECONDS
-          ) as Seconds
-
-          response = {
-            type: "incoming",
-            amount: toMilliSatoshis(satoshis),
-            state: "pending",
-            created_at: createdAt,
-            description,
-            description_hash,
-            expires_at: (createdAt + expiresIn) as UnixTimestamp,
-            fees_paid: 0 as MilliSatoshis,
-            invoice: invoice.paymentRequest,
-            payment_hash: invoice.paymentHash,
-          }
-        }
-      }
-    } else if (request.method === "pay_invoice") {
-      const parsed = checkedToNip47PayInvoiceRequest(request.params)
-      if (parsed instanceof Error) {
-        recordExceptionInCurrentSpan({ error: parsed, level: ErrorLevel.Warn })
-        response = new Nip47OtherError(parsed.message)
-      } else {
-        addAttributesToCurrentSpan({
-          "walletId": connection.walletId,
-          "userId": connection.userId,
-          "connectionId": connection.id,
-          "payment.invoice_present": true,
-        })
-
-        try {
-          const decodedInvoice = decodeBolt11(parsed.invoice)
-          const decodedInvoiceAmountMsats =
-            typeof decodedInvoice.millisatoshis === "string"
-              ? Number(decodedInvoice.millisatoshis)
-              : undefined
-
-          addAttributesToCurrentSpan({
-            "payment.amountOverrideMsats": parsed.amount,
-            "payment.amountMsats": decodedInvoice.millisatoshis || undefined,
-            "payment.amountSats": decodedInvoice.satoshis || undefined,
-          })
-
-          if (decodedInvoiceAmountMsats === undefined && parsed.amount === undefined) {
-            response = new Nip47OtherError("Amount is required for amountless invoices")
-          } else {
-            const result = await blinkCoreService.payInvoice(
-              connection.apiKey,
-              connection.walletId,
-              parsed.invoice,
-              parsed.amount !== undefined ? toSatoshis(parsed.amount) : undefined,
-            )
-            response =
-              result instanceof Error
-                ? parseErrorForNip47Response(result)
-                : {
-                    preimage: result.preimage,
-                    fees_paid: toMilliSatoshis(result.feesPaid),
-                  }
-          }
-        } catch (error) {
-          recordExceptionInCurrentSpan({
-            error: error instanceof Error ? error : new Error("Invoice decode failed"),
-            level: ErrorLevel.Warn,
-          })
-          response =
-            error instanceof Nip47Error ? error : new Nip47OtherError("Invalid invoice")
-        }
-      }
-    } else if (request.method === "lookup_invoice") {
-      const parsed = checkedToNip47LookupInvoiceRequest(request.params)
-      if (parsed instanceof Error) {
-        response = new Nip47OtherError(parsed.message)
-      } else {
-        const result = await blinkCoreService.lookupInvoice(
-          connection.apiKey,
-          connection.walletId,
-          parsed.payment_hash,
-          parsed.invoice,
-        )
-
-        response =
-          result instanceof Error
-            ? result.name === "InvalidResponseError" ||
-              result.name === "InvoiceNotFoundError"
-              ? new Nip47NotFoundError("Invoice not found")
-              : parseErrorForNip47Response(result)
-            : {
-                ...toNwcTx(result),
-                expires_at: result.expiresAt,
-                settled_at: result.settledAt,
-              }
-      }
-    } else if (request.method === "list_transactions") {
-      const parsed = checkedToNip47ListTransactionsRequest(request.params)
-      if (parsed instanceof Error) {
-        response = new Nip47OtherError(parsed.message)
-      } else {
-        const { unpaid, type } = parsed
-        const limit = Math.min(
-          Math.max(parsed.limit ?? DEFAULT_BATCH_SIZE, 1),
-          MAX_BATCH_SIZE,
-        )
-        const offset = parsed.offset || 0
-        const mergedLimit = offset + limit
-        const from = parsed.from || (0 as UnixTimestamp)
-        const until = parsed.until || (Math.round(Date.now() / 1000) as UnixTimestamp)
-
-        const transactions = await blinkCoreService.fetchTransactionsInRange(
-          connection.apiKey,
-          connection.walletId,
-          from,
-          toCursor(until)!,
-          unpaid ? 0 : offset,
-          unpaid ? mergedLimit : limit,
-          type,
-        )
-        if (transactions instanceof Error) {
-          response = parseErrorForNip47Response(transactions)
-        } else {
-          let result: CoreServiceTx[]
-
-          if (unpaid) {
-            const invoices = await blinkCoreService.fetchInvoicesInRange(
-              connection.apiKey,
-              connection.walletId,
-              from,
-              toCursor(until)!,
-              0,
-              mergedLimit,
-              type,
-            )
-            if (invoices instanceof Error) {
-              response = parseErrorForNip47Response(invoices)
-            } else {
-              result = mergeTxs(invoices, transactions).slice(offset, mergedLimit)
-              response = { transactions: result.map((tx) => toNwcTx(tx)) }
-            }
-          } else {
-            result = transactions
-            response = { transactions: result.map((tx) => toNwcTx(tx)) }
-          }
-        }
-      }
-    } else {
-      response = new Nip47NotImplementedError(
-        `Method not implemented yet: ${request.method}`,
-      )
+      return error
     }
+
+    const response = await handlers[request.method](request, connection)
 
     requestLogger.info(
       response instanceof Nip47Error

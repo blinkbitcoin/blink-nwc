@@ -67,6 +67,14 @@ const isNonNegativeInteger = (value: unknown): value is number => {
   )
 }
 
+const asRecord = (value: unknown): Record<string, unknown> | undefined => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined
+  }
+
+  return value as Record<string, unknown>
+}
+
 export const checkedToUserId = (userId: string): UserId | ValidationError => {
   if (!userId.match(UuidRegex)) {
     return new InvalidUserId(userId)
@@ -236,6 +244,10 @@ export const checkedToBolt11Invoice = (
     return new InvalidInvoice("Invoice cannot be empty")
   }
 
+  if (invoice !== invoice.toLowerCase() && invoice !== invoice.toUpperCase()) {
+    return new InvalidInvoice("Invoice must use a single-case bech32 encoding")
+  }
+
   const normalized = invoice.toLowerCase()
 
   if (
@@ -257,6 +269,18 @@ export const checkedToMsatAmount = (amount: unknown): MilliSatoshis | Validation
     return new InvalidAmount("Amount must be a non-negative integer")
   }
   return amount as MilliSatoshis
+}
+
+const checkedToWholeSatoshiMsatAmount = (
+  amount: MilliSatoshis,
+): MilliSatoshis | ValidationError => {
+  if (amount % 1000 !== 0) {
+    return new InvalidAmount(
+      "Amount must be a whole number of satoshis (multiple of 1000 millisatoshis)",
+    )
+  }
+
+  return amount
 }
 
 export const checkedToUnixTimestamp = (
@@ -345,32 +369,36 @@ export const checkedToPaymentDirection = (
 }
 
 export const checkedToNip47MakeInvoiceRequest = (
-  req: any,
+  req: unknown,
 ): Nip47MakeInvoiceRequest | ValidationError => {
-  const amount = checkedToMsatAmount(req?.amount ?? 0)
+  const input = asRecord(req)
+
+  const amount = checkedToMsatAmount(input?.amount ?? 0)
   if (amount instanceof ValidationError) return amount
+  const wholeSatoshiAmount = checkedToWholeSatoshiMsatAmount(amount)
+  if (wholeSatoshiAmount instanceof ValidationError) return wholeSatoshiAmount
 
   const description =
-    req?.description !== undefined ? checkedToDescription(req.description) : undefined
+    input?.description !== undefined ? checkedToDescription(input.description) : undefined
   if (description instanceof ValidationError) return description
 
   const descriptionHash =
-    req?.description_hash !== undefined
-      ? checkedToDescriptionHash(req.description_hash)
+    input?.description_hash !== undefined
+      ? checkedToDescriptionHash(input.description_hash)
       : undefined
   if (descriptionHash instanceof ValidationError) return descriptionHash
 
-  const expiry = req?.expiry !== undefined ? checkedToSeconds(req.expiry) : undefined
+  const expiry = input?.expiry !== undefined ? checkedToSeconds(input.expiry) : undefined
   if (expiry instanceof ValidationError) return expiry
 
-  if (amount === 0 && descriptionHash !== undefined) {
+  if (wholeSatoshiAmount === 0 && descriptionHash !== undefined) {
     return new ValidationError(
       "description_hash is not supported for amountless invoices",
     )
   }
 
   return {
-    amount,
+    amount: wholeSatoshiAmount,
     description,
     description_hash: descriptionHash,
     expiry,
@@ -378,13 +406,15 @@ export const checkedToNip47MakeInvoiceRequest = (
 }
 
 export const checkedToNip47ListTransactionsRequest = (
-  req: any,
+  req: unknown,
 ): Nip47ListTransactionsRequest | ValidationError => {
-  const from = req?.from !== undefined ? checkedToUnixTimestamp(req?.from) : undefined
-  if (from instanceof Error) {
+  const input = asRecord(req)
+
+  const from = input?.from !== undefined ? checkedToUnixTimestamp(input.from) : undefined
+  if (from instanceof ValidationError) {
     return from
   }
-  const until = req?.until !== undefined ? checkedToUnixTimestamp(req.until) : undefined
+  const until = input?.until !== undefined ? checkedToUnixTimestamp(input.until) : undefined
   if (until instanceof ValidationError) {
     return until
   }
@@ -394,22 +424,22 @@ export const checkedToNip47ListTransactionsRequest = (
   }
 
   const limit =
-    req?.limit !== undefined
-      ? checkedToNonNegativeInteger("Limit", req?.limit)
+    input?.limit !== undefined
+      ? checkedToNonNegativeInteger("Limit", input.limit)
       : undefined
   if (limit instanceof ValidationError) {
     return limit
   }
   const offset =
-    req?.offset !== undefined
-      ? checkedToNonNegativeInteger("Offset", req.offset)
+    input?.offset !== undefined
+      ? checkedToNonNegativeInteger("Offset", input.offset)
       : undefined
   if (offset instanceof ValidationError) {
     return offset
   }
-  const unpaid = req?.unpaid !== undefined && req.unpaid === true ? true : undefined
+  const unpaid = input?.unpaid === true ? true : undefined
 
-  const type = checkedToPaymentDirection(req.type)
+  const type = checkedToPaymentDirection(input?.type)
   if (type instanceof ValidationError) {
     return type
   }
@@ -425,15 +455,19 @@ export const checkedToNip47ListTransactionsRequest = (
 }
 
 export const checkedToNip47LookupInvoiceRequest = (
-  req: any,
+  req: unknown,
 ): Nip47LookupInvoiceRequest | ValidationError => {
+  const input = asRecord(req)
+
   const payment_hash =
-    req?.payment_hash !== undefined ? checkedToPaymentHash(req.payment_hash) : undefined
+    input?.payment_hash !== undefined
+      ? checkedToPaymentHash(input.payment_hash)
+      : undefined
   if (payment_hash instanceof ValidationError) {
     return payment_hash
   }
   const invoice =
-    req?.invoice !== undefined ? checkedToBolt11Invoice(req.invoice) : undefined
+    input?.invoice !== undefined ? checkedToBolt11Invoice(input.invoice) : undefined
   if (invoice instanceof ValidationError) {
     return invoice
   }
@@ -449,20 +483,34 @@ export const checkedToNip47LookupInvoiceRequest = (
 }
 
 export const checkedToNip47PayInvoiceRequest = (
-  req: any,
+  req: unknown,
 ): Nip47PayInvoiceRequest | ValidationError => {
+  const input = asRecord(req)
+
   const invoice =
-    req?.invoice !== undefined
-      ? checkedToBolt11Invoice(req.invoice)
+    input?.invoice !== undefined
+      ? checkedToBolt11Invoice(input.invoice)
       : new InvalidInvoice("Invoice is required!")
   if (invoice instanceof ValidationError) {
     return invoice
   }
 
-  const amount = req?.amount !== undefined ? checkedToMsatAmount(req.amount) : undefined
+  const amount = input?.amount !== undefined ? checkedToMsatAmount(input.amount) : undefined
   if (amount instanceof ValidationError) {
     return amount
   }
+  if (amount !== undefined) {
+    const wholeSatoshiAmount = checkedToWholeSatoshiMsatAmount(amount)
+    if (wholeSatoshiAmount instanceof ValidationError) {
+      return wholeSatoshiAmount
+    }
+    if (wholeSatoshiAmount === 0) {
+      return new InvalidAmount("Amount must be a positive integer")
+    }
+
+    return { invoice, amount: wholeSatoshiAmount }
+  }
+
   if (amount === 0) {
     return new InvalidAmount("Amount must be a positive integer")
   }

@@ -527,6 +527,103 @@ describe("NwcEventHandler", () => {
         expires_at: now + 24 * 60 * 60,
       })
     })
+
+    it("should reject non-whole-satoshi msat amounts", async () => {
+      const handler = NwcEventHandler()
+
+      const result = await handler.handle(
+        {
+          method: Nip47Method.MakeInvoice,
+          params: {
+            amount: 1500,
+          },
+        },
+        mockConnection,
+      )
+
+      expect(result).toBeInstanceOf(Nip47Error)
+      if (!(result instanceof Nip47Error)) {
+        return
+      }
+
+      expect(result).toBeInstanceOf(Nip47OtherError)
+      expect(result.message).toContain("multiple of 1000")
+      expect(mockBlinkCoreService.createInvoice).not.toHaveBeenCalled()
+    })
+
+    it("should use the invoice-derived expiry for 30-second expiries", async () => {
+      const handler = NwcEventHandler()
+      const now = Math.floor(Date.now() / 1000)
+
+      mockBlinkCoreService.createInvoice.mockResolvedValue({
+        paymentRequest: "lnbc1..." as any,
+        paymentHash: "hash-30" as any,
+        createdAt: now as any,
+        expiresAt: (now + 30) as UnixTimestamp,
+        satoshis: 10 as Satoshis,
+      })
+
+      const result = await handler.handle(
+        {
+          method: Nip47Method.MakeInvoice,
+          params: {
+            amount: 10000,
+            expiry: 30,
+          },
+        },
+        mockConnection,
+      )
+
+      expect(mockBlinkCoreService.createInvoice).toHaveBeenCalledWith(
+        mockConnection.apiKey,
+        mockConnection.walletId,
+        10,
+        undefined,
+        undefined,
+        0.5,
+      )
+      expect(result).toMatchObject({
+        payment_hash: "hash-30",
+        expires_at: now + 30,
+      })
+    })
+
+    it("should use the invoice-derived expiry for 90-second expiries", async () => {
+      const handler = NwcEventHandler()
+      const now = Math.floor(Date.now() / 1000)
+
+      mockBlinkCoreService.createInvoice.mockResolvedValue({
+        paymentRequest: "lnbc1..." as any,
+        paymentHash: "hash-90" as any,
+        createdAt: now as any,
+        expiresAt: (now + 90) as UnixTimestamp,
+        satoshis: 10 as Satoshis,
+      })
+
+      const result = await handler.handle(
+        {
+          method: Nip47Method.MakeInvoice,
+          params: {
+            amount: 10000,
+            expiry: 90,
+          },
+        },
+        mockConnection,
+      )
+
+      expect(mockBlinkCoreService.createInvoice).toHaveBeenCalledWith(
+        mockConnection.apiKey,
+        mockConnection.walletId,
+        10,
+        undefined,
+        undefined,
+        1.5,
+      )
+      expect(result).toMatchObject({
+        payment_hash: "hash-90",
+        expires_at: now + 90,
+      })
+    })
   })
 
   describe("payInvoice", () => {
@@ -675,6 +772,31 @@ describe("NwcEventHandler", () => {
         preimage: "hash",
         fees_paid: 0,
       })
+    })
+
+    it("should reject amount overrides that are not whole satoshis", async () => {
+      const handler = NwcEventHandler()
+      ;(decodeBolt11 as jest.Mock).mockReturnValue({})
+
+      const result = await handler.handle(
+        {
+          method: Nip47Method.PayInvoice,
+          params: {
+            invoice: "lnbc1amountless...",
+            amount: 1500,
+          },
+        },
+        mockConnection,
+      )
+
+      expect(result).toBeInstanceOf(Nip47Error)
+      if (!(result instanceof Nip47Error)) {
+        return
+      }
+
+      expect(result).toBeInstanceOf(Nip47OtherError)
+      expect(result.message).toContain("multiple of 1000")
+      expect(mockBlinkCoreService.payInvoice).not.toHaveBeenCalled()
     })
 
     it("should reject amountless invoice when amount is missing", async () => {
@@ -886,6 +1008,30 @@ describe("NwcEventHandler", () => {
       })
     })
 
+    it("should accept requests without a params object", async () => {
+      const handler = NwcEventHandler()
+
+      mockBlinkCoreService.fetchTransactionsInRange.mockResolvedValue([])
+
+      const result = await handler.handle(
+        {
+          method: Nip47Method.ListTransactions,
+        },
+        mockConnection,
+      )
+
+      expect(result).toMatchObject({ transactions: [] })
+      expect(mockBlinkCoreService.fetchTransactionsInRange).toHaveBeenCalledWith(
+        mockConnection.apiKey,
+        mockConnection.walletId,
+        0,
+        expect.any(String),
+        0,
+        10,
+        undefined,
+      )
+    })
+
     it("should filter by from/until timestamps", async () => {
       const handler = NwcEventHandler()
 
@@ -1068,6 +1214,35 @@ describe("NwcEventHandler", () => {
         undefined,
       )
     })
+
+    it("should skip invoice fetches for unpaid outgoing queries", async () => {
+      const handler = NwcEventHandler()
+
+      mockBlinkCoreService.fetchTransactionsInRange.mockResolvedValue([])
+
+      const result = await handler.handle(
+        {
+          method: Nip47Method.ListTransactions,
+          params: {
+            unpaid: true,
+            type: "outgoing",
+          },
+        },
+        mockConnection,
+      )
+
+      expect(result).toMatchObject({ transactions: [] })
+      expect(mockBlinkCoreService.fetchTransactionsInRange).toHaveBeenCalledWith(
+        mockConnection.apiKey,
+        mockConnection.walletId,
+        0,
+        expect.any(String),
+        0,
+        10,
+        "outgoing",
+      )
+      expect(mockBlinkCoreService.fetchInvoicesInRange).not.toHaveBeenCalled()
+    })
   })
 
   describe("Unsupported Methods", () => {
@@ -1121,7 +1296,43 @@ describe("NwcEventHandler", () => {
       )
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        { params: { invoice: "[redacted]" } },
+        { params: { amount: undefined, has_invoice: true } },
+        "received NWC request",
+      )
+    })
+
+    it("should log allowlisted make_invoice params instead of raw descriptions", async () => {
+      const handler = NwcEventHandler()
+      const now = Math.floor(Date.now() / 1000)
+
+      mockBlinkCoreService.createInvoice.mockResolvedValue({
+        paymentRequest: "lnbc1..." as any,
+        paymentHash: "hash-log" as any,
+        createdAt: now as any,
+        satoshis: 10 as Satoshis,
+      })
+
+      await handler.handle(
+        {
+          method: Nip47Method.MakeInvoice,
+          params: {
+            amount: 10000,
+            description: "sensitive memo",
+            expiry: 60,
+          },
+        },
+        mockConnection,
+      )
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        {
+          params: {
+            amount: 10000,
+            expiry: 60,
+            has_description: true,
+            has_description_hash: false,
+          },
+        },
         "received NWC request",
       )
     })

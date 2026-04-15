@@ -36,12 +36,13 @@ export interface IBlinkCoreService {
     descriptionHash?: DescriptionHash,
     expiry?: Minutes,
   ): Promise<
-    | {
-        createdAt: UnixTimestamp
-        paymentHash: PaymentHash
-        paymentRequest: InvoiceBolt11
-        satoshis: Satoshis
-      }
+      | {
+          createdAt: UnixTimestamp
+          expiresAt?: UnixTimestamp
+          paymentHash: PaymentHash
+          paymentRequest: InvoiceBolt11
+          satoshis: Satoshis
+        }
     | BlinkServiceError
   >
   createInvoiceAmountless(
@@ -50,12 +51,13 @@ export interface IBlinkCoreService {
     memo?: Description,
     expiry?: Minutes,
   ): Promise<
-    | {
-        createdAt: UnixTimestamp
-        paymentHash: PaymentHash
-        paymentRequest: InvoiceBolt11
-        satoshis: Satoshis
-      }
+      | {
+          createdAt: UnixTimestamp
+          expiresAt?: UnixTimestamp
+          paymentHash: PaymentHash
+          paymentRequest: InvoiceBolt11
+          satoshis: Satoshis
+        }
     | BlinkServiceError
   >
   payInvoice(

@@ -284,6 +284,12 @@ describe("Validation Functions", () => {
       expect(result).toBe(invoice.toLowerCase())
     })
 
+    it("should reject mixed-case invoices", () => {
+      const result = checkedToBolt11Invoice("LnBc1000N1...")
+      expect(result).toBeInstanceOf(ValidationError)
+      expect((result as ValidationError).message).toContain("single-case")
+    })
+
     it("should reject non-string input", () => {
       const result = checkedToBolt11Invoice(12345)
       expect(result).toBeInstanceOf(ValidationError)
@@ -576,6 +582,13 @@ describe("Validation Functions", () => {
       expect(result).toBeInstanceOf(ValidationError)
     })
 
+    it("should reject msat amounts that are not whole satoshis", () => {
+      const req = { amount: 1500 }
+      const result = checkedToNip47MakeInvoiceRequest(req)
+      expect(result).toBeInstanceOf(ValidationError)
+      expect((result as ValidationError).message).toContain("multiple of 1000")
+    })
+
     it("should reject invalid description", () => {
       const req = { amount: 1000, description: 12345 }
       const result = checkedToNip47MakeInvoiceRequest(req)
@@ -648,6 +661,13 @@ describe("Validation Functions", () => {
       expect(result).toBeInstanceOf(ValidationError)
       expect((result as ValidationError).message).toContain("positive integer")
     })
+
+    it("should reject msat overrides that are not whole satoshis", () => {
+      const req = { invoice: "lnbc1000n1...", amount: 1500 }
+      const result = checkedToNip47PayInvoiceRequest(req)
+      expect(result).toBeInstanceOf(ValidationError)
+      expect((result as ValidationError).message).toContain("multiple of 1000")
+    })
   })
 
   describe("checkedToNip47LookupInvoiceRequest", () => {
@@ -695,6 +715,18 @@ describe("Validation Functions", () => {
     it("should accept empty request", () => {
       const req = {}
       const result = checkedToNip47ListTransactionsRequest(req)
+      expect(result).toMatchObject({
+        from: undefined,
+        until: undefined,
+        limit: undefined,
+        offset: undefined,
+        unpaid: undefined,
+        type: PD.Both,
+      })
+    })
+
+    it("should accept undefined request", () => {
+      const result = checkedToNip47ListTransactionsRequest(undefined)
       expect(result).toMatchObject({
         from: undefined,
         until: undefined,

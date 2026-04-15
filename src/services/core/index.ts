@@ -135,6 +135,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
         res.lnInvoiceCreateOnBehalfOfRecipient.invoice
       return {
         createdAt: createdAt as UnixTimestamp,
+        expiresAt: expiresAtFromInvoice(paymentRequest as InvoiceBolt11),
         paymentHash: paymentHash as PaymentHash,
         paymentRequest: paymentRequest as InvoiceBolt11,
         satoshis: satoshis as Satoshis,
@@ -148,7 +149,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
     apiKey: ApiKey,
     walletId: WalletId,
     memo: Description,
-    expiry: Minutes,
+    expiry?: Minutes,
   ) => {
     try {
       const res = await createInvoiceAmountlessGql(client, apiKey, walletId, memo, expiry)
@@ -167,6 +168,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
 
       return {
         createdAt: createdAt as UnixTimestamp,
+        expiresAt: expiresAtFromInvoice(paymentRequest as InvoiceBolt11),
         paymentHash: paymentHash as PaymentHash,
         paymentRequest: paymentRequest as InvoiceBolt11,
         satoshis: 0 as Satoshis,

@@ -217,6 +217,7 @@ describe("BlinkCoreService", () => {
 
     expect(result).toEqual({
       createdAt: 1710000100,
+      expiresAt: undefined,
       paymentHash: "payment-hash",
       paymentRequest: invoice,
       satoshis: 2500,
@@ -280,6 +281,7 @@ describe("BlinkCoreService", () => {
       service.createInvoiceAmountless(apiKey, walletId, "memo" as never, 30 as never),
     ).resolves.toEqual({
       createdAt: 1710000200,
+      expiresAt: undefined,
       paymentHash: "payment-hash",
       paymentRequest: invoice,
       satoshis: 0,
