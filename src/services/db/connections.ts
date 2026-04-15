@@ -5,10 +5,10 @@ import type {
   ApiKeyId,
   ConnectionSecret,
   WalletCurrency,
-  Nip47MethodType,
   NwcAppPubkey,
   NwcConnectionAlias,
   NwcConnectionId,
+  NwcPermissionType,
 } from "@/domain/index.types"
 import { AccountId, UserId, WalletId } from "@/domain/core/index.types"
 import {
@@ -18,6 +18,7 @@ import {
 } from "@/domain/errors"
 import { parseRepositoryError } from "@/services/db/index"
 import { IConnectionsRepository, NwcConnection } from "@/domain/connection"
+import { hasNotificationPermission } from "@/domain/nwc-permission"
 import { wrapAsyncFunctionsToRunInSpan } from "@/services/tracing"
 import { decryptSecret, encryptSecret } from "@/services/secret-encryption"
 
@@ -76,7 +77,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
         connection_secret_encrypted: encryptSecret(data.connectionSecret),
         app_pubkey: data.appPubkey,
         permissions: data.permissions,
-        notifications_enabled: data.notificationsEnabled,
+        notifications_enabled: hasNotificationPermission(data.permissions),
         expires_at: data.expiresAt,
       }
 
@@ -118,9 +119,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
       }
       if (updates.permissions !== undefined) {
         updateData.permissions = updates.permissions
-      }
-      if (updates.notificationsEnabled !== undefined) {
-        updateData.notifications_enabled = updates.notificationsEnabled
+        updateData.notifications_enabled = hasNotificationPermission(updates.permissions)
       }
 
       updateData.updated_at = queryBuilder.fn.now() as any
@@ -191,7 +190,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
   ): Promise<NwcConnection[] | RepositoryError> => {
     try {
       const docs = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
-        .where({ wallet_id: walletId, revoked: false, notifications_enabled: true })
+        .where({ wallet_id: walletId, revoked: false })
         .whereRaw("? = ANY(permissions)", [notificationType])
 
       if (!docs || !docs.length) {
@@ -266,13 +265,14 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
 
   const updatePermissions = async (
     id: NwcConnectionId,
-    permissions: Nip47MethodType[],
+    permissions: NwcPermissionType[],
   ): Promise<NwcConnection | RepositoryError> => {
     try {
       const [doc] = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
         .where({ id })
         .update({
           permissions,
+          notifications_enabled: hasNotificationPermission(permissions),
           updated_at: queryBuilder.fn.now() as any,
         })
         .returning("*")
@@ -332,7 +332,7 @@ const translateConnection = (doc: NwcConnectionRecord): NwcConnection => {
     walletId: doc.wallet_id as WalletId,
     walletCurrency: doc.wallet_currency as WalletCurrency,
     appPubkey: doc.app_pubkey as NwcAppPubkey,
-    permissions: doc.permissions as Nip47MethodType[],
+    permissions: doc.permissions as NwcPermissionType[],
     apiKey: decryptSecret(doc.api_key_encrypted) as ApiKey,
     apiKeyId: (doc.api_key_id as ApiKeyId) ?? null,
     connectionSecret: decryptSecret(doc.connection_secret_encrypted) as ConnectionSecret,

@@ -36,3 +36,9 @@ export interface StreamCursorRecord {
   cursor_value: string
   updated_at: Date
 }
+
+export interface ProcessedNwcRequestRecord {
+  event_id: string
+  processed_at: Date
+  expires_at: Date
+}

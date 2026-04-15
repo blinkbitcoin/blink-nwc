@@ -22,7 +22,7 @@ directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
 interface Account
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   callbackEndpoints: [CallbackEndpoint!]!
   callbackPortalUrl: String!
@@ -69,34 +69,34 @@ interface Account
 }
 
 type AccountDeletePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   success: Boolean!
 }
 
 input AccountDisableNotificationCategoryInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   category: NotificationCategory!
   channel: NotificationChannel
 }
 
 input AccountDisableNotificationChannelInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   channel: NotificationChannel!
 }
 
 input AccountEnableNotificationCategoryInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   category: NotificationCategory!
   channel: NotificationChannel
 }
 
 input AccountEnableNotificationChannelInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   channel: NotificationChannel!
 }
@@ -105,16 +105,16 @@ scalar AccountId
   @join__type(graph: NOSTR_WALLET_CONNECT)
 
 enum AccountLevel
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
-  ONE @join__enumValue(graph: GALOY)
-  THREE @join__enumValue(graph: GALOY)
-  TWO @join__enumValue(graph: GALOY)
-  ZERO @join__enumValue(graph: GALOY)
+  ONE @join__enumValue(graph: PUBLIC)
+  THREE @join__enumValue(graph: PUBLIC)
+  TWO @join__enumValue(graph: PUBLIC)
+  ZERO @join__enumValue(graph: PUBLIC)
 }
 
 interface AccountLimit
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """The rolling time interval in seconds that the limits would apply for."""
   interval: Seconds
@@ -129,7 +129,7 @@ interface AccountLimit
 }
 
 type AccountLimits
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """
   Limits for converting between currencies among a account's own wallets.
@@ -144,40 +144,40 @@ type AccountLimits
 }
 
 input AccountUpdateDefaultWalletIdInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   walletId: WalletId!
 }
 
 type AccountUpdateDefaultWalletIdPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   account: ConsumerAccount
   errors: [Error!]!
 }
 
 input AccountUpdateDisplayCurrencyInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   currency: DisplayCurrency!
 }
 
 type AccountUpdateDisplayCurrencyPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   account: ConsumerAccount
   errors: [Error!]!
 }
 
 type AccountUpdateNotificationSettingsPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   account: ConsumerAccount
   errors: [Error!]!
 }
 
 type ApiKey
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS)
 {
   id: ID!
   name: String!
@@ -192,7 +192,7 @@ type ApiKey
 }
 
 input ApiKeyCreateInput
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS)
 {
   name: String!
   expireInDays: Int
@@ -200,14 +200,14 @@ input ApiKeyCreateInput
 }
 
 type ApiKeyCreatePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS)
 {
   apiKey: ApiKey!
   apiKeySecret: String!
 }
 
 type ApiKeyLimits
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS)
 {
   dailyLimitSats: Int
   weeklyLimitSats: Int
@@ -220,26 +220,26 @@ type ApiKeyLimits
 }
 
 input ApiKeyRemoveLimitInput
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS)
 {
   id: ID!
   limitTimeWindow: LimitTimeWindow!
 }
 
 input ApiKeyRevokeInput
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS)
 {
   id: ID!
 }
 
 type ApiKeyRevokePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS)
 {
   apiKey: ApiKey!
 }
 
 input ApiKeySetLimitInput
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS)
 {
   id: ID!
   limitTimeWindow: LimitTimeWindow!
@@ -247,23 +247,23 @@ input ApiKeySetLimitInput
 }
 
 type ApiKeySetLimitPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS)
 {
   apiKey: ApiKey!
 }
 
 type Authorization
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   scopes: [Scope!]!
 }
 
 """An Opaque Bearer token"""
 scalar AuthToken
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 type AuthTokenPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   authToken: AuthToken
   errors: [Error!]!
@@ -271,7 +271,7 @@ type AuthTokenPayload
 }
 
 type BlockInfo
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   blockHash: String
   blockHeight: Int
@@ -281,8 +281,8 @@ type BlockInfo
 A wallet belonging to an account which contains a BTC balance and a list of transactions.
 """
 type BTCWallet implements Wallet
-  @join__implements(graph: GALOY, interface: "Wallet")
-  @join__type(graph: GALOY)
+  @join__implements(graph: PUBLIC, interface: "Wallet")
+  @join__type(graph: PUBLIC)
 {
   accountId: ID!
 
@@ -351,48 +351,48 @@ type BTCWallet implements Wallet
 }
 
 type BuildInformation
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   commitHash: String
   helmRevision: Int
 }
 
 type CallbackEndpoint
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   id: EndpointId!
   url: EndpointUrl!
 }
 
 input CallbackEndpointAddInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """callback endpoint to be called"""
   url: EndpointUrl!
 }
 
 type CallbackEndpointAddPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   id: EndpointId
 }
 
 input CallbackEndpointDeleteInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   id: EndpointId!
 }
 
 type CaptchaCreateChallengePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   result: CaptchaCreateChallengeResult
 }
 
 type CaptchaCreateChallengeResult
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   challengeCode: String!
   failbackMode: Boolean!
@@ -401,7 +401,7 @@ type CaptchaCreateChallengeResult
 }
 
 input CaptchaRequestAuthCodeInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   challengeCode: String!
   channel: PhoneCodeChannelType
@@ -412,18 +412,18 @@ input CaptchaRequestAuthCodeInput
 
 """(Positive) Cent amount (1/100 of a dollar)"""
 scalar CentAmount
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 type CentAmountPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   amount: CentAmount
   errors: [Error!]!
 }
 
 type ConsumerAccount implements Account
-  @join__implements(graph: GALOY, interface: "Account")
-  @join__type(graph: GALOY)
+  @join__implements(graph: PUBLIC, interface: "Account")
+  @join__type(graph: PUBLIC)
 {
   callbackEndpoints: [CallbackEndpoint!]!
   callbackPortalUrl: String!
@@ -483,7 +483,7 @@ type ConsumerAccount implements Account
 }
 
 type Contact
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """
   Unix timestamp (number of seconds elapsed since January 1, 1970 00:00:00 UTC)
@@ -510,10 +510,10 @@ type Contact
 An alias name that a user can set for a wallet (with which they have transactions)
 """
 scalar ContactAlias
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 input ContactCreateInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   displayName: ContactAlias
   handle: ContactHandle
@@ -522,39 +522,39 @@ input ContactCreateInput
 
 """A display name that a user can assign to a contact"""
 scalar ContactDisplayName
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 """Unique handle used to identify a contact (e.g., username or lnAddress)"""
 scalar ContactHandle
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 """Unique identifier of a contact"""
 scalar ContactId
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 type ContactPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   contact: Contact
   errors: [Error!]!
 }
 
 enum ContactType
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
-  INTRALEDGER @join__enumValue(graph: GALOY)
-  LNADDRESS @join__enumValue(graph: GALOY)
+  INTRALEDGER @join__enumValue(graph: PUBLIC)
+  LNADDRESS @join__enumValue(graph: PUBLIC)
 }
 
 type Coordinates
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   latitude: Float!
   longitude: Float!
 }
 
 type Country
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   id: CountryCode!
   supportedAuthChannels: [PhoneCodeChannelType!]!
@@ -562,10 +562,10 @@ type Country
 
 """A CCA2 country code (ex US, FR, etc)"""
 scalar CountryCode
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 type Currency
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   flag: String!
   fractionDigits: Int!
@@ -575,7 +575,7 @@ type Currency
 }
 
 type CurrencyConversionEstimation
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Amount in satoshis."""
   btcSatAmount: SatAmount!
@@ -591,7 +591,7 @@ type CurrencyConversionEstimation
 }
 
 type DepositFeesInformation
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   minBankFee: String!
 
@@ -603,17 +603,17 @@ type DepositFeesInformation
 }
 
 input DeviceNotificationTokenCreateInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   deviceToken: String!
 }
 
 """Display currency of an account"""
 scalar DisplayCurrency
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 type Email
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   address: EmailAddress
   verified: Boolean
@@ -621,24 +621,24 @@ type Email
 
 """Email address"""
 scalar EmailAddress
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 """
 An id to be passed between registrationInitiate and registrationValidate for confirming email
 """
 scalar EmailRegistrationId
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 scalar EndpointId
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 """Url that will be fetched on events for the account"""
 scalar EndpointUrl
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 interface Error
-  @join__type(graph: GALOY)
   @join__type(graph: NOSTR_WALLET_CONNECT)
+  @join__type(graph: PUBLIC)
 {
   code: String
   message: String!
@@ -646,24 +646,24 @@ interface Error
 }
 
 enum ExchangeCurrencyUnit
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
-  BTCSAT @join__enumValue(graph: GALOY)
-  USDCENT @join__enumValue(graph: GALOY)
+  BTCSAT @join__enumValue(graph: PUBLIC)
+  USDCENT @join__enumValue(graph: PUBLIC)
 }
 
 """Feedback shared with our user"""
 scalar Feedback
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 input FeedbackSubmitInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   feedback: Feedback!
 }
 
 type FeesInformation
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   deposit: DepositFeesInformation!
 }
@@ -672,7 +672,7 @@ type FeesInformation
 Provides global settings for the application which might have an impact for the user.
 """
 type Globals
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Current block height and block hash"""
   blockInfo: BlockInfo
@@ -701,10 +701,10 @@ type Globals
 }
 
 type GraphQLApplicationError implements Error
-  @join__implements(graph: GALOY, interface: "Error")
   @join__implements(graph: NOSTR_WALLET_CONNECT, interface: "Error")
-  @join__type(graph: GALOY)
+  @join__implements(graph: PUBLIC, interface: "Error")
   @join__type(graph: NOSTR_WALLET_CONNECT)
+  @join__type(graph: PUBLIC)
 {
   code: String
   message: String!
@@ -713,80 +713,80 @@ type GraphQLApplicationError implements Error
 
 """Hex-encoded string of 32 bytes"""
 scalar Hex32Bytes
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 enum Icon
-  @join__type(graph: GALOY)
+  @join__type(graph: NOTIFICATIONS)
 {
-  ARROW_RIGHT @join__enumValue(graph: GALOY)
-  ARROW_LEFT @join__enumValue(graph: GALOY)
-  BACK_SPACE @join__enumValue(graph: GALOY)
-  BANK @join__enumValue(graph: GALOY)
-  BITCOIN @join__enumValue(graph: GALOY)
-  BOOK @join__enumValue(graph: GALOY)
-  BTC_BOOK @join__enumValue(graph: GALOY)
-  CARET_DOWN @join__enumValue(graph: GALOY)
-  CARET_LEFT @join__enumValue(graph: GALOY)
-  CARET_RIGHT @join__enumValue(graph: GALOY)
-  CARET_UP @join__enumValue(graph: GALOY)
-  CHECK_CIRCLE @join__enumValue(graph: GALOY)
-  CHECK @join__enumValue(graph: GALOY)
-  CLOSE @join__enumValue(graph: GALOY)
-  CLOSE_CROSS_WITH_BACKGROUND @join__enumValue(graph: GALOY)
-  COINS @join__enumValue(graph: GALOY)
-  PEOPLE @join__enumValue(graph: GALOY)
-  COPY_PASTE @join__enumValue(graph: GALOY)
-  DOLLAR @join__enumValue(graph: GALOY)
-  EYE_SLASH @join__enumValue(graph: GALOY)
-  EYE @join__enumValue(graph: GALOY)
-  FILTER @join__enumValue(graph: GALOY)
-  GLOBE @join__enumValue(graph: GALOY)
-  GRAPH @join__enumValue(graph: GALOY)
-  IMAGE @join__enumValue(graph: GALOY)
-  INFO @join__enumValue(graph: GALOY)
-  LIGHTNING @join__enumValue(graph: GALOY)
-  LINK @join__enumValue(graph: GALOY)
-  LOADING @join__enumValue(graph: GALOY)
-  MAGNIFYING_GLASS @join__enumValue(graph: GALOY)
-  MAP @join__enumValue(graph: GALOY)
-  MENU @join__enumValue(graph: GALOY)
-  PENCIL @join__enumValue(graph: GALOY)
-  NOTE @join__enumValue(graph: GALOY)
-  RANK @join__enumValue(graph: GALOY)
-  QR_CODE @join__enumValue(graph: GALOY)
-  QUESTION @join__enumValue(graph: GALOY)
-  RECEIVE @join__enumValue(graph: GALOY)
-  SEND @join__enumValue(graph: GALOY)
-  SETTINGS @join__enumValue(graph: GALOY)
-  SHARE @join__enumValue(graph: GALOY)
-  TRANSFER @join__enumValue(graph: GALOY)
-  USER @join__enumValue(graph: GALOY)
-  VIDEO @join__enumValue(graph: GALOY)
-  WARNING @join__enumValue(graph: GALOY)
-  WARNING_WITH_BACKGROUND @join__enumValue(graph: GALOY)
-  PAYMENT_SUCCESS @join__enumValue(graph: GALOY)
-  PAYMENT_PENDING @join__enumValue(graph: GALOY)
-  PAYMENT_ERROR @join__enumValue(graph: GALOY)
-  BELL @join__enumValue(graph: GALOY)
-  REFRESH @join__enumValue(graph: GALOY)
+  ARROW_RIGHT @join__enumValue(graph: NOTIFICATIONS)
+  ARROW_LEFT @join__enumValue(graph: NOTIFICATIONS)
+  BACK_SPACE @join__enumValue(graph: NOTIFICATIONS)
+  BANK @join__enumValue(graph: NOTIFICATIONS)
+  BITCOIN @join__enumValue(graph: NOTIFICATIONS)
+  BOOK @join__enumValue(graph: NOTIFICATIONS)
+  BTC_BOOK @join__enumValue(graph: NOTIFICATIONS)
+  CARET_DOWN @join__enumValue(graph: NOTIFICATIONS)
+  CARET_LEFT @join__enumValue(graph: NOTIFICATIONS)
+  CARET_RIGHT @join__enumValue(graph: NOTIFICATIONS)
+  CARET_UP @join__enumValue(graph: NOTIFICATIONS)
+  CHECK_CIRCLE @join__enumValue(graph: NOTIFICATIONS)
+  CHECK @join__enumValue(graph: NOTIFICATIONS)
+  CLOSE @join__enumValue(graph: NOTIFICATIONS)
+  CLOSE_CROSS_WITH_BACKGROUND @join__enumValue(graph: NOTIFICATIONS)
+  COINS @join__enumValue(graph: NOTIFICATIONS)
+  PEOPLE @join__enumValue(graph: NOTIFICATIONS)
+  COPY_PASTE @join__enumValue(graph: NOTIFICATIONS)
+  DOLLAR @join__enumValue(graph: NOTIFICATIONS)
+  EYE_SLASH @join__enumValue(graph: NOTIFICATIONS)
+  EYE @join__enumValue(graph: NOTIFICATIONS)
+  FILTER @join__enumValue(graph: NOTIFICATIONS)
+  GLOBE @join__enumValue(graph: NOTIFICATIONS)
+  GRAPH @join__enumValue(graph: NOTIFICATIONS)
+  IMAGE @join__enumValue(graph: NOTIFICATIONS)
+  INFO @join__enumValue(graph: NOTIFICATIONS)
+  LIGHTNING @join__enumValue(graph: NOTIFICATIONS)
+  LINK @join__enumValue(graph: NOTIFICATIONS)
+  LOADING @join__enumValue(graph: NOTIFICATIONS)
+  MAGNIFYING_GLASS @join__enumValue(graph: NOTIFICATIONS)
+  MAP @join__enumValue(graph: NOTIFICATIONS)
+  MENU @join__enumValue(graph: NOTIFICATIONS)
+  PENCIL @join__enumValue(graph: NOTIFICATIONS)
+  NOTE @join__enumValue(graph: NOTIFICATIONS)
+  RANK @join__enumValue(graph: NOTIFICATIONS)
+  QR_CODE @join__enumValue(graph: NOTIFICATIONS)
+  QUESTION @join__enumValue(graph: NOTIFICATIONS)
+  RECEIVE @join__enumValue(graph: NOTIFICATIONS)
+  SEND @join__enumValue(graph: NOTIFICATIONS)
+  SETTINGS @join__enumValue(graph: NOTIFICATIONS)
+  SHARE @join__enumValue(graph: NOTIFICATIONS)
+  TRANSFER @join__enumValue(graph: NOTIFICATIONS)
+  USER @join__enumValue(graph: NOTIFICATIONS)
+  VIDEO @join__enumValue(graph: NOTIFICATIONS)
+  WARNING @join__enumValue(graph: NOTIFICATIONS)
+  WARNING_WITH_BACKGROUND @join__enumValue(graph: NOTIFICATIONS)
+  PAYMENT_SUCCESS @join__enumValue(graph: NOTIFICATIONS)
+  PAYMENT_PENDING @join__enumValue(graph: NOTIFICATIONS)
+  PAYMENT_ERROR @join__enumValue(graph: NOTIFICATIONS)
+  BELL @join__enumValue(graph: NOTIFICATIONS)
+  REFRESH @join__enumValue(graph: NOTIFICATIONS)
 }
 
 union InitiationVia
-  @join__type(graph: GALOY)
-  @join__unionMember(graph: GALOY, member: "InitiationViaIntraLedger")
-  @join__unionMember(graph: GALOY, member: "InitiationViaLn")
-  @join__unionMember(graph: GALOY, member: "InitiationViaOnChain")
+  @join__type(graph: PUBLIC)
+  @join__unionMember(graph: PUBLIC, member: "InitiationViaIntraLedger")
+  @join__unionMember(graph: PUBLIC, member: "InitiationViaLn")
+  @join__unionMember(graph: PUBLIC, member: "InitiationViaOnChain")
  = InitiationViaIntraLedger | InitiationViaLn | InitiationViaOnChain
 
 type InitiationViaIntraLedger
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   counterPartyUsername: Username
   counterPartyWalletId: WalletId
 }
 
 type InitiationViaLn
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   paymentHash: PaymentHash!
 
@@ -795,13 +795,13 @@ type InitiationViaLn
 }
 
 type InitiationViaOnChain
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   address: OnChainAddress!
 }
 
 input IntraLedgerPaymentSendInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Amount in satoshis."""
   amount: SatAmount!
@@ -815,7 +815,7 @@ input IntraLedgerPaymentSendInput
 }
 
 type IntraLedgerUpdate
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   amount: SatAmount! @deprecated(reason: "Deprecated in favor of transaction")
   displayCurrencyPerSat: Float! @deprecated(reason: "Deprecated in favor of transaction")
@@ -826,7 +826,7 @@ type IntraLedgerUpdate
 }
 
 input IntraLedgerUsdPaymentSendInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Amount in cents."""
   amount: CentAmount!
@@ -841,7 +841,7 @@ input IntraLedgerUsdPaymentSendInput
 
 """A lightning invoice."""
 interface Invoice
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   createdAt: Timestamp!
 
@@ -865,7 +865,7 @@ interface Invoice
 
 """A connection to a list of items."""
 type InvoiceConnection
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """A list of edges."""
   edges: [InvoiceEdge!]
@@ -876,7 +876,7 @@ type InvoiceConnection
 
 """An edge in a connection."""
 type InvoiceEdge
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """A cursor for use in pagination"""
   cursor: String!
@@ -886,30 +886,32 @@ type InvoiceEdge
 }
 
 enum InvoicePaymentStatus
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
-  EXPIRED @join__enumValue(graph: GALOY)
-  PAID @join__enumValue(graph: GALOY)
-  PENDING @join__enumValue(graph: GALOY)
+  EXPIRED @join__enumValue(graph: PUBLIC)
+  PAID @join__enumValue(graph: PUBLIC)
+  PENDING @join__enumValue(graph: PUBLIC)
 }
 
 scalar join__FieldSet
 
 enum join__Graph {
-  GALOY @join__graph(name: "galoy", url: "http://galoy:4012/graphql")
+  API_KEYS @join__graph(name: "api_keys", url: "http://api-keys:5397/graphql")
   NOSTR_WALLET_CONNECT @join__graph(name: "nostr-wallet-connect", url: "http://nostr-wallet-connect:4010/graphql")
+  NOTIFICATIONS @join__graph(name: "notifications", url: "http://notifications:6684/graphql")
+  PUBLIC @join__graph(name: "public", url: "http://galoy:4012/graphql")
 }
 
 scalar Language
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 enum LimitTimeWindow
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS)
 {
-  DAILY @join__enumValue(graph: GALOY)
-  WEEKLY @join__enumValue(graph: GALOY)
-  MONTHLY @join__enumValue(graph: GALOY)
-  ANNUAL @join__enumValue(graph: GALOY)
+  DAILY @join__enumValue(graph: API_KEYS)
+  WEEKLY @join__enumValue(graph: API_KEYS)
+  MONTHLY @join__enumValue(graph: API_KEYS)
+  ANNUAL @join__enumValue(graph: API_KEYS)
 }
 
 scalar link__Import
@@ -927,7 +929,7 @@ enum link__Purpose {
 }
 
 input LnAddressPaymentSendInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Amount in satoshis."""
   amount: SatAmount!
@@ -940,8 +942,8 @@ input LnAddressPaymentSendInput
 }
 
 type LnInvoice implements Invoice
-  @join__implements(graph: GALOY, interface: "Invoice")
-  @join__type(graph: GALOY)
+  @join__implements(graph: PUBLIC, interface: "Invoice")
+  @join__type(graph: PUBLIC)
 {
   createdAt: Timestamp!
   externalId: TxExternalId!
@@ -953,7 +955,7 @@ type LnInvoice implements Invoice
 }
 
 input LnInvoiceCancelInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   paymentHash: PaymentHash!
 
@@ -962,7 +964,7 @@ input LnInvoiceCancelInput
 }
 
 input LnInvoiceCreateInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Amount in satoshis."""
   amount: SatAmount!
@@ -979,7 +981,7 @@ input LnInvoiceCreateInput
 }
 
 input LnInvoiceCreateOnBehalfOfRecipientInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Amount in satoshis."""
   amount: SatAmount!
@@ -997,21 +999,21 @@ input LnInvoiceCreateOnBehalfOfRecipientInput
 }
 
 input LnInvoiceFeeProbeInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   paymentRequest: LnPaymentRequest!
   walletId: WalletId!
 }
 
 type LnInvoicePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   invoice: LnInvoice
 }
 
 input LnInvoicePaymentInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Optional memo to associate with the lightning invoice."""
   memo: Memo
@@ -1026,7 +1028,7 @@ input LnInvoicePaymentInput
 }
 
 type LnInvoicePaymentStatus
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   paymentHash: PaymentHash
   paymentPreimage: LnPaymentPreImage
@@ -1035,25 +1037,25 @@ type LnInvoicePaymentStatus
 }
 
 input LnInvoicePaymentStatusByHashInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   paymentHash: PaymentHash!
 }
 
 input LnInvoicePaymentStatusByPaymentRequestInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   paymentRequest: LnPaymentRequest!
 }
 
 input LnInvoicePaymentStatusInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   paymentRequest: LnPaymentRequest!
 }
 
 type LnInvoicePaymentStatusPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   paymentHash: PaymentHash
@@ -1063,8 +1065,8 @@ type LnInvoicePaymentStatusPayload
 }
 
 type LnNoAmountInvoice implements Invoice
-  @join__implements(graph: GALOY, interface: "Invoice")
-  @join__type(graph: GALOY)
+  @join__implements(graph: PUBLIC, interface: "Invoice")
+  @join__type(graph: PUBLIC)
 {
   createdAt: Timestamp!
   externalId: TxExternalId!
@@ -1075,7 +1077,7 @@ type LnNoAmountInvoice implements Invoice
 }
 
 input LnNoAmountInvoiceCreateInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Optional invoice expiration time in minutes."""
   expiresIn: Minutes
@@ -1091,7 +1093,7 @@ input LnNoAmountInvoiceCreateInput
 }
 
 input LnNoAmountInvoiceCreateOnBehalfOfRecipientInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Optional invoice expiration time in minutes."""
   expiresIn: Minutes
@@ -1107,7 +1109,7 @@ input LnNoAmountInvoiceCreateOnBehalfOfRecipientInput
 }
 
 input LnNoAmountInvoiceFeeProbeInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   amount: SatAmount!
   paymentRequest: LnPaymentRequest!
@@ -1115,14 +1117,14 @@ input LnNoAmountInvoiceFeeProbeInput
 }
 
 type LnNoAmountInvoicePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   invoice: LnNoAmountInvoice
 }
 
 input LnNoAmountInvoicePaymentInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Amount to pay in satoshis."""
   amount: SatAmount!
@@ -1140,7 +1142,7 @@ input LnNoAmountInvoicePaymentInput
 }
 
 input LnNoAmountUsdInvoiceFeeProbeInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   amount: CentAmount!
   paymentRequest: LnPaymentRequest!
@@ -1148,7 +1150,7 @@ input LnNoAmountUsdInvoiceFeeProbeInput
 }
 
 input LnNoAmountUsdInvoicePaymentInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Amount to pay in USD cents."""
   amount: CentAmount!
@@ -1166,17 +1168,17 @@ input LnNoAmountUsdInvoicePaymentInput
 }
 
 scalar LnPaymentPreImage
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 """BOLT11 lightning invoice payment request with the amount included"""
 scalar LnPaymentRequest
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 scalar LnPaymentSecret
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 type LnUpdate
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   paymentHash: PaymentHash! @deprecated(reason: "Deprecated in favor of transaction")
   status: InvoicePaymentStatus!
@@ -1185,7 +1187,7 @@ type LnUpdate
 }
 
 input LnurlPaymentSendInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Amount in satoshis."""
   amount: SatAmount!
@@ -1198,7 +1200,7 @@ input LnurlPaymentSendInput
 }
 
 input LnUsdInvoiceBtcDenominatedCreateOnBehalfOfRecipientInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Amount in satoshis."""
   amount: SatAmount!
@@ -1218,7 +1220,7 @@ input LnUsdInvoiceBtcDenominatedCreateOnBehalfOfRecipientInput
 }
 
 input LnUsdInvoiceCreateInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Amount in USD cents."""
   amount: CentAmount!
@@ -1235,7 +1237,7 @@ input LnUsdInvoiceCreateInput
 }
 
 input LnUsdInvoiceCreateOnBehalfOfRecipientInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """Amount in USD cents."""
   amount: CentAmount!
@@ -1255,21 +1257,21 @@ input LnUsdInvoiceCreateOnBehalfOfRecipientInput
 }
 
 input LnUsdInvoiceFeeProbeInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   paymentRequest: LnPaymentRequest!
   walletId: WalletId!
 }
 
 type MapInfo
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   coordinates: Coordinates!
   title: String!
 }
 
 type MapMarker
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   mapInfo: MapInfo!
   username: Username!
@@ -1277,10 +1279,10 @@ type MapMarker
 
 """Text field in a lightning payment transaction"""
 scalar Memo
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 type Merchant
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """
   GPS coordinates for the merchant that can be used to place the related business on a map
@@ -1298,7 +1300,7 @@ type Merchant
 }
 
 input MerchantMapSuggestInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   latitude: Float!
   longitude: Float!
@@ -1307,7 +1309,7 @@ input MerchantMapSuggestInput
 }
 
 type MerchantPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   merchant: Merchant
@@ -1315,10 +1317,10 @@ type MerchantPayload
 
 """(Positive) amount of minutes"""
 scalar Minutes
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 type MobileVersions
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   currentSupported: Int!
   minSupported: Int!
@@ -1326,100 +1328,108 @@ type MobileVersions
 }
 
 type Mutation
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS)
   @join__type(graph: NOSTR_WALLET_CONNECT)
+  @join__type(graph: NOTIFICATIONS)
+  @join__type(graph: PUBLIC)
 {
-  apiKeyCreate(input: ApiKeyCreateInput!): ApiKeyCreatePayload! @join__field(graph: GALOY)
-  apiKeyRevoke(input: ApiKeyRevokeInput!): ApiKeyRevokePayload! @join__field(graph: GALOY)
-  apiKeySetLimit(input: ApiKeySetLimitInput!): ApiKeySetLimitPayload! @join__field(graph: GALOY)
-  apiKeyRemoveLimit(input: ApiKeyRemoveLimitInput!): ApiKeySetLimitPayload! @join__field(graph: GALOY)
-  statefulNotificationAcknowledge(input: StatefulNotificationAcknowledgeInput!): StatefulNotificationAcknowledgePayload! @join__field(graph: GALOY)
-  accountDelete: AccountDeletePayload! @join__field(graph: GALOY)
-  accountDisableNotificationCategory(input: AccountDisableNotificationCategoryInput!): AccountUpdateNotificationSettingsPayload! @join__field(graph: GALOY)
-  accountDisableNotificationChannel(input: AccountDisableNotificationChannelInput!): AccountUpdateNotificationSettingsPayload! @join__field(graph: GALOY)
-  accountEnableNotificationCategory(input: AccountEnableNotificationCategoryInput!): AccountUpdateNotificationSettingsPayload! @join__field(graph: GALOY)
-  accountEnableNotificationChannel(input: AccountEnableNotificationChannelInput!): AccountUpdateNotificationSettingsPayload! @join__field(graph: GALOY)
-  accountUpdateDefaultWalletId(input: AccountUpdateDefaultWalletIdInput!): AccountUpdateDefaultWalletIdPayload! @join__field(graph: GALOY)
-  accountUpdateDisplayCurrency(input: AccountUpdateDisplayCurrencyInput!): AccountUpdateDisplayCurrencyPayload! @join__field(graph: GALOY)
-  callbackEndpointAdd(input: CallbackEndpointAddInput!): CallbackEndpointAddPayload! @join__field(graph: GALOY)
-  callbackEndpointDelete(input: CallbackEndpointDeleteInput!): SuccessPayload! @join__field(graph: GALOY)
-  captchaCreateChallenge: CaptchaCreateChallengePayload! @join__field(graph: GALOY)
-  captchaRequestAuthCode(input: CaptchaRequestAuthCodeInput!): SuccessPayload! @join__field(graph: GALOY)
-  contactCreate(input: ContactCreateInput!): ContactPayload! @join__field(graph: GALOY)
-  deviceNotificationTokenCreate(input: DeviceNotificationTokenCreateInput!): SuccessPayload! @join__field(graph: GALOY)
-  feedbackSubmit(input: FeedbackSubmitInput!): SuccessPayload! @join__field(graph: GALOY)
+  apiKeyCreate(input: ApiKeyCreateInput!): ApiKeyCreatePayload! @join__field(graph: API_KEYS)
+  apiKeyRevoke(input: ApiKeyRevokeInput!): ApiKeyRevokePayload! @join__field(graph: API_KEYS)
+  apiKeySetLimit(input: ApiKeySetLimitInput!): ApiKeySetLimitPayload! @join__field(graph: API_KEYS)
+  apiKeyRemoveLimit(input: ApiKeyRemoveLimitInput!): ApiKeySetLimitPayload! @join__field(graph: API_KEYS)
+  nwcConnectionCreate(input: NwcConnectionCreateInput!): NwcConnectionCreatePayload! @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcConnectionUpdate(input: NwcConnectionUpdateInput!): NwcConnectionUpdatePayload! @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcConnectionDelete(input: NwcConnectionDeleteInput!): NwcConnectionDeletePayload! @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcConnectionRevoke(input: NwcConnectionRevokeInput!): NwcConnectionRevokePayload! @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcConnectionsRevokeAll: NwcConnectionRevokeAllPayload! @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcConnectionRevokeAll: NwcConnectionRevokeAllPayload! @join__field(graph: NOSTR_WALLET_CONNECT)
+  statefulNotificationAcknowledge(input: StatefulNotificationAcknowledgeInput!): StatefulNotificationAcknowledgePayload! @join__field(graph: NOTIFICATIONS)
+  accountDelete: AccountDeletePayload! @join__field(graph: PUBLIC)
+  accountDisableNotificationCategory(input: AccountDisableNotificationCategoryInput!): AccountUpdateNotificationSettingsPayload! @join__field(graph: PUBLIC)
+  accountDisableNotificationChannel(input: AccountDisableNotificationChannelInput!): AccountUpdateNotificationSettingsPayload! @join__field(graph: PUBLIC)
+  accountEnableNotificationCategory(input: AccountEnableNotificationCategoryInput!): AccountUpdateNotificationSettingsPayload! @join__field(graph: PUBLIC)
+  accountEnableNotificationChannel(input: AccountEnableNotificationChannelInput!): AccountUpdateNotificationSettingsPayload! @join__field(graph: PUBLIC)
+  accountUpdateDefaultWalletId(input: AccountUpdateDefaultWalletIdInput!): AccountUpdateDefaultWalletIdPayload! @join__field(graph: PUBLIC)
+  accountUpdateDisplayCurrency(input: AccountUpdateDisplayCurrencyInput!): AccountUpdateDisplayCurrencyPayload! @join__field(graph: PUBLIC)
+  callbackEndpointAdd(input: CallbackEndpointAddInput!): CallbackEndpointAddPayload! @join__field(graph: PUBLIC)
+  callbackEndpointDelete(input: CallbackEndpointDeleteInput!): SuccessPayload! @join__field(graph: PUBLIC)
+  captchaCreateChallenge: CaptchaCreateChallengePayload! @join__field(graph: PUBLIC)
+  captchaRequestAuthCode(input: CaptchaRequestAuthCodeInput!): SuccessPayload! @join__field(graph: PUBLIC)
+  contactCreate(input: ContactCreateInput!): ContactPayload! @join__field(graph: PUBLIC)
+  deviceNotificationTokenCreate(input: DeviceNotificationTokenCreateInput!): SuccessPayload! @join__field(graph: PUBLIC)
+  feedbackSubmit(input: FeedbackSubmitInput!): SuccessPayload! @join__field(graph: PUBLIC)
 
   """
   Actions a payment which is internal to the ledger e.g. it does
   not use onchain/lightning. Returns payment status (success,
   failed, pending, already_paid).
   """
-  intraLedgerPaymentSend(input: IntraLedgerPaymentSendInput!): PaymentSendPayload! @join__field(graph: GALOY)
+  intraLedgerPaymentSend(input: IntraLedgerPaymentSendInput!): PaymentSendPayload! @join__field(graph: PUBLIC)
 
   """
   Actions a payment which is internal to the ledger e.g. it does
   not use onchain/lightning. Returns payment status (success,
   failed, pending, already_paid).
   """
-  intraLedgerUsdPaymentSend(input: IntraLedgerUsdPaymentSendInput!): PaymentSendPayload! @join__field(graph: GALOY)
+  intraLedgerUsdPaymentSend(input: IntraLedgerUsdPaymentSendInput!): PaymentSendPayload! @join__field(graph: PUBLIC)
 
   """Sends a payment to a lightning address."""
-  lnAddressPaymentSend(input: LnAddressPaymentSendInput!): PaymentSendPayload! @join__field(graph: GALOY)
+  lnAddressPaymentSend(input: LnAddressPaymentSendInput!): PaymentSendPayload! @join__field(graph: PUBLIC)
 
   """Cancel an unpaid lightning invoice for an associated wallet."""
-  lnInvoiceCancel(input: LnInvoiceCancelInput!): SuccessPayload! @join__field(graph: GALOY)
+  lnInvoiceCancel(input: LnInvoiceCancelInput!): SuccessPayload! @join__field(graph: PUBLIC)
 
   """
   Returns a lightning invoice for an associated wallet.
   When invoice is paid the value will be credited to a BTC wallet.
   Expires after 'expiresIn' or 24 hours.
   """
-  lnInvoiceCreate(input: LnInvoiceCreateInput!): LnInvoicePayload! @join__field(graph: GALOY)
+  lnInvoiceCreate(input: LnInvoiceCreateInput!): LnInvoicePayload! @join__field(graph: PUBLIC)
 
   """
   Returns a lightning invoice for an associated wallet.
   When invoice is paid the value will be credited to a BTC wallet.
   Expires after 'expiresIn' or 24 hours.
   """
-  lnInvoiceCreateOnBehalfOfRecipient(input: LnInvoiceCreateOnBehalfOfRecipientInput!): LnInvoicePayload! @join__field(graph: GALOY)
-  lnInvoiceFeeProbe(input: LnInvoiceFeeProbeInput!): SatAmountPayload! @join__field(graph: GALOY)
+  lnInvoiceCreateOnBehalfOfRecipient(input: LnInvoiceCreateOnBehalfOfRecipientInput!): LnInvoicePayload! @join__field(graph: PUBLIC)
+  lnInvoiceFeeProbe(input: LnInvoiceFeeProbeInput!): SatAmountPayload! @join__field(graph: PUBLIC)
 
   """
   Pay a lightning invoice using a balance from a wallet which is owned by the account of the current user.
   Provided wallet can be USD or BTC and must have sufficient balance to cover amount in lightning invoice.
   Returns payment status (success, failed, pending, already_paid).
   """
-  lnInvoicePaymentSend(input: LnInvoicePaymentInput!): PaymentSendPayload! @join__field(graph: GALOY)
+  lnInvoicePaymentSend(input: LnInvoicePaymentInput!): PaymentSendPayload! @join__field(graph: PUBLIC)
 
   """
   Returns a lightning invoice for an associated wallet.
   Can be used to receive any supported currency value (currently USD or BTC).
   Expires after 'expiresIn' or 24 hours for BTC invoices or 5 minutes for USD invoices.
   """
-  lnNoAmountInvoiceCreate(input: LnNoAmountInvoiceCreateInput!): LnNoAmountInvoicePayload! @join__field(graph: GALOY)
+  lnNoAmountInvoiceCreate(input: LnNoAmountInvoiceCreateInput!): LnNoAmountInvoicePayload! @join__field(graph: PUBLIC)
 
   """
   Returns a lightning invoice for an associated wallet.
   Can be used to receive any supported currency value (currently USD or BTC).
   Expires after 'expiresIn' or 24 hours for BTC invoices or 5 minutes for USD invoices.
   """
-  lnNoAmountInvoiceCreateOnBehalfOfRecipient(input: LnNoAmountInvoiceCreateOnBehalfOfRecipientInput!): LnNoAmountInvoicePayload! @join__field(graph: GALOY)
-  lnNoAmountInvoiceFeeProbe(input: LnNoAmountInvoiceFeeProbeInput!): SatAmountPayload! @join__field(graph: GALOY)
+  lnNoAmountInvoiceCreateOnBehalfOfRecipient(input: LnNoAmountInvoiceCreateOnBehalfOfRecipientInput!): LnNoAmountInvoicePayload! @join__field(graph: PUBLIC)
+  lnNoAmountInvoiceFeeProbe(input: LnNoAmountInvoiceFeeProbeInput!): SatAmountPayload! @join__field(graph: PUBLIC)
 
   """
   Pay a lightning invoice using a balance from a wallet which is owned by the account of the current user.
   Provided wallet must be BTC and must have sufficient balance to cover amount specified in mutation request.
   Returns payment status (success, failed, pending, already_paid).
   """
-  lnNoAmountInvoicePaymentSend(input: LnNoAmountInvoicePaymentInput!): PaymentSendPayload! @join__field(graph: GALOY)
-  lnNoAmountUsdInvoiceFeeProbe(input: LnNoAmountUsdInvoiceFeeProbeInput!): CentAmountPayload! @join__field(graph: GALOY)
+  lnNoAmountInvoicePaymentSend(input: LnNoAmountInvoicePaymentInput!): PaymentSendPayload! @join__field(graph: PUBLIC)
+  lnNoAmountUsdInvoiceFeeProbe(input: LnNoAmountUsdInvoiceFeeProbeInput!): CentAmountPayload! @join__field(graph: PUBLIC)
 
   """
   Pay a lightning invoice using a balance from a wallet which is owned by the account of the current user.
   Provided wallet must be USD and have sufficient balance to cover amount specified in mutation request.
   Returns payment status (success, failed, pending, already_paid).
   """
-  lnNoAmountUsdInvoicePaymentSend(input: LnNoAmountUsdInvoicePaymentInput!): PaymentSendPayload! @join__field(graph: GALOY)
+  lnNoAmountUsdInvoicePaymentSend(input: LnNoAmountUsdInvoicePaymentInput!): PaymentSendPayload! @join__field(graph: PUBLIC)
 
   """
   Returns a lightning invoice denominated in satoshis for an associated wallet.
@@ -1427,7 +1437,7 @@ type Mutation
   Expires after 'expiresIn' or 5 minutes (short expiry time because there is a USD/BTC exchange rate
     associated with the amount).
   """
-  lnUsdInvoiceBtcDenominatedCreateOnBehalfOfRecipient(input: LnUsdInvoiceBtcDenominatedCreateOnBehalfOfRecipientInput!): LnInvoicePayload! @join__field(graph: GALOY)
+  lnUsdInvoiceBtcDenominatedCreateOnBehalfOfRecipient(input: LnUsdInvoiceBtcDenominatedCreateOnBehalfOfRecipientInput!): LnInvoicePayload! @join__field(graph: PUBLIC)
 
   """
   Returns a lightning invoice denominated in satoshis for an associated wallet.
@@ -1435,7 +1445,7 @@ type Mutation
   Expires after 'expiresIn' or 5 minutes (short expiry time because there is a USD/BTC exchange rate
   associated with the amount).
   """
-  lnUsdInvoiceCreate(input: LnUsdInvoiceCreateInput!): LnInvoicePayload! @join__field(graph: GALOY)
+  lnUsdInvoiceCreate(input: LnUsdInvoiceCreateInput!): LnInvoicePayload! @join__field(graph: PUBLIC)
 
   """
   Returns a lightning invoice denominated in satoshis for an associated wallet.
@@ -1443,46 +1453,41 @@ type Mutation
   Expires after 'expiresIn' or 5 minutes (short expiry time because there is a USD/BTC exchange rate
     associated with the amount).
   """
-  lnUsdInvoiceCreateOnBehalfOfRecipient(input: LnUsdInvoiceCreateOnBehalfOfRecipientInput!): LnInvoicePayload! @join__field(graph: GALOY)
-  lnUsdInvoiceFeeProbe(input: LnUsdInvoiceFeeProbeInput!): SatAmountPayload! @join__field(graph: GALOY)
+  lnUsdInvoiceCreateOnBehalfOfRecipient(input: LnUsdInvoiceCreateOnBehalfOfRecipientInput!): LnInvoicePayload! @join__field(graph: PUBLIC)
+  lnUsdInvoiceFeeProbe(input: LnUsdInvoiceFeeProbeInput!): SatAmountPayload! @join__field(graph: PUBLIC)
 
   """Sends a payment to a lightning address."""
-  lnurlPaymentSend(input: LnurlPaymentSendInput!): PaymentSendPayload! @join__field(graph: GALOY)
-  merchantMapSuggest(input: MerchantMapSuggestInput!): MerchantPayload! @join__field(graph: GALOY)
-  onChainAddressCreate(input: OnChainAddressCreateInput!): OnChainAddressPayload! @join__field(graph: GALOY)
-  onChainAddressCurrent(input: OnChainAddressCurrentInput!): OnChainAddressPayload! @join__field(graph: GALOY)
-  onChainPaymentSend(input: OnChainPaymentSendInput!): PaymentSendPayload! @join__field(graph: GALOY)
-  onChainPaymentSendAll(input: OnChainPaymentSendAllInput!): PaymentSendPayload! @join__field(graph: GALOY)
-  onChainUsdPaymentSend(input: OnChainUsdPaymentSendInput!): PaymentSendPayload! @join__field(graph: GALOY)
-  onChainUsdPaymentSendAsBtcDenominated(input: OnChainUsdPaymentSendAsBtcDenominatedInput!): PaymentSendPayload! @join__field(graph: GALOY)
-  quizClaim(input: QuizClaimInput!): QuizClaimPayload! @join__field(graph: GALOY)
-  supportChatMessageAdd(input: SupportChatMessageAddInput!): SupportChatMessageAddPayload! @join__field(graph: GALOY)
-  supportChatReset: SuccessPayload! @join__field(graph: GALOY)
-  userContactUpdateAlias(input: UserContactUpdateAliasInput!): UserContactUpdateAliasPayload! @join__field(graph: GALOY) @deprecated(reason: "will be moved to AccountContact")
-  userEmailDelete: UserEmailDeletePayload! @join__field(graph: GALOY)
-  userEmailRegistrationInitiate(input: UserEmailRegistrationInitiateInput!): UserEmailRegistrationInitiatePayload! @join__field(graph: GALOY)
-  userEmailRegistrationValidate(input: UserEmailRegistrationValidateInput!): UserEmailRegistrationValidatePayload! @join__field(graph: GALOY)
-  userLogin(input: UserLoginInput!): AuthTokenPayload! @join__field(graph: GALOY)
-  userLoginUpgrade(input: UserLoginUpgradeInput!): UpgradePayload! @join__field(graph: GALOY)
-  userLoginUpgradeTelegram(input: UserLoginUpgradeTelegramInput!): UpgradePayload! @join__field(graph: GALOY)
-  userLogout(input: UserLogoutInput): SuccessPayload! @join__field(graph: GALOY)
-  userPhoneDelete: UserPhoneDeletePayload! @join__field(graph: GALOY)
-  userPhoneRegistrationInitiate(input: UserPhoneRegistrationInitiateInput!): SuccessPayload! @join__field(graph: GALOY)
-  userPhoneRegistrationValidate(input: UserPhoneRegistrationValidateInput!): UserPhoneRegistrationValidatePayload! @join__field(graph: GALOY)
-  userTotpDelete: UserTotpDeletePayload! @join__field(graph: GALOY)
-  userTotpRegistrationInitiate: UserTotpRegistrationInitiatePayload! @join__field(graph: GALOY)
-  userTotpRegistrationValidate(input: UserTotpRegistrationValidateInput!): UserTotpRegistrationValidatePayload! @join__field(graph: GALOY)
-  userUpdateLanguage(input: UserUpdateLanguageInput!): UserUpdateLanguagePayload! @join__field(graph: GALOY)
-  userUpdateUsername(input: UserUpdateUsernameInput!): UserUpdateUsernamePayload! @join__field(graph: GALOY) @deprecated(reason: "Username will be moved to @Handle in Accounts. Also SetUsername naming should be used instead of UpdateUsername to reflect the idempotency of Handles")
-  nwcConnectionCreate(input: NwcConnectionCreateInput!): NwcConnectionCreatePayload! @join__field(graph: NOSTR_WALLET_CONNECT)
-  nwcConnectionUpdate(input: NwcConnectionUpdateInput!): NwcConnectionUpdatePayload! @join__field(graph: NOSTR_WALLET_CONNECT)
-  nwcConnectionDelete(input: NwcConnectionDeleteInput!): NwcConnectionDeletePayload! @join__field(graph: NOSTR_WALLET_CONNECT)
-  nwcConnectionRevoke(input: NwcConnectionRevokeInput!): NwcConnectionRevokePayload! @join__field(graph: NOSTR_WALLET_CONNECT)
-  nwcConnectionRevokeAll: NwcConnectionRevokeAllPayload! @join__field(graph: NOSTR_WALLET_CONNECT)
+  lnurlPaymentSend(input: LnurlPaymentSendInput!): PaymentSendPayload! @join__field(graph: PUBLIC)
+  merchantMapSuggest(input: MerchantMapSuggestInput!): MerchantPayload! @join__field(graph: PUBLIC)
+  onChainAddressCreate(input: OnChainAddressCreateInput!): OnChainAddressPayload! @join__field(graph: PUBLIC)
+  onChainAddressCurrent(input: OnChainAddressCurrentInput!): OnChainAddressPayload! @join__field(graph: PUBLIC)
+  onChainPaymentSend(input: OnChainPaymentSendInput!): PaymentSendPayload! @join__field(graph: PUBLIC)
+  onChainPaymentSendAll(input: OnChainPaymentSendAllInput!): PaymentSendPayload! @join__field(graph: PUBLIC)
+  onChainUsdPaymentSend(input: OnChainUsdPaymentSendInput!): PaymentSendPayload! @join__field(graph: PUBLIC)
+  onChainUsdPaymentSendAsBtcDenominated(input: OnChainUsdPaymentSendAsBtcDenominatedInput!): PaymentSendPayload! @join__field(graph: PUBLIC)
+  quizClaim(input: QuizClaimInput!): QuizClaimPayload! @join__field(graph: PUBLIC)
+  supportChatMessageAdd(input: SupportChatMessageAddInput!): SupportChatMessageAddPayload! @join__field(graph: PUBLIC)
+  supportChatReset: SuccessPayload! @join__field(graph: PUBLIC)
+  userContactUpdateAlias(input: UserContactUpdateAliasInput!): UserContactUpdateAliasPayload! @join__field(graph: PUBLIC) @deprecated(reason: "will be moved to AccountContact")
+  userEmailDelete: UserEmailDeletePayload! @join__field(graph: PUBLIC)
+  userEmailRegistrationInitiate(input: UserEmailRegistrationInitiateInput!): UserEmailRegistrationInitiatePayload! @join__field(graph: PUBLIC)
+  userEmailRegistrationValidate(input: UserEmailRegistrationValidateInput!): UserEmailRegistrationValidatePayload! @join__field(graph: PUBLIC)
+  userLogin(input: UserLoginInput!): AuthTokenPayload! @join__field(graph: PUBLIC)
+  userLoginUpgrade(input: UserLoginUpgradeInput!): UpgradePayload! @join__field(graph: PUBLIC)
+  userLoginUpgradeTelegram(input: UserLoginUpgradeTelegramInput!): UpgradePayload! @join__field(graph: PUBLIC)
+  userLogout(input: UserLogoutInput): SuccessPayload! @join__field(graph: PUBLIC)
+  userPhoneDelete: UserPhoneDeletePayload! @join__field(graph: PUBLIC)
+  userPhoneRegistrationInitiate(input: UserPhoneRegistrationInitiateInput!): SuccessPayload! @join__field(graph: PUBLIC)
+  userPhoneRegistrationValidate(input: UserPhoneRegistrationValidateInput!): UserPhoneRegistrationValidatePayload! @join__field(graph: PUBLIC)
+  userTotpDelete: UserTotpDeletePayload! @join__field(graph: PUBLIC)
+  userTotpRegistrationInitiate: UserTotpRegistrationInitiatePayload! @join__field(graph: PUBLIC)
+  userTotpRegistrationValidate(input: UserTotpRegistrationValidateInput!): UserTotpRegistrationValidatePayload! @join__field(graph: PUBLIC)
+  userUpdateLanguage(input: UserUpdateLanguageInput!): UserUpdateLanguagePayload! @join__field(graph: PUBLIC)
+  userUpdateUsername(input: UserUpdateUsernameInput!): UserUpdateUsernamePayload! @join__field(graph: PUBLIC) @deprecated(reason: "Username will be moved to @Handle in Accounts. Also SetUsername naming should be used instead of UpdateUsername to reflect the idempotency of Handles")
 }
 
 type MyUpdatesPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   me: User
@@ -1490,12 +1495,12 @@ type MyUpdatesPayload
 }
 
 enum Network
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
-  mainnet @join__enumValue(graph: GALOY)
-  regtest @join__enumValue(graph: GALOY)
-  signet @join__enumValue(graph: GALOY)
-  testnet @join__enumValue(graph: GALOY)
+  mainnet @join__enumValue(graph: PUBLIC)
+  regtest @join__enumValue(graph: PUBLIC)
+  signet @join__enumValue(graph: PUBLIC)
+  testnet @join__enumValue(graph: PUBLIC)
 }
 
 enum Nip47Method
@@ -1503,7 +1508,6 @@ enum Nip47Method
 {
   GET_INFO @join__enumValue(graph: NOSTR_WALLET_CONNECT)
   GET_BALANCE @join__enumValue(graph: NOSTR_WALLET_CONNECT)
-  GET_BUDGET @join__enumValue(graph: NOSTR_WALLET_CONNECT)
   MAKE_INVOICE @join__enumValue(graph: NOSTR_WALLET_CONNECT)
   PAY_INVOICE @join__enumValue(graph: NOSTR_WALLET_CONNECT)
   LOOKUP_INVOICE @join__enumValue(graph: NOSTR_WALLET_CONNECT)
@@ -1511,53 +1515,47 @@ enum Nip47Method
 }
 
 union NotificationAction
-  @join__type(graph: GALOY)
-  @join__unionMember(graph: GALOY, member: "OpenDeepLinkAction")
-  @join__unionMember(graph: GALOY, member: "OpenExternalLinkAction")
+  @join__type(graph: NOTIFICATIONS)
+  @join__unionMember(graph: NOTIFICATIONS, member: "OpenDeepLinkAction")
+  @join__unionMember(graph: NOTIFICATIONS, member: "OpenExternalLinkAction")
  = OpenDeepLinkAction | OpenExternalLinkAction
 
 scalar NotificationCategory
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 enum NotificationChannel
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
-  PUSH @join__enumValue(graph: GALOY)
+  PUSH @join__enumValue(graph: PUBLIC)
 }
 
 type NotificationChannelSettings
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   disabledCategories: [NotificationCategory!]!
   enabled: Boolean!
 }
 
 type NotificationSettings
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   push: NotificationChannelSettings!
 }
 
-"""
-Spending limits and usage for a connection (read-only, sourced from API-key service)
-"""
 type NwcBudget
   @join__type(graph: NOSTR_WALLET_CONNECT)
 {
-  dailyLimitSats: Int
-  weeklyLimitSats: Int
-  monthlyLimitSats: Int
-  annualLimitSats: Int
-  dailySpentSats: Int!
-  weeklySpentSats: Int!
-  monthlySpentSats: Int!
-  annualSpentSats: Int!
+  amountSats: Int!
+  period: NwcBudgetPeriod!
+  usedSats: Int!
+  remainingSats: Int!
+  resetsAt: Timestamp
 }
 
 input NwcBudgetInput
   @join__type(graph: NOSTR_WALLET_CONNECT)
 {
-  limitSats: Int!
+  amountSats: Int!
   period: NwcBudgetPeriod!
 }
 
@@ -1567,28 +1565,25 @@ enum NwcBudgetPeriod
   DAILY @join__enumValue(graph: NOSTR_WALLET_CONNECT)
   WEEKLY @join__enumValue(graph: NOSTR_WALLET_CONNECT)
   MONTHLY @join__enumValue(graph: NOSTR_WALLET_CONNECT)
-  ANNUAL @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  NEVER @join__enumValue(graph: NOSTR_WALLET_CONNECT)
 }
 
 type NwcConnection
   @join__type(graph: NOSTR_WALLET_CONNECT, key: "id")
 {
   id: ID!
-  userId: UserId
+  userId: UserId!
   accountId: AccountId!
   walletId: WalletId!
   walletCurrency: WalletCurrency!
   alias: String
   appPubkey: String!
-  permissions: [Nip47Method!]!
-  notificationsEnabled: Boolean!
+  permissions: [NwcPermission!]!
+  budget: NwcBudget
   revoked: Boolean!
   expiresAt: Timestamp
   revokedAt: Timestamp
   lastUsedAt: Timestamp
-
-  """Read-only; queried from API-key service via apiKeyId"""
-  budget: NwcBudget
   createdAt: Timestamp!
   updatedAt: Timestamp!
 }
@@ -1596,17 +1591,12 @@ type NwcConnection
 input NwcConnectionCreateInput
   @join__type(graph: NOSTR_WALLET_CONNECT)
 {
-  walletId: WalletId!
+  nwcUri: String!
+  walletId: WalletId
   alias: String
-  apiKey: String!
-  apiKeyId: String
-  permissions: [Nip47Method!]!
-  walletCurrency: WalletCurrency
-  expiresAt: Timestamp
-  notificationsEnabled: Boolean
-
-  """Budget configuration (passed through to API-key service)"""
+  permissions: [NwcPermission!]!
   budget: NwcBudgetInput
+  expiresAt: Timestamp
 }
 
 type NwcConnectionCreatePayload
@@ -1620,7 +1610,7 @@ type NwcConnectionCreatePayload
 input NwcConnectionDeleteInput
   @join__type(graph: NOSTR_WALLET_CONNECT)
 {
-  id: ID!
+  connectionId: ID!
 }
 
 type NwcConnectionDeletePayload
@@ -1640,23 +1630,22 @@ type NwcConnectionRevokeAllPayload
 input NwcConnectionRevokeInput
   @join__type(graph: NOSTR_WALLET_CONNECT)
 {
-  id: ID!
+  connectionId: ID!
 }
 
 type NwcConnectionRevokePayload
   @join__type(graph: NOSTR_WALLET_CONNECT)
 {
   errors: [Error!]!
+  success: Boolean!
   connection: NwcConnection
 }
 
 input NwcConnectionUpdateInput
   @join__type(graph: NOSTR_WALLET_CONNECT)
 {
-  id: ID!
+  connectionId: ID!
   alias: String
-  permissions: [Nip47Method!]
-  notificationsEnabled: Boolean
   budget: NwcBudgetInput
 }
 
@@ -1674,9 +1663,23 @@ enum NwcNotificationType
   PAYMENT_RECEIVED @join__enumValue(graph: NOSTR_WALLET_CONNECT)
 }
 
+enum NwcPermission
+  @join__type(graph: NOSTR_WALLET_CONNECT)
+{
+  GET_INFO @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  GET_BALANCE @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  MAKE_INVOICE @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  PAY_INVOICE @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  LOOKUP_INVOICE @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  LIST_TRANSACTIONS @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  NOTIFICATIONS_PAYMENT_SENT @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  NOTIFICATIONS_PAYMENT_RECEIVED @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+}
+
 type NwcServiceInfo
   @join__type(graph: NOSTR_WALLET_CONNECT)
 {
+  serverPubkey: String!
   supportedMethods: [Nip47Method!]!
   supportedNotifications: [NwcNotificationType!]!
   relayUrl: String!
@@ -1684,29 +1687,29 @@ type NwcServiceInfo
 
 """An address for an on-chain bitcoin destination"""
 scalar OnChainAddress
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 input OnChainAddressCreateInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   walletId: WalletId!
 }
 
 input OnChainAddressCurrentInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   walletId: WalletId!
 }
 
 type OnChainAddressPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   address: OnChainAddress
   errors: [Error!]!
 }
 
 input OnChainPaymentSendAllInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   address: OnChainAddress!
   memo: Memo
@@ -1715,7 +1718,7 @@ input OnChainPaymentSendAllInput
 }
 
 input OnChainPaymentSendInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   address: OnChainAddress!
   amount: SatAmount!
@@ -1725,16 +1728,16 @@ input OnChainPaymentSendInput
 }
 
 type OnChainTxFee
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   amount: SatAmount!
 }
 
 scalar OnChainTxHash
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 type OnChainUpdate
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   amount: SatAmount! @deprecated(reason: "Deprecated in favor of transaction")
   displayCurrencyPerSat: Float! @deprecated(reason: "Deprecated in favor of transaction")
@@ -1746,7 +1749,7 @@ type OnChainUpdate
 }
 
 input OnChainUsdPaymentSendAsBtcDenominatedInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   address: OnChainAddress!
   amount: SatAmount!
@@ -1756,7 +1759,7 @@ input OnChainUsdPaymentSendAsBtcDenominatedInput
 }
 
 input OnChainUsdPaymentSendInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   address: OnChainAddress!
   amount: CentAmount!
@@ -1766,14 +1769,14 @@ input OnChainUsdPaymentSendInput
 }
 
 type OnChainUsdTxFee
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   amount: CentAmount!
 }
 
 type OneDayAccountLimit implements AccountLimit
-  @join__implements(graph: GALOY, interface: "AccountLimit")
-  @join__type(graph: GALOY)
+  @join__implements(graph: PUBLIC, interface: "AccountLimit")
+  @join__type(graph: PUBLIC)
 {
   """
   The rolling time interval value in seconds for the current 24 hour period.
@@ -1791,17 +1794,17 @@ type OneDayAccountLimit implements AccountLimit
 
 """An authentication code valid for a single use"""
 scalar OneTimeAuthCode
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 type OpenDeepLinkAction
-  @join__type(graph: GALOY)
+  @join__type(graph: NOTIFICATIONS)
 {
   deepLink: String!
   label: String
 }
 
 type OpenExternalLinkAction
-  @join__type(graph: GALOY)
+  @join__type(graph: NOTIFICATIONS)
 {
   url: String!
   label: String
@@ -1809,7 +1812,8 @@ type OpenExternalLinkAction
 
 """Information about pagination in a connection"""
 type PageInfo
-  @join__type(graph: GALOY)
+  @join__type(graph: NOTIFICATIONS)
+  @join__type(graph: PUBLIC)
 {
   """When paginating backwards, are there more items?"""
   hasPreviousPage: Boolean!
@@ -1825,10 +1829,10 @@ type PageInfo
 }
 
 scalar PaymentHash
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 type PaymentSendPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   status: PaymentSendResult
@@ -1836,24 +1840,24 @@ type PaymentSendPayload
 }
 
 enum PaymentSendResult
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
-  ALREADY_PAID @join__enumValue(graph: GALOY)
-  FAILURE @join__enumValue(graph: GALOY)
-  PENDING @join__enumValue(graph: GALOY)
-  SUCCESS @join__enumValue(graph: GALOY)
+  ALREADY_PAID @join__enumValue(graph: PUBLIC)
+  FAILURE @join__enumValue(graph: PUBLIC)
+  PENDING @join__enumValue(graph: PUBLIC)
+  SUCCESS @join__enumValue(graph: PUBLIC)
 }
 
 enum PayoutSpeed
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
-  FAST @join__enumValue(graph: GALOY)
-  MEDIUM @join__enumValue(graph: GALOY)
-  SLOW @join__enumValue(graph: GALOY)
+  FAST @join__enumValue(graph: PUBLIC)
+  MEDIUM @join__enumValue(graph: PUBLIC)
+  SLOW @join__enumValue(graph: PUBLIC)
 }
 
 type PayoutSpeeds
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   description: String!
   displayName: String!
@@ -1862,21 +1866,21 @@ type PayoutSpeeds
 
 """Phone number which includes country code"""
 scalar Phone
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 enum PhoneCodeChannelType
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
-  SMS @join__enumValue(graph: GALOY)
-  TELEGRAM @join__enumValue(graph: GALOY)
-  WHATSAPP @join__enumValue(graph: GALOY)
+  SMS @join__enumValue(graph: PUBLIC)
+  TELEGRAM @join__enumValue(graph: PUBLIC)
+  WHATSAPP @join__enumValue(graph: PUBLIC)
 }
 
 """
 Price amount expressed in base/offset. To calculate, use: `base / 10^offset`
 """
 type Price
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   base: SafeInt!
   currencyUnit: String!
@@ -1886,17 +1890,17 @@ type Price
 
 """The range for the X axis in the BTC price graph"""
 enum PriceGraphRange
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
-  FIVE_YEARS @join__enumValue(graph: GALOY)
-  ONE_DAY @join__enumValue(graph: GALOY)
-  ONE_MONTH @join__enumValue(graph: GALOY)
-  ONE_WEEK @join__enumValue(graph: GALOY)
-  ONE_YEAR @join__enumValue(graph: GALOY)
+  FIVE_YEARS @join__enumValue(graph: PUBLIC)
+  ONE_DAY @join__enumValue(graph: PUBLIC)
+  ONE_MONTH @join__enumValue(graph: PUBLIC)
+  ONE_WEEK @join__enumValue(graph: PUBLIC)
+  ONE_YEAR @join__enumValue(graph: PUBLIC)
 }
 
 input PriceInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   amount: SatAmount!
   amountCurrencyUnit: ExchangeCurrencyUnit!
@@ -1904,7 +1908,7 @@ input PriceInput
 }
 
 interface PriceInterface
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   base: SafeInt!
   currencyUnit: String! @deprecated(reason: "Deprecated due to type renaming")
@@ -1913,8 +1917,8 @@ interface PriceInterface
 
 """Price of 1 sat in base/offset. To calculate, use: `base / 10^offset`"""
 type PriceOfOneSatInMinorUnit implements PriceInterface
-  @join__implements(graph: GALOY, interface: "PriceInterface")
-  @join__type(graph: GALOY)
+  @join__implements(graph: PUBLIC, interface: "PriceInterface")
+  @join__type(graph: PUBLIC)
 {
   base: SafeInt!
   currencyUnit: String! @deprecated(reason: "Deprecated due to type renaming")
@@ -1925,8 +1929,8 @@ type PriceOfOneSatInMinorUnit implements PriceInterface
 Price of 1 sat or 1 usd cent in base/offset. To calculate, use: `base / 10^offset`
 """
 type PriceOfOneSettlementMinorUnitInDisplayMinorUnit implements PriceInterface
-  @join__implements(graph: GALOY, interface: "PriceInterface")
-  @join__type(graph: GALOY)
+  @join__implements(graph: PUBLIC, interface: "PriceInterface")
+  @join__type(graph: PUBLIC)
 {
   base: SafeInt!
   currencyUnit: String! @deprecated(reason: "Deprecated due to type renaming")
@@ -1938,8 +1942,8 @@ type PriceOfOneSettlementMinorUnitInDisplayMinorUnit implements PriceInterface
 Price of 1 usd cent in base/offset. To calculate, use: `base / 10^offset`
 """
 type PriceOfOneUsdCentInMinorUnit implements PriceInterface
-  @join__implements(graph: GALOY, interface: "PriceInterface")
-  @join__type(graph: GALOY)
+  @join__implements(graph: PUBLIC, interface: "PriceInterface")
+  @join__type(graph: PUBLIC)
 {
   base: SafeInt!
   currencyUnit: String! @deprecated(reason: "Deprecated due to type renaming")
@@ -1947,14 +1951,14 @@ type PriceOfOneUsdCentInMinorUnit implements PriceInterface
 }
 
 type PricePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   price: Price
 }
 
 type PricePoint
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   price: Price!
 
@@ -1968,7 +1972,7 @@ type PricePoint
 A public view of a generic wallet which stores value in one of our supported currencies.
 """
 type PublicWallet
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   currency: WalletCurrency!
   id: ID!
@@ -1976,15 +1980,21 @@ type PublicWallet
 }
 
 type Query
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS)
   @join__type(graph: NOSTR_WALLET_CONNECT)
+  @join__type(graph: NOTIFICATIONS)
+  @join__type(graph: PUBLIC)
 {
-  accountDefaultWallet(username: Username!, walletCurrency: WalletCurrency): PublicWallet! @join__field(graph: GALOY)
+  hello: String! @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcServiceInfo: NwcServiceInfo! @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcConnection(id: ID!): NwcConnection @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcConnections(includeRevoked: Boolean = false): [NwcConnection!]! @join__field(graph: NOSTR_WALLET_CONNECT)
+  accountDefaultWallet(username: Username!, walletCurrency: WalletCurrency): PublicWallet! @join__field(graph: PUBLIC)
 
   """Retrieve the list of scopes permitted for the user's token or API key"""
-  authorization: Authorization! @join__field(graph: GALOY)
-  btcPriceList(range: PriceGraphRange!): [PricePoint] @join__field(graph: GALOY)
-  businessMapMarkers: [MapMarker!]! @join__field(graph: GALOY)
+  authorization: Authorization! @join__field(graph: PUBLIC)
+  btcPriceList(range: PriceGraphRange!): [PricePoint] @join__field(graph: PUBLIC)
+  businessMapMarkers: [MapMarker!]! @join__field(graph: PUBLIC)
 
   """Returns an estimated conversion rate for the given amount and currency"""
   currencyConversionEstimation(
@@ -1993,33 +2003,31 @@ type Query
 
     """Currency of the amount to be converted."""
     currency: DisplayCurrency!
-  ): CurrencyConversionEstimation! @join__field(graph: GALOY)
-  currencyList: [Currency!]! @join__field(graph: GALOY)
-  globals: Globals @join__field(graph: GALOY)
-  lnInvoicePaymentStatus(input: LnInvoicePaymentStatusInput!): LnInvoicePaymentStatusPayload! @join__field(graph: GALOY) @deprecated(reason: "Deprecated in favor of lnInvoicePaymentStatusByPaymentRequest")
-  lnInvoicePaymentStatusByHash(input: LnInvoicePaymentStatusByHashInput!): LnInvoicePaymentStatus! @join__field(graph: GALOY)
-  lnInvoicePaymentStatusByPaymentRequest(input: LnInvoicePaymentStatusByPaymentRequestInput!): LnInvoicePaymentStatus! @join__field(graph: GALOY)
-  me: User @join__field(graph: GALOY)
-  mobileVersions: [MobileVersions] @join__field(graph: GALOY)
-  onChainTxFee(address: OnChainAddress!, amount: SatAmount!, speed: PayoutSpeed! = FAST, walletId: WalletId!): OnChainTxFee! @join__field(graph: GALOY)
-  onChainUsdTxFee(address: OnChainAddress!, amount: CentAmount!, speed: PayoutSpeed! = FAST, walletId: WalletId!): OnChainUsdTxFee! @join__field(graph: GALOY)
-  onChainUsdTxFeeAsBtcDenominated(address: OnChainAddress!, amount: SatAmount!, speed: PayoutSpeed! = FAST, walletId: WalletId!): OnChainUsdTxFee! @join__field(graph: GALOY)
+  ): CurrencyConversionEstimation! @join__field(graph: PUBLIC)
+  currencyList: [Currency!]! @join__field(graph: PUBLIC)
+  globals: Globals @join__field(graph: PUBLIC)
+  lnInvoicePaymentStatus(input: LnInvoicePaymentStatusInput!): LnInvoicePaymentStatusPayload! @join__field(graph: PUBLIC) @deprecated(reason: "Deprecated in favor of lnInvoicePaymentStatusByPaymentRequest")
+  lnInvoicePaymentStatusByHash(input: LnInvoicePaymentStatusByHashInput!): LnInvoicePaymentStatus! @join__field(graph: PUBLIC)
+  lnInvoicePaymentStatusByPaymentRequest(input: LnInvoicePaymentStatusByPaymentRequestInput!): LnInvoicePaymentStatus! @join__field(graph: PUBLIC)
+  me: User @join__field(graph: PUBLIC)
+  mobileVersions: [MobileVersions] @join__field(graph: PUBLIC)
+  onChainTxFee(address: OnChainAddress!, amount: SatAmount!, speed: PayoutSpeed! = FAST, walletId: WalletId!): OnChainTxFee! @join__field(graph: PUBLIC)
+  onChainUsdTxFee(address: OnChainAddress!, amount: CentAmount!, speed: PayoutSpeed! = FAST, walletId: WalletId!): OnChainUsdTxFee! @join__field(graph: PUBLIC)
+  onChainUsdTxFeeAsBtcDenominated(address: OnChainAddress!, amount: SatAmount!, speed: PayoutSpeed! = FAST, walletId: WalletId!): OnChainUsdTxFee! @join__field(graph: PUBLIC)
 
   """Returns the list of available speeds for on-chain payments"""
-  payoutSpeeds: [PayoutSpeeds!]! @join__field(graph: GALOY)
+  payoutSpeeds: [PayoutSpeeds!]! @join__field(graph: PUBLIC)
 
   """
   Returns 1 Sat and 1 Usd Cent price for the given currency in minor unit
   """
-  realtimePrice(currency: DisplayCurrency = "USD"): RealtimePrice! @join__field(graph: GALOY)
-  userDefaultWalletId(username: Username!): WalletId! @join__field(graph: GALOY) @deprecated(reason: "will be migrated to AccountDefaultWalletId")
-  usernameAvailable(username: Username!): Boolean @join__field(graph: GALOY)
-  hello: String! @join__field(graph: NOSTR_WALLET_CONNECT)
-  nwcServiceInfo: NwcServiceInfo! @join__field(graph: NOSTR_WALLET_CONNECT)
+  realtimePrice(currency: DisplayCurrency = "USD"): RealtimePrice! @join__field(graph: PUBLIC)
+  userDefaultWalletId(username: Username!): WalletId! @join__field(graph: PUBLIC) @deprecated(reason: "will be migrated to AccountDefaultWalletId")
+  usernameAvailable(username: Username!): Boolean @join__field(graph: PUBLIC)
 }
 
 type Quiz
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """The reward in Satoshis for the quiz question"""
   amount: SatAmount!
@@ -2029,21 +2037,21 @@ type Quiz
 }
 
 input QuizClaimInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   id: ID!
   skipRewards: Boolean = false
 }
 
 type QuizClaimPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   quizzes: [Quiz!]!
 }
 
 type RealtimePrice
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   btcSatPrice: PriceOfOneSatInMinorUnit!
   denominatorCurrency: DisplayCurrency! @deprecated(reason: "Deprecated in favor of denominatorCurrencyDetails")
@@ -2058,13 +2066,13 @@ type RealtimePrice
 }
 
 input RealtimePriceInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   currency: DisplayCurrency = "USD"
 }
 
 type RealtimePricePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   realtimePrice: RealtimePrice
@@ -2074,40 +2082,41 @@ type RealtimePricePayload
 Non-fractional signed whole numeric value between -(2^53) + 1 and 2^53 - 1
 """
 scalar SafeInt
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 """(Positive) Satoshi amount"""
 scalar SatAmount
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 type SatAmountPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   amount: SatAmount
   errors: [Error!]!
 }
 
 enum Scope
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS)
+  @join__type(graph: PUBLIC)
 {
-  READ @join__enumValue(graph: GALOY)
-  WRITE @join__enumValue(graph: GALOY)
-  RECEIVE @join__enumValue(graph: GALOY)
+  READ @join__enumValue(graph: API_KEYS) @join__enumValue(graph: PUBLIC)
+  WRITE @join__enumValue(graph: API_KEYS) @join__enumValue(graph: PUBLIC)
+  RECEIVE @join__enumValue(graph: API_KEYS) @join__enumValue(graph: PUBLIC)
 }
 
 """(Positive) amount of seconds"""
 scalar Seconds
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 union SettlementVia
-  @join__type(graph: GALOY)
-  @join__unionMember(graph: GALOY, member: "SettlementViaIntraLedger")
-  @join__unionMember(graph: GALOY, member: "SettlementViaLn")
-  @join__unionMember(graph: GALOY, member: "SettlementViaOnChain")
+  @join__type(graph: PUBLIC)
+  @join__unionMember(graph: PUBLIC, member: "SettlementViaIntraLedger")
+  @join__unionMember(graph: PUBLIC, member: "SettlementViaLn")
+  @join__unionMember(graph: PUBLIC, member: "SettlementViaOnChain")
  = SettlementViaIntraLedger | SettlementViaLn | SettlementViaOnChain
 
 type SettlementViaIntraLedger
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """
   Settlement destination: Could be null if the payee does not have a username
@@ -2118,14 +2127,14 @@ type SettlementViaIntraLedger
 }
 
 type SettlementViaLn
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   paymentSecret: LnPaymentSecret @deprecated(reason: "Shifting property to 'preImage' to improve granularity of the LnPaymentSecret type")
   preImage: LnPaymentPreImage
 }
 
 type SettlementViaOnChain
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   arrivalInMempoolEstimatedAt: Timestamp
   transactionHash: OnChainTxHash
@@ -2134,16 +2143,16 @@ type SettlementViaOnChain
 
 """An amount (of a currency) that can be negative (e.g. in a transaction)"""
 scalar SignedAmount
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 """
 A string amount (of a currency) that can be negative (e.g. in a transaction)
 """
 scalar SignedDisplayMajorAmount
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 type StatefulNotification
-  @join__type(graph: GALOY)
+  @join__type(graph: NOTIFICATIONS)
 {
   id: ID!
   title: String!
@@ -2157,19 +2166,19 @@ type StatefulNotification
 }
 
 input StatefulNotificationAcknowledgeInput
-  @join__type(graph: GALOY)
+  @join__type(graph: NOTIFICATIONS)
 {
   notificationId: ID!
 }
 
 type StatefulNotificationAcknowledgePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: NOTIFICATIONS)
 {
   notification: StatefulNotification!
 }
 
 type StatefulNotificationConnection
-  @join__type(graph: GALOY)
+  @join__type(graph: NOTIFICATIONS)
 {
   """Information to aid in pagination."""
   pageInfo: PageInfo!
@@ -2183,7 +2192,7 @@ type StatefulNotificationConnection
 
 """An edge in a connection."""
 type StatefulNotificationEdge
-  @join__type(graph: GALOY)
+  @join__type(graph: NOTIFICATIONS)
 {
   """The item at the end of the edge"""
   node: StatefulNotification!
@@ -2193,7 +2202,7 @@ type StatefulNotificationEdge
 }
 
 type Subscription
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   lnInvoicePaymentStatus(input: LnInvoicePaymentStatusInput!): LnInvoicePaymentStatusPayload! @deprecated(reason: "Deprecated in favor of lnInvoicePaymentStatusByPaymentRequest")
   lnInvoicePaymentStatusByHash(input: LnInvoicePaymentStatusByHashInput!): LnInvoicePaymentStatusPayload!
@@ -2206,27 +2215,27 @@ type Subscription
 }
 
 type SuccessPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   success: Boolean
 }
 
 input SupportChatMessageAddInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   message: String!
 }
 
 type SupportChatMessageAddPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   supportMessage: [SupportMessage]
 }
 
 type SupportMessage
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   id: ID!
   message: String!
@@ -2235,34 +2244,36 @@ type SupportMessage
 }
 
 enum SupportRole
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
-  ASSISTANT @join__enumValue(graph: GALOY)
-  USER @join__enumValue(graph: GALOY)
+  ASSISTANT @join__enumValue(graph: PUBLIC)
+  USER @join__enumValue(graph: PUBLIC)
 }
 
 """Nonce provided by Telegram Passport to validate the login/upgrade flow"""
 scalar TelegramPassportNonce
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 """
 Timestamp field, serialized as Unix time (the number of seconds since the Unix epoch)
 """
 scalar Timestamp
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS)
   @join__type(graph: NOSTR_WALLET_CONNECT)
+  @join__type(graph: NOTIFICATIONS)
+  @join__type(graph: PUBLIC)
 
 """A time-based one-time password"""
 scalar TotpCode
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 """An id to be passed between set and verify for confirming totp"""
 scalar TotpRegistrationId
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 """A secret to generate time-based one-time password"""
 scalar TotpSecret
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 """
 Give details about an individual transaction.
@@ -2272,7 +2283,7 @@ therefore it's possible the transactions is being initiated onchain
 or with lightning but settled intraledger.
 """
 type Transaction
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   createdAt: Timestamp!
   direction: TxDirection!
@@ -2303,7 +2314,7 @@ type Transaction
 
 """A connection to a list of items."""
 type TransactionConnection
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """A list of edges."""
   edges: [TransactionEdge!]
@@ -2314,7 +2325,7 @@ type TransactionConnection
 
 """An edge in a connection."""
 type TransactionEdge
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """A cursor for use in pagination"""
   cursor: String!
@@ -2324,39 +2335,39 @@ type TransactionEdge
 }
 
 enum TxDirection
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
-  RECEIVE @join__enumValue(graph: GALOY)
-  SEND @join__enumValue(graph: GALOY)
+  RECEIVE @join__enumValue(graph: PUBLIC)
+  SEND @join__enumValue(graph: PUBLIC)
 }
 
 """
 An external reference id that can be optionally added for transactions.
 """
 scalar TxExternalId
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 enum TxNotificationType
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
-  IntraLedgerPayment @join__enumValue(graph: GALOY)
-  IntraLedgerReceipt @join__enumValue(graph: GALOY)
-  LigtningReceipt @join__enumValue(graph: GALOY)
-  OnchainPayment @join__enumValue(graph: GALOY)
-  OnchainReceipt @join__enumValue(graph: GALOY)
-  OnchainReceiptPending @join__enumValue(graph: GALOY)
+  IntraLedgerPayment @join__enumValue(graph: PUBLIC)
+  IntraLedgerReceipt @join__enumValue(graph: PUBLIC)
+  LigtningReceipt @join__enumValue(graph: PUBLIC)
+  OnchainPayment @join__enumValue(graph: PUBLIC)
+  OnchainReceipt @join__enumValue(graph: PUBLIC)
+  OnchainReceiptPending @join__enumValue(graph: PUBLIC)
 }
 
 enum TxStatus
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
-  FAILURE @join__enumValue(graph: GALOY)
-  PENDING @join__enumValue(graph: GALOY)
-  SUCCESS @join__enumValue(graph: GALOY)
+  FAILURE @join__enumValue(graph: PUBLIC)
+  PENDING @join__enumValue(graph: PUBLIC)
+  SUCCESS @join__enumValue(graph: PUBLIC)
 }
 
 type UpgradePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   authToken: AuthToken
   errors: [Error!]!
@@ -2367,8 +2378,8 @@ type UpgradePayload
 A wallet belonging to an account which contains a USD balance and a list of transactions.
 """
 type UsdWallet implements Wallet
-  @join__implements(graph: GALOY, interface: "Wallet")
-  @join__type(graph: GALOY)
+  @join__implements(graph: PUBLIC, interface: "Wallet")
+  @join__type(graph: PUBLIC)
 {
   accountId: ID!
   balance: SignedAmount!
@@ -2433,55 +2444,57 @@ type UsdWallet implements Wallet
 }
 
 type User
-  @join__type(graph: GALOY)
+  @join__type(graph: API_KEYS, key: "id", extension: true)
   @join__type(graph: NOSTR_WALLET_CONNECT, key: "id", extension: true)
+  @join__type(graph: NOTIFICATIONS, key: "id", extension: true)
+  @join__type(graph: PUBLIC)
 {
   id: ID!
-  apiKeys: [ApiKey!]! @join__field(graph: GALOY)
-  statefulNotifications(first: Int!, after: String): StatefulNotificationConnection! @join__field(graph: GALOY)
-  statefulNotificationsWithoutBulletinEnabled(first: Int!, after: String): StatefulNotificationConnection! @join__field(graph: GALOY)
-  unacknowledgedStatefulNotificationsWithoutBulletinEnabledCount: Int! @join__field(graph: GALOY)
-  unacknowledgedStatefulNotificationsWithBulletinEnabled(first: Int!, after: String): StatefulNotificationConnection! @join__field(graph: GALOY)
+  apiKeys: [ApiKey!]! @join__field(graph: API_KEYS)
+  exampleField: String @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcConnection(id: ID!): NwcConnection @join__field(graph: NOSTR_WALLET_CONNECT)
+  nwcConnections(includeRevoked: Boolean): [NwcConnection!]! @join__field(graph: NOSTR_WALLET_CONNECT)
+  statefulNotifications(first: Int!, after: String): StatefulNotificationConnection! @join__field(graph: NOTIFICATIONS)
+  statefulNotificationsWithoutBulletinEnabled(first: Int!, after: String): StatefulNotificationConnection! @join__field(graph: NOTIFICATIONS)
+  unacknowledgedStatefulNotificationsWithoutBulletinEnabledCount: Int! @join__field(graph: NOTIFICATIONS)
+  unacknowledgedStatefulNotificationsWithBulletinEnabled(first: Int!, after: String): StatefulNotificationConnection! @join__field(graph: NOTIFICATIONS)
 
   """
   Get single contact details.
   Can include the transactions associated with the contact.
   """
-  contactByUsername(username: Username!): UserContact! @join__field(graph: GALOY) @deprecated(reason: "will be moved to Accounts")
+  contactByUsername(username: Username!): UserContact! @join__field(graph: PUBLIC) @deprecated(reason: "will be moved to Accounts")
 
   """
   Get full list of contacts.
   Can include the transactions associated with each contact.
   """
-  contacts: [UserContact!]! @join__field(graph: GALOY) @deprecated(reason: "will be moved to account")
-  createdAt: Timestamp! @join__field(graph: GALOY)
-  defaultAccount: Account! @join__field(graph: GALOY)
+  contacts: [UserContact!]! @join__field(graph: PUBLIC) @deprecated(reason: "will be moved to account")
+  createdAt: Timestamp! @join__field(graph: PUBLIC)
+  defaultAccount: Account! @join__field(graph: PUBLIC)
 
   """Email address"""
-  email: Email @join__field(graph: GALOY)
+  email: Email @join__field(graph: PUBLIC)
 
   """
   Preferred language for user.
   When value is 'default' the intent is to use preferred language from OS settings.
   """
-  language: Language! @join__field(graph: GALOY)
+  language: Language! @join__field(graph: PUBLIC)
 
   """Phone number with international calling code."""
-  phone: Phone @join__field(graph: GALOY)
-  supportChat: [SupportMessage!]! @join__field(graph: GALOY)
+  phone: Phone @join__field(graph: PUBLIC)
+  supportChat: [SupportMessage!]! @join__field(graph: PUBLIC)
 
   """Whether TOTP is enabled for this user."""
-  totpEnabled: Boolean! @join__field(graph: GALOY)
+  totpEnabled: Boolean! @join__field(graph: PUBLIC)
 
   """Optional immutable user friendly identifier."""
-  username: Username @join__field(graph: GALOY) @deprecated(reason: "will be moved to @Handle in Account and Wallet")
-  exampleField: String @join__field(graph: NOSTR_WALLET_CONNECT)
-  nwcConnection(id: ID!): NwcConnection @join__field(graph: NOSTR_WALLET_CONNECT)
-  nwcConnections(includeRevoked: Boolean): [NwcConnection!]! @join__field(graph: NOSTR_WALLET_CONNECT)
+  username: Username @join__field(graph: PUBLIC) @deprecated(reason: "will be moved to @Handle in Account and Wallet")
 }
 
 type UserContact
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   """
   Alias the user can set for this contact.
@@ -2514,34 +2527,34 @@ type UserContact
 }
 
 input UserContactUpdateAliasInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   alias: ContactAlias!
   username: Username!
 }
 
 type UserContactUpdateAliasPayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   contact: UserContact
   errors: [Error!]!
 }
 
 type UserEmailDeletePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   me: User
 }
 
 input UserEmailRegistrationInitiateInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   email: EmailAddress!
 }
 
 type UserEmailRegistrationInitiatePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   emailRegistrationId: EmailRegistrationId
   errors: [Error!]!
@@ -2549,14 +2562,14 @@ type UserEmailRegistrationInitiatePayload
 }
 
 input UserEmailRegistrationValidateInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   code: OneTimeAuthCode!
   emailRegistrationId: EmailRegistrationId!
 }
 
 type UserEmailRegistrationValidatePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   me: User
@@ -2566,73 +2579,73 @@ scalar UserId
   @join__type(graph: NOSTR_WALLET_CONNECT)
 
 input UserLoginInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   code: OneTimeAuthCode!
   phone: Phone!
 }
 
 input UserLoginUpgradeInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   code: OneTimeAuthCode!
   phone: Phone!
 }
 
 input UserLoginUpgradeTelegramInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   nonce: TelegramPassportNonce!
   phone: Phone!
 }
 
 input UserLogoutInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   deviceToken: String!
 }
 
 """Unique identifier of a user"""
 scalar Username
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 
 type UserPhoneDeletePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   me: User
 }
 
 input UserPhoneRegistrationInitiateInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   channel: PhoneCodeChannelType
   phone: Phone!
 }
 
 input UserPhoneRegistrationValidateInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   code: OneTimeAuthCode!
   phone: Phone!
 }
 
 type UserPhoneRegistrationValidatePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   me: User
 }
 
 type UserTotpDeletePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   me: User
 }
 
 type UserTotpRegistrationInitiatePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   totpRegistrationId: TotpRegistrationId
@@ -2640,7 +2653,7 @@ type UserTotpRegistrationInitiatePayload
 }
 
 input UserTotpRegistrationValidateInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   authToken: AuthToken
   totpCode: TotpCode!
@@ -2648,42 +2661,42 @@ input UserTotpRegistrationValidateInput
 }
 
 type UserTotpRegistrationValidatePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   me: User
 }
 
 union UserUpdate
-  @join__type(graph: GALOY)
-  @join__unionMember(graph: GALOY, member: "IntraLedgerUpdate")
-  @join__unionMember(graph: GALOY, member: "LnUpdate")
-  @join__unionMember(graph: GALOY, member: "OnChainUpdate")
-  @join__unionMember(graph: GALOY, member: "Price")
-  @join__unionMember(graph: GALOY, member: "RealtimePrice")
+  @join__type(graph: PUBLIC)
+  @join__unionMember(graph: PUBLIC, member: "IntraLedgerUpdate")
+  @join__unionMember(graph: PUBLIC, member: "LnUpdate")
+  @join__unionMember(graph: PUBLIC, member: "OnChainUpdate")
+  @join__unionMember(graph: PUBLIC, member: "Price")
+  @join__unionMember(graph: PUBLIC, member: "RealtimePrice")
  = IntraLedgerUpdate | LnUpdate | OnChainUpdate | Price | RealtimePrice
 
 input UserUpdateLanguageInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   language: Language!
 }
 
 type UserUpdateLanguagePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   user: User
 }
 
 input UserUpdateUsernameInput
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   username: Username!
 }
 
 type UserUpdateUsernamePayload
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   errors: [Error!]!
   user: User
@@ -2693,7 +2706,7 @@ type UserUpdateUsernamePayload
 A generic wallet which stores value in one of our supported currencies.
 """
 interface Wallet
-  @join__type(graph: GALOY)
+  @join__type(graph: PUBLIC)
 {
   accountId: ID!
   balance: SignedAmount!
@@ -2795,14 +2808,14 @@ interface Wallet
 }
 
 enum WalletCurrency
-  @join__type(graph: GALOY)
   @join__type(graph: NOSTR_WALLET_CONNECT)
+  @join__type(graph: PUBLIC)
 {
-  BTC @join__enumValue(graph: GALOY) @join__enumValue(graph: NOSTR_WALLET_CONNECT)
-  USD @join__enumValue(graph: GALOY) @join__enumValue(graph: NOSTR_WALLET_CONNECT)
+  BTC @join__enumValue(graph: NOSTR_WALLET_CONNECT) @join__enumValue(graph: PUBLIC)
+  USD @join__enumValue(graph: NOSTR_WALLET_CONNECT) @join__enumValue(graph: PUBLIC)
 }
 
 """Unique identifier of a wallet"""
 scalar WalletId
-  @join__type(graph: GALOY)
   @join__type(graph: NOSTR_WALLET_CONNECT)
+  @join__type(graph: PUBLIC)

@@ -19,6 +19,7 @@ import {
 import { BlinkServiceError } from "@/services/core/errors"
 
 export interface IBlinkCoreService {
+  getUsername(apiKey: ApiKey): Promise<string | null | BlinkServiceError>
   getNodeInfo(): Promise<
     | { blockHeight: BlockHeight; blockHash: BlockHash; network: Network }
     | BlinkServiceError
@@ -37,6 +38,7 @@ export interface IBlinkCoreService {
   ): Promise<
     | {
         createdAt: UnixTimestamp
+        expiresAt?: UnixTimestamp
         paymentHash: PaymentHash
         paymentRequest: InvoiceBolt11
         satoshis: Satoshis
@@ -51,6 +53,7 @@ export interface IBlinkCoreService {
   ): Promise<
     | {
         createdAt: UnixTimestamp
+        expiresAt?: UnixTimestamp
         paymentHash: PaymentHash
         paymentRequest: InvoiceBolt11
         satoshis: Satoshis
@@ -61,6 +64,7 @@ export interface IBlinkCoreService {
     apiKey: ApiKey,
     walletId: WalletId,
     invoice: InvoiceBolt11,
+    amount?: Satoshis,
     memo?: Description,
   ): Promise<{ preimage: Preimage; feesPaid: Satoshis } | BlinkServiceError>
   lookupInvoice(
@@ -114,6 +118,16 @@ export interface IBlinkCoreService {
   ): Promise<Array<CoreServiceTx> | BlinkServiceError>
 
   fetchInvoicesInRange(
+    apiKey: ApiKey,
+    walletId: WalletId,
+    from: UnixTimestamp,
+    until: Cursor,
+    offset: number,
+    limit: number,
+    type: PaymentDirection,
+  ): Promise<Array<CoreServiceTx> | BlinkServiceError>
+
+  fetchMergedTransactionsInRange(
     apiKey: ApiKey,
     walletId: WalletId,
     from: UnixTimestamp,

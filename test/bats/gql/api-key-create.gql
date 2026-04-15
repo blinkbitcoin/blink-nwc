@@ -1,0 +1,8 @@
+mutation ApiKeyCreate($input: ApiKeyCreateInput!) {
+  apiKeyCreate(input: $input) {
+    apiKeySecret
+    apiKey {
+      id
+    }
+  }
+}

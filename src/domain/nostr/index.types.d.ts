@@ -16,11 +16,16 @@ import {
   UnixTimestamp,
 } from "@/domain/index.types"
 import { Nip47Error } from "@/domain/nostr/errors"
+import {
+  NwcNotificationPermissionType,
+  NwcNotificationTypeValue,
+} from "@/domain/nostr/notification-type"
 
 export type PaymentDirection =
   (typeof import("./payment-direction").PaymentDirection)[keyof typeof import("./payment-direction").PaymentDirection]
 export type Nip47MethodType =
   (typeof import("./nip47-method").Nip47Method)[keyof typeof import("./nip47-method").Nip47Method]
+export type NwcPermissionType = Nip47MethodType | NwcNotificationPermissionType
 
 export type Nip47MakeInvoiceRequest = {
   amount: MilliSatoshis
@@ -31,6 +36,7 @@ export type Nip47MakeInvoiceRequest = {
 
 export type Nip47PayInvoiceRequest = {
   invoice: InvoiceBolt11
+  amount?: MilliSatoshis
 }
 
 export type Nip47LookupInvoiceRequest = {
@@ -58,6 +64,8 @@ export type Nip47Transaction = {
   amount: MilliSatoshis
   fees_paid: MilliSatoshis
   created_at: UnixTimestamp
+  expires_at?: UnixTimestamp
+  settled_at?: UnixTimestamp
   metadata?: object
 }
 
@@ -69,6 +77,7 @@ export type Nip47GetInfoResult = {
   block_height: BlockHeight
   block_hash: BlockHash
   methods: Nip47MethodType[]
+  notifications: NwcNotificationTypeValue[]
 }
 
 export type Nip47GetBalanceResult = {

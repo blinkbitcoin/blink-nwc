@@ -1,3 +1,5 @@
+// eslint-disable-next-line import/no-unassigned-import
+import "tsconfig-paths/register"
 import * as path from "node:path"
 
 import { Knex } from "knex"

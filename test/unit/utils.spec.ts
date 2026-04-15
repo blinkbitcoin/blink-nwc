@@ -734,21 +734,21 @@ describe("toNwcTx", () => {
     })
   })
 
-  describe("Excluded Fields", () => {
-    it("should NOT include settledAt in output", () => {
+  describe("Timestamp Fields", () => {
+    it("should map settledAt to settled_at", () => {
       const tx = createTx({ settledAt: 1704068000 as UnixTimestamp })
       const result = toNwcTx(tx)
 
       expect((result as any).settledAt).toBeUndefined()
-      expect((result as any).settled_at).toBeUndefined()
+      expect(result.settled_at).toBe(1704068000)
     })
 
-    it("should NOT include expiresAt in output", () => {
+    it("should map expiresAt to expires_at", () => {
       const tx = createTx({ expiresAt: 1704070800 as UnixTimestamp })
       const result = toNwcTx(tx)
 
       expect((result as any).expiresAt).toBeUndefined()
-      expect((result as any).expires_at).toBeUndefined()
+      expect(result.expires_at).toBe(1704070800)
     })
   })
 
@@ -778,6 +778,8 @@ describe("toNwcTx", () => {
       expect(result.description).toBeUndefined()
       expect(result.description_hash).toBeUndefined()
       expect(result.preimage).toBeUndefined()
+      expect(result.expires_at).toBeUndefined()
+      expect(result.settled_at).toBeUndefined()
     })
 
     it("should return valid Nip47Transaction type", () => {

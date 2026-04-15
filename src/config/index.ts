@@ -26,7 +26,9 @@ export const APOLLO_PLAYGROUND_ENABLED = process.env.APOLLO_PLAYGROUND_ENABLED
 export const COMMITHASH = env.COMMITHASH
 export const LOGLEVEL = env.LOGLEVEL
 
+export const OATHKEEPER_DECISION_ENDPOINT = env.OATHKEEPER_DECISION_ENDPOINT
 export const ROUTER_URL = env.ROUTER_URL
+export const PUBLIC_GRAPHQL_URL = env.PUBLIC_GRAPHQL_URL
 
 export const databaseClientConfig = database
 

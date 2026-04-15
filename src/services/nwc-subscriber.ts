@@ -1,11 +1,19 @@
 import WebSocket from "ws"
-;(global as any).WebSocket = WebSocket
 
 import { Event, EventTemplate, finalizeEvent, Relay, verifyEvent } from "nostr-tools"
 import { Subscription } from "nostr-tools/lib/types/abstract-relay"
 
-import { NOSTR_RELAY_URL, SUPPORTED_NWC_METHODS } from "@/config"
-import { getServerKeypair, hasPermission, NwcConnection } from "@/domain/connection"
+import {
+  NOSTR_RELAY_URL,
+  SUPPORTED_NWC_METHODS,
+  SUPPORTED_NWC_NOTIFICATIONS,
+} from "@/config"
+import {
+  getServerKeypair,
+  hasPermission,
+  isConnectionExpired,
+  NwcConnection,
+} from "@/domain/connection"
 import { parseErrorFromUnknown } from "@/domain/errors"
 import {
   Nip47EncryptionType,
@@ -22,9 +30,10 @@ import {
   Nip47UnauthorizedError,
   Nip47InternalError,
   Nip47RestrictedError,
+  Nip47UnsupportedEncryptionError,
   parseNip47Response,
 } from "@/domain/nostr"
-import { ConnectionsRepository } from "@/services/db"
+import { ConnectionsRepository, ProcessedNwcRequestsRepository } from "@/services/db"
 import { baseLogger } from "@/services/logger"
 import { sleep } from "@/domain/utils"
 
@@ -39,11 +48,73 @@ class RetryableEventProcessingError extends Error {
   }
 }
 
+type GlobalWithWebSocket = typeof globalThis & {
+  WebSocket?: typeof WebSocket
+}
+
+const ensureWebSocketGlobal = () => {
+  const globalWithWebSocket = globalThis as GlobalWithWebSocket
+  if (globalWithWebSocket.WebSocket === undefined) {
+    globalWithWebSocket.WebSocket =
+      WebSocket as unknown as GlobalWithWebSocket["WebSocket"]
+  }
+}
+
 export const NwcSubscriber = () => {
   const logger = baseLogger.child({ module: "nwc-subscriber" })
-  const r = new Relay(NOSTR_RELAY_URL)
+  ensureWebSocketGlobal()
+  const relay = new Relay(NOSTR_RELAY_URL)
   const serverKeypair = getServerKeypair()
   const connectionsRepository = ConnectionsRepository()
+  const processedNwcRequestsRepository = ProcessedNwcRequestsRepository()
+  const processedEventIds = new Map<string, number>()
+  const inFlightEventIds = new Set<string>()
+
+  const REQUEST_EVENT_TTL_MS = 10 * 60 * 1000
+  const PROCESSED_EVENT_PRUNE_INTERVAL_MS = 60 * 1000
+  let lastProcessedEventPruneAt = 0
+
+  const pruneTrackedEventIds = () => {
+    const now = Date.now()
+    for (const [eventId, processedAt] of processedEventIds.entries()) {
+      if (now - processedAt > REQUEST_EVENT_TTL_MS) {
+        processedEventIds.delete(eventId)
+      }
+    }
+  }
+
+  const getProcessedEventExpiry = (expirationTimestamp?: number) => {
+    const defaultExpiry = Date.now() + REQUEST_EVENT_TTL_MS
+    const expirationMs =
+      typeof expirationTimestamp === "number" ? expirationTimestamp * 1000 : 0
+
+    return new Date(Math.max(defaultExpiry, expirationMs))
+  }
+
+  const pruneExpiredProcessedEvents = async () => {
+    const now = Date.now()
+    if (now - lastProcessedEventPruneAt < PROCESSED_EVENT_PRUNE_INTERVAL_MS) {
+      return
+    }
+
+    lastProcessedEventPruneAt = now
+    const result = await processedNwcRequestsRepository.pruneExpired()
+    if (result instanceof Error) {
+      logger.warn({ err: result }, "failed to prune expired processed NWC requests")
+    }
+  }
+
+  const markEventProcessed = async (eventId: string, expirationTimestamp?: number) => {
+    processedEventIds.set(eventId, Date.now())
+
+    const result = await processedNwcRequestsRepository.markProcessed(
+      eventId,
+      getProcessedEventExpiry(expirationTimestamp),
+    )
+    if (result instanceof Error) {
+      logger.warn({ err: result, eventId }, "failed to persist processed NWC request")
+    }
+  }
 
   const subscribe = (
     handle: (
@@ -73,7 +144,7 @@ export const NwcSubscriber = () => {
           await publishInfoEvent()
 
           logger.info("subscribing to relay")
-          sub = r.subscribe(
+          sub = relay.subscribe(
             [
               {
                 "kinds": [EventKind.Request],
@@ -96,13 +167,13 @@ export const NwcSubscriber = () => {
           }
 
           await new Promise<void>((resolve) => {
-            r.onclose = () => {
+            relay.onclose = () => {
               logger.warn("relay disconnected")
               resolve()
             }
           })
 
-          r.onclose = null
+          relay.onclose = null
         } catch (err) {
           logger.error({ err }, "error subscribing to requests")
         }
@@ -169,121 +240,188 @@ export const NwcSubscriber = () => {
         connection: NwcConnection,
       ) => Promise<Nip47Result>,
     ) => {
+      pruneTrackedEventIds()
+      await pruneExpiredProcessedEvents()
+
       if (!verifyEvent(event)) {
         logger.warn({ eventId: event.id }, "rejected event with invalid signature")
         return
       }
 
-      const eventLogger = logger.child({
-        eventId: event.id,
-        appPubkey: event.pubkey,
-      })
+      if (processedEventIds.has(event.id) || inFlightEventIds.has(event.id)) {
+        logger.info({ eventId: event.id }, "ignoring duplicate NWC request")
+        return
+      }
 
-      const encryptionType = (event.tags.find(
-        (t: string[]) => t[0] === "encryption",
-      )?.[1] || "nip04") as Nip47EncryptionType
+      inFlightEventIds.add(event.id)
 
-      let decryptedContent: string
       try {
-        decryptedContent = decrypt(
-          serverKeypair,
-          event.pubkey as NwcAppPubkey,
-          event.content,
-          encryptionType,
-        )
-      } catch (err) {
-        eventLogger.error({ err }, "failed to decrypt event")
-        await sendNwcResponse(
-          event.id,
-          event.pubkey as NwcAppPubkey,
-          "unknown" as Nip47MethodType,
-          encryptionType,
-          parseNip47Response(new Nip47InternalError("Decryption failed")),
-        )
-        return
-      }
+        const wasProcessed = await processedNwcRequestsRepository.isProcessed(event.id)
+        if (wasProcessed instanceof Error) {
+          throw new RetryableEventProcessingError(
+            "Failed to check processed NWC request state",
+            wasProcessed,
+          )
+        }
+        if (wasProcessed) {
+          processedEventIds.set(event.id, Date.now())
+          logger.info({ eventId: event.id }, "ignoring persistently tracked NWC request")
+          return
+        }
 
-      let request: { method: Nip47MethodType; params: unknown }
-      try {
-        request = JSON.parse(decryptedContent)
-      } catch (err) {
-        eventLogger.error({ err }, "failed to parse decrypted content")
-        await sendNwcResponse(
-          event.id,
-          event.pubkey as NwcAppPubkey,
-          "unknown" as Nip47MethodType,
-          encryptionType,
-          parseNip47Response(new Nip47InternalError("Invalid request format")),
-        )
-        return
-      }
+        const eventLogger = logger.child({
+          eventId: event.id,
+          appPubkey: event.pubkey,
+        })
 
-      eventLogger.info({ method: request.method }, "processing NWC request")
+        const encryptionType = (event.tags.find(
+          (t: string[]) => t[0] === "encryption",
+        )?.[1] || "nip04") as string
 
-      const userConnection = await connectionsRepository.findByPubkey(
-        event.pubkey as NwcAppPubkey,
-      )
-
-      if (userConnection instanceof Error || userConnection.revoked) {
-        eventLogger.warn("no active connection found for pubkey")
-        await sendNwcResponse(
-          event.id,
-          event.pubkey as NwcAppPubkey,
-          request.method,
-          encryptionType,
-          parseNip47Response(
-            new Nip47UnauthorizedError("No connection found with provided pubkey"),
-          ),
-        )
-        return
-      }
-
-      if (userConnection.expiresAt && userConnection.expiresAt <= new Date()) {
-        eventLogger.warn({ connectionId: userConnection.id }, "connection has expired")
-        await sendNwcResponse(
-          event.id,
-          event.pubkey as NwcAppPubkey,
-          request.method,
-          encryptionType,
-          parseNip47Response(new Nip47UnauthorizedError("Connection has expired")),
-        )
-        return
-      }
-
-      if (!hasPermission(request.method, userConnection)) {
-        eventLogger.warn(
-          { connectionId: userConnection.id, method: request.method },
-          "connection is not permitted to use method",
-        )
-        await sendNwcResponse(
-          event.id,
-          event.pubkey as NwcAppPubkey,
-          request.method,
-          encryptionType,
-          parseNip47Response(
-            new Nip47RestrictedError(
-              "Connection does not have permission for this method",
+        if (!isSupportedEncryptionType(encryptionType)) {
+          eventLogger.warn({ encryptionType }, "unsupported request encryption type")
+          await sendNwcResponse(
+            event.id,
+            event.pubkey as NwcAppPubkey,
+            undefined,
+            "nip04",
+            parseNip47Response(
+              new Nip47UnsupportedEncryptionError(
+                `Unsupported encryption type: ${encryptionType}`,
+              ),
             ),
-          ),
+          )
+          await markEventProcessed(event.id)
+          return
+        }
+
+        const expiration = event.tags.find((tag) => tag[0] === "expiration")?.[1]
+        const expirationTimestamp =
+          expiration !== undefined ? Number.parseInt(expiration, 10) : undefined
+        if (
+          typeof expirationTimestamp === "number" &&
+          Number.isFinite(expirationTimestamp)
+        ) {
+          if (Math.floor(Date.now() / 1000) > expirationTimestamp) {
+            eventLogger.info(
+              { expiration: expirationTimestamp },
+              "ignoring expired NWC request",
+            )
+            await markEventProcessed(event.id, expirationTimestamp)
+            return
+          }
+        }
+
+        let decryptedContent: string
+        try {
+          decryptedContent = decrypt(
+            serverKeypair,
+            event.pubkey as NwcAppPubkey,
+            event.content,
+            encryptionType as Nip47EncryptionType,
+          )
+        } catch (err) {
+          eventLogger.error({ err }, "failed to decrypt event")
+          await sendNwcResponse(
+            event.id,
+            event.pubkey as NwcAppPubkey,
+            undefined,
+            encryptionType as Nip47EncryptionType,
+            parseNip47Response(new Nip47InternalError("Decryption failed")),
+          )
+          await markEventProcessed(event.id, expirationTimestamp)
+          return
+        }
+
+        let request: { method: Nip47MethodType; params: unknown }
+        try {
+          request = JSON.parse(decryptedContent)
+        } catch (err) {
+          eventLogger.error({ err }, "failed to parse decrypted content")
+          await sendNwcResponse(
+            event.id,
+            event.pubkey as NwcAppPubkey,
+            undefined,
+            encryptionType as Nip47EncryptionType,
+            parseNip47Response(new Nip47InternalError("Invalid request format")),
+          )
+          await markEventProcessed(event.id, expirationTimestamp)
+          return
+        }
+
+        eventLogger.info({ method: request.method }, "processing NWC request")
+
+        const userConnection = await connectionsRepository.findByPubkey(
+          event.pubkey as NwcAppPubkey,
         )
-        return
+
+        if (userConnection instanceof Error || userConnection.revoked) {
+          eventLogger.warn("no active connection found for pubkey")
+          await sendNwcResponse(
+            event.id,
+            event.pubkey as NwcAppPubkey,
+            request.method,
+            encryptionType as Nip47EncryptionType,
+            parseNip47Response(
+              new Nip47UnauthorizedError("No connection found with provided pubkey"),
+            ),
+          )
+          await markEventProcessed(event.id, expirationTimestamp)
+          return
+        }
+
+        if (isConnectionExpired(userConnection)) {
+          eventLogger.warn({ connectionId: userConnection.id }, "connection has expired")
+          await sendNwcResponse(
+            event.id,
+            event.pubkey as NwcAppPubkey,
+            request.method,
+            encryptionType as Nip47EncryptionType,
+            parseNip47Response(new Nip47UnauthorizedError("Connection has expired")),
+          )
+          await markEventProcessed(event.id, expirationTimestamp)
+          return
+        }
+
+        if (!hasPermission(request.method, userConnection)) {
+          eventLogger.warn(
+            { connectionId: userConnection.id, method: request.method },
+            "connection is not permitted to use method",
+          )
+          await sendNwcResponse(
+            event.id,
+            event.pubkey as NwcAppPubkey,
+            request.method,
+            encryptionType as Nip47EncryptionType,
+            parseNip47Response(
+              new Nip47RestrictedError(
+                "Connection does not have permission for this method",
+              ),
+            ),
+          )
+          await markEventProcessed(event.id, expirationTimestamp)
+          return
+        }
+
+        connectionsRepository.updateLastUsed(userConnection.id).catch((err) => {
+          eventLogger.error(
+            { err, connectionId: userConnection.id },
+            "failed to update last_used_at",
+          )
+        })
+
+        const response = await handle(request, userConnection)
+        await sendNwcResponse(
+          event.id,
+          event.pubkey as NwcAppPubkey,
+          request.method,
+          encryptionType as Nip47EncryptionType,
+          parseNip47Response(response),
+        )
+        await markEventProcessed(event.id, expirationTimestamp)
+      } finally {
+        inFlightEventIds.delete(event.id)
       }
-
-      connectionsRepository.updateLastUsed(userConnection.id).catch((err) => {
-        eventLogger.error(
-          { err, connectionId: userConnection.id },
-          "failed to update last_used_at",
-        )
-      })
-
-      const response = await handle(request, userConnection)
-      await sendNwcResponse(
-        event.id,
-        event.pubkey as NwcAppPubkey,
-        request.method,
-        encryptionType,
-        parseNip47Response(response),
-      )
     }
 
     const stop = async () => {
@@ -295,7 +433,7 @@ export const NwcSubscriber = () => {
         sub = undefined
       }
 
-      r.close()
+      relay.close()
       logger.info("subscriber stopped")
     }
 
@@ -308,8 +446,8 @@ export const NwcSubscriber = () => {
 
   const checkConnected = async () => {
     try {
-      if (!r.connected) {
-        await r.connect()
+      if (!relay.connected) {
+        await relay.connect()
       }
     } catch (err) {
       logger.error({ err, relayUrl: NOSTR_RELAY_URL }, "failed to connect to relay")
@@ -321,29 +459,39 @@ export const NwcSubscriber = () => {
     const infoEventTemplate: EventTemplate = {
       kind: EventKind.InfoEvent,
       created_at: Math.floor(Date.now() / 1000),
-      tags: [["encryption", "nip44_v2 nip04"]],
-      content: SUPPORTED_NWC_METHODS.join(" "),
+      tags: [
+        // NIP-47 advertises preferred-to-fallback encryption in this order.
+        // We prefer nip44_v2 for new clients, but still accept nip04 requests
+        // so older clients can interoperate with the same relay connection.
+        ["encryption", "nip44_v2 nip04"],
+        ["notifications", SUPPORTED_NWC_NOTIFICATIONS.join(" ")],
+      ],
+      content: [...SUPPORTED_NWC_METHODS, "notifications"].join(" "),
     }
 
     const infoEvent = finalizeEvent(infoEventTemplate, hexToBytes(serverKeypair.privkey))
-    await r.publish(infoEvent)
+    await relay.publish(infoEvent)
     logger.info("published info event to relay")
   }
 
   const sendNwcResponse = async (
     eventId: string,
     appPk: NwcAppPubkey,
-    resultType: Nip47MethodType,
+    resultType: Nip47MethodType | undefined,
     encryptionType: Nip47EncryptionType,
     response: Nip47Response,
   ) => {
+    const payload =
+      resultType === undefined
+        ? response
+        : {
+            result_type: resultType,
+            ...response,
+          }
     const encryptedContent = encrypt(
       serverKeypair,
       appPk,
-      JSON.stringify({
-        result_type: resultType,
-        ...response,
-      }),
+      JSON.stringify(payload),
       encryptionType,
     )
 
@@ -362,7 +510,7 @@ export const NwcSubscriber = () => {
       hexToBytes(serverKeypair.privkey),
     )
     try {
-      await r.publish(responseEvent)
+      await relay.publish(responseEvent)
     } catch (err) {
       throw new RetryableEventProcessingError("Failed to publish NWC response", err)
     }
@@ -372,7 +520,7 @@ export const NwcSubscriber = () => {
     const SECOND = 1000
     const MAX_BACKOFF_MS = SECOND * 60 * 5
     const delay = Math.min(SECOND * Math.pow(2, retries), MAX_BACKOFF_MS)
-    const jitter = Math.random() * delay * 0.1
+    const jitter = (Math.random() - 0.5) * delay * 0.2
     logger.info(
       { delaySec: Math.round((delay + jitter) / 1000), retry: retries },
       "backing off before retry",
@@ -381,4 +529,10 @@ export const NwcSubscriber = () => {
   }
 
   return { subscribe }
+}
+
+const isSupportedEncryptionType = (
+  encryptionType: string,
+): encryptionType is Nip47EncryptionType => {
+  return encryptionType === "nip04" || encryptionType === "nip44_v2"
 }

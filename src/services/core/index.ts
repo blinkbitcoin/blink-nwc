@@ -1,4 +1,5 @@
 import { CombinedGraphQLErrors, ServerError } from "@apollo/client"
+import { decode as decodeBolt11 } from "bolt11"
 import { GraphQLError } from "graphql"
 
 import client from "@/graphql/internal-client"
@@ -20,8 +21,10 @@ import {
 import { createInvoice as createInv } from "@/graphql/internal-client/mutations/create-invoice"
 import { DescriptionHash, PaymentHash, WalletId } from "@/domain/core/index.types"
 import { payInvoice as payInvoiceGql } from "@/graphql/internal-client/mutations/pay-invoice"
+import { payInvoiceAmountless as payInvoiceAmountlessGql } from "@/graphql/internal-client/mutations/pay-invoice-amountless"
 import { IError } from "@/graphql/index.types"
 import { getBalance as getBalanceGql } from "@/graphql/internal-client/queries/get-balance"
+import { getUsername as getUsernameGql } from "@/graphql/internal-client/queries/get-username"
 import {
   BlinkServiceError,
   CouldNotAuthorizeError,
@@ -48,6 +51,29 @@ import { wrapAsyncFunctionsToRunInSpan } from "@/services/tracing"
 import { mergeTxs, translateStatus } from "@/domain/utils"
 
 export const BlinkCoreService = (): IBlinkCoreService => {
+  const expiresAtFromInvoice = (paymentRequest?: InvoiceBolt11) => {
+    if (!paymentRequest) {
+      return undefined
+    }
+
+    try {
+      const decoded = decodeBolt11(paymentRequest)
+      return typeof decoded.timeExpireDate === "number"
+        ? (decoded.timeExpireDate as UnixTimestamp)
+        : undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  const getUsername = async (apiKey: ApiKey) => {
+    try {
+      return await getUsernameGql(client, apiKey)
+    } catch {
+      return new UnknownBlinkServiceError()
+    }
+  }
+
   const getNodeInfo = async () => {
     try {
       const nodeInfo = await fetchNodeInfo(client)
@@ -109,6 +135,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
         res.lnInvoiceCreateOnBehalfOfRecipient.invoice
       return {
         createdAt: createdAt as UnixTimestamp,
+        expiresAt: expiresAtFromInvoice(paymentRequest as InvoiceBolt11),
         paymentHash: paymentHash as PaymentHash,
         paymentRequest: paymentRequest as InvoiceBolt11,
         satoshis: satoshis as Satoshis,
@@ -122,7 +149,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
     apiKey: ApiKey,
     walletId: WalletId,
     memo: Description,
-    expiry: Minutes,
+    expiry?: Minutes,
   ) => {
     try {
       const res = await createInvoiceAmountlessGql(client, apiKey, walletId, memo, expiry)
@@ -141,6 +168,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
 
       return {
         createdAt: createdAt as UnixTimestamp,
+        expiresAt: expiresAtFromInvoice(paymentRequest as InvoiceBolt11),
         paymentHash: paymentHash as PaymentHash,
         paymentRequest: paymentRequest as InvoiceBolt11,
         satoshis: 0 as Satoshis,
@@ -154,11 +182,18 @@ export const BlinkCoreService = (): IBlinkCoreService => {
     apiKey: ApiKey,
     walletId: WalletId,
     invoice: InvoiceBolt11,
+    amount?: Satoshis,
     memo?: Description,
   ) => {
     try {
-      const res = await payInvoiceGql(client, apiKey, invoice, walletId, memo)
-      const payload = res?.lnInvoicePaymentSend
+      const res =
+        amount !== undefined
+          ? await payInvoiceAmountlessGql(client, apiKey, invoice, walletId, amount, memo)
+          : await payInvoiceGql(client, apiKey, invoice, walletId, memo)
+      const payload =
+        res && "lnInvoicePaymentSend" in res
+          ? res.lnInvoicePaymentSend
+          : res?.lnNoAmountInvoicePaymentSend
       if (!payload) {
         return new InvalidResponseError()
       }
@@ -241,7 +276,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
               amount: satoshis as Satoshis,
               feesPaid: 0 as Satoshis,
               createdAt: inv.createdAt as UnixTimestamp, // real invoice creation time
-              expiresAt: undefined,
+              expiresAt: expiresAtFromInvoice(inv.paymentRequest as InvoiceBolt11),
               settledAt: undefined, // invoice doesn't know settlement time
             }
           }
@@ -445,7 +480,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
           feesPaid: 0 as Satoshis,
           createdAt,
           settledAt: undefined, // invoice itself doesn't contain settled_at
-          expiresAt: undefined,
+          expiresAt: expiresAtFromInvoice(node.paymentRequest as InvoiceBolt11),
         }
       })
 
@@ -539,7 +574,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
     /*
      * filter out txs older than "from" and apply offset
      */
-    return allTxs.filter((tx) => tx.createdAt > from).slice(offset, totalLimit)
+    return allTxs.filter((tx) => tx.createdAt >= from).slice(offset, totalLimit)
   }
 
   const fetchInvoicesInRange = async (
@@ -579,7 +614,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
       }
 
       const oldestInvTimestamp = invoices[invoices.length - 1].createdAt
-      if (from !== undefined && oldestInvTimestamp <= from) {
+      if (from !== undefined && oldestInvTimestamp < from) {
         break
       }
 
@@ -593,12 +628,149 @@ export const BlinkCoreService = (): IBlinkCoreService => {
       }
     }
 
-    return allInvoices.filter((inv) => inv.createdAt > from).slice(offset, totalLimit)
+    return allInvoices.filter((inv) => inv.createdAt >= from).slice(offset, totalLimit)
+  }
+
+  const fetchMergedTransactionsInRange = async (
+    apiKey: ApiKey,
+    walletId: WalletId,
+    from: UnixTimestamp,
+    until: Cursor,
+    offset: number,
+    limit: number,
+    type: PaymentDirection,
+  ) => {
+    const PAGE_SIZE = 100
+    const totalLimit = offset + limit
+    const allTransactions: CoreServiceTx[] = []
+    const allInvoices: CoreServiceTx[] = []
+    const invoicePaymentHashes = new Set<string>()
+
+    let transactionCursor: Cursor = until
+    let invoiceCursor: Cursor = until
+    let transactionFrontier = Number.POSITIVE_INFINITY
+    let invoiceFrontier = Number.POSITIVE_INFINITY
+    let transactionsExhausted = false
+    let invoicesExhausted = type === PD.Outgoing
+
+    const appendTransactionsPage = async () => {
+      if (transactionsExhausted) {
+        return
+      }
+
+      const res = await listTransactions(apiKey, walletId, {
+        first: PAGE_SIZE,
+        after: transactionCursor,
+      })
+      if (res instanceof Error) {
+        return res
+      }
+
+      const { transactions, pageInfo } = res
+      if (transactions.length === 0) {
+        transactionsExhausted = true
+        transactionFrontier = Number.NEGATIVE_INFINITY
+        return
+      }
+
+      transactionFrontier = transactions[transactions.length - 1].createdAt
+      const rangedTransactions = transactions.filter((tx) => tx.createdAt >= from)
+      const filteredTransactions =
+        type === PD.Both
+          ? rangedTransactions
+          : rangedTransactions.filter((tx) => tx.type === type)
+      allTransactions.push(...filteredTransactions)
+
+      if (transactionFrontier < from || !pageInfo.hasNextPage || !pageInfo.endCursor) {
+        transactionsExhausted = true
+        transactionFrontier = Number.NEGATIVE_INFINITY
+        return
+      }
+
+      transactionCursor = pageInfo.endCursor
+    }
+
+    const appendInvoicesPage = async () => {
+      if (invoicesExhausted) {
+        return
+      }
+
+      const res = await listInvoices(apiKey, walletId, {
+        first: PAGE_SIZE,
+        after: invoiceCursor,
+      })
+      if (res instanceof Error) {
+        return res
+      }
+
+      const { invoices, pageInfo } = res
+      if (invoices.length === 0) {
+        invoicesExhausted = true
+        invoiceFrontier = Number.NEGATIVE_INFINITY
+        return
+      }
+
+      invoiceFrontier = invoices[invoices.length - 1].createdAt
+      const rangedInvoices = invoices.filter((invoice) => invoice.createdAt >= from)
+      for (const invoice of rangedInvoices) {
+        invoicePaymentHashes.add(invoice.paymentHash)
+      }
+      allInvoices.push(...rangedInvoices)
+
+      if (invoiceFrontier < from || !pageInfo.hasNextPage || !pageInfo.endCursor) {
+        invoicesExhausted = true
+        invoiceFrontier = Number.NEGATIVE_INFINITY
+        return
+      }
+
+      invoiceCursor = pageInfo.endCursor
+    }
+
+    const getMergedPrefix = () =>
+      mergeTxs(allInvoices, allTransactions).slice(0, totalLimit)
+
+    while (!transactionsExhausted || !invoicesExhausted) {
+      const prefix = getMergedPrefix()
+      const tailCreatedAt = prefix[prefix.length - 1]?.createdAt
+      const hasProvisionalIncomingInPrefix = prefix.some(
+        (tx) => tx.type === PD.Incoming && !invoicePaymentHashes.has(tx.paymentHash),
+      )
+
+      const shouldLoadTransactions =
+        !transactionsExhausted &&
+        (prefix.length < totalLimit ||
+          tailCreatedAt === undefined ||
+          transactionFrontier > tailCreatedAt)
+      const shouldLoadInvoices =
+        !invoicesExhausted &&
+        (prefix.length < totalLimit ||
+          tailCreatedAt === undefined ||
+          invoiceFrontier > tailCreatedAt ||
+          hasProvisionalIncomingInPrefix)
+
+      if (!shouldLoadTransactions && !shouldLoadInvoices) {
+        break
+      }
+
+      const pageResults = await Promise.all([
+        shouldLoadTransactions ? appendTransactionsPage() : undefined,
+        shouldLoadInvoices ? appendInvoicesPage() : undefined,
+      ])
+      const pageError = pageResults.find(
+        (result): result is BlinkServiceError => result instanceof Error,
+      )
+      if (pageError) {
+        return pageError
+      }
+    }
+
+    return mergeTxs(allInvoices, allTransactions).slice(offset, totalLimit)
   }
 
   return wrapAsyncFunctionsToRunInSpan({
     namespace: "services.blinkCore",
     fns: {
+      getUsername,
       getNodeInfo,
       getBalance,
       createInvoice,
@@ -609,6 +781,7 @@ export const BlinkCoreService = (): IBlinkCoreService => {
       listInvoices,
       fetchTransactionsInRange,
       fetchInvoicesInRange,
+      fetchMergedTransactionsInRange,
     },
   })
 }

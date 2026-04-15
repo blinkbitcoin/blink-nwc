@@ -1,42 +1,53 @@
 import { finalizeEvent } from "nostr-tools"
 
-import { encrypt } from "@/domain/nostr"
+import { encrypt, EventKind } from "@/domain/nostr"
 import { NwcAppPubkey, Nip47Notification } from "@/domain/index.types"
 import { NotificationService } from "@/services/nwc-notifications"
 
-jest.mock("@/domain/connection", () => ({
-  getServerKeypair: () => ({
-    pubkey: "a".repeat(64),
-    privkey: "b".repeat(64),
-  }),
-}))
+jest.mock("@/domain/connection", () => {
+  const actual =
+    jest.requireActual<typeof import("@/domain/connection")>("@/domain/connection")
 
-jest.mock("@/domain/nostr", () => ({
-  encrypt: jest.fn().mockReturnValue("encrypted_content"),
-  hexToBytes: jest.fn().mockReturnValue(new Uint8Array(32)),
-}))
+  return {
+    ...actual,
+    getServerKeypair: () => ({
+      pubkey: "a".repeat(64),
+      privkey: "b".repeat(64),
+    }),
+  }
+})
+
+jest.mock("@/domain/nostr", () => {
+  const actual = jest.requireActual<typeof import("@/domain/nostr")>("@/domain/nostr")
+
+  return {
+    ...actual,
+    encrypt: jest.fn().mockReturnValue("encrypted_content"),
+  }
+})
 
 jest.mock("@/services/tracing", () => ({
   recordExceptionInCurrentSpan: jest.fn(),
 }))
 
-jest.mock("@/domain/errors", () => ({
-  parseErrorFromUnknown: jest.fn((e: unknown) => e),
-}))
-
 const mockPublish = jest.fn()
 
-jest.mock("nostr-tools", () => ({
-  finalizeEvent: jest.fn().mockReturnValue({
-    id: "event-id",
-    kind: 23197,
-    content: "encrypted_content",
-    tags: [["p", "c".repeat(64)]],
-    created_at: 1000,
-    pubkey: "a".repeat(64),
-    sig: "sig",
-  }),
-}))
+jest.mock("nostr-tools", () => {
+  const actual = jest.requireActual<typeof import("nostr-tools")>("nostr-tools")
+
+  return {
+    ...actual,
+    finalizeEvent: jest.fn().mockReturnValue({
+      id: "event-id",
+      kind: 23197,
+      content: "encrypted_content",
+      tags: [["p", "c".repeat(64)]],
+      created_at: 1000,
+      pubkey: "a".repeat(64),
+      sig: "sig",
+    }),
+  }
+})
 
 const mockedFinalizeEvent = jest.mocked(finalizeEvent)
 const mockedEncrypt = jest.mocked(encrypt)
@@ -71,12 +82,12 @@ describe("NotificationService", () => {
     expect(mockPublish).toHaveBeenCalledTimes(1)
   })
 
-  it("should create event with kind 23197", async () => {
+  it("should create event with the NIP-47 notification kind", async () => {
     const service = NotificationService(mockRelay)
     await service.sendNotification(mockNotification, appPubkey)
 
     const templateArg = mockedFinalizeEvent.mock.calls[0][0]
-    expect(templateArg.kind).toBe(23197)
+    expect(templateArg.kind).toBe(EventKind.Notification)
   })
 
   it("should tag event with recipient pubkey", async () => {

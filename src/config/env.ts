@@ -25,7 +25,9 @@ export const env = createEnv({
         : z.string().regex(/^[a-f0-9]{64}$/i),
 
     NOSTR_PRIVATE_KEY: z.string().regex(/^[a-f0-9]{64}$/i),
-    ROUTER_URL: z.string().url().default("http://galoy:4012/graphql"), //todo: ensure if same on prod
+    OATHKEEPER_DECISION_ENDPOINT: z.string().url().default("http://localhost:4456"),
+    ROUTER_URL: z.string().url().default("http://localhost:4004/graphql"),
+    PUBLIC_GRAPHQL_URL: z.string().url().default("http://localhost:4455/graphql"),
     NOSTR_RELAY_URL: z.string().url().default("ws://localhost:7777"),
     NOSTR_RELAY_PUBLIC_URL: z.string().url().default("ws://relay:7777"), // todo change on prod
     ...databaseServerSchema,
@@ -36,7 +38,9 @@ export const env = createEnv({
     LOGLEVEL: process.env.LOGLEVEL,
     DATA_ENCRYPTION_KEY: process.env.DATA_ENCRYPTION_KEY,
     NOSTR_PRIVATE_KEY: process.env.NOSTR_PRIVATE_KEY,
+    OATHKEEPER_DECISION_ENDPOINT: process.env.OATHKEEPER_DECISION_ENDPOINT,
     ROUTER_URL: process.env.ROUTER_URL,
+    PUBLIC_GRAPHQL_URL: process.env.PUBLIC_GRAPHQL_URL,
     NOSTR_RELAY_URL: process.env.NOSTR_RELAY_URL,
     NOSTR_RELAY_PUBLIC_URL: process.env.NOSTR_RELAY_PUBLIC_URL,
     ...databaseRuntimeEnv,

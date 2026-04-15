@@ -3,6 +3,8 @@ extend schema @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@
 type Query {
     hello: String!
     nwcServiceInfo: NwcServiceInfo!
+    nwcConnection(id: ID!): NwcConnection
+    nwcConnections(includeRevoked: Boolean = false): [NwcConnection!]!
 }
 scalar UserId
 scalar AccountId
@@ -33,10 +35,12 @@ type Mutation {
     nwcConnectionUpdate(input: NwcConnectionUpdateInput!): NwcConnectionUpdatePayload!
     nwcConnectionDelete(input: NwcConnectionDeleteInput!): NwcConnectionDeletePayload!
     nwcConnectionRevoke(input: NwcConnectionRevokeInput!): NwcConnectionRevokePayload!
+    nwcConnectionsRevokeAll: NwcConnectionRevokeAllPayload!
     nwcConnectionRevokeAll: NwcConnectionRevokeAllPayload!
 }
 
 type NwcServiceInfo {
+    serverPubkey: String!
     supportedMethods: [Nip47Method!]!
     supportedNotifications: [NwcNotificationType!]!
     relayUrl: String!
@@ -52,8 +56,8 @@ type NwcConnection @key(fields: "id") {
 
     alias: String
     appPubkey: String!
-    permissions: [Nip47Method!]!
-    notificationsEnabled: Boolean!
+    permissions: [NwcPermission!]!
+    budget: NwcBudget
 
     revoked: Boolean!
     expiresAt: Timestamp
@@ -78,35 +82,63 @@ enum Nip47Method {
     LIST_TRANSACTIONS
 }
 
+enum NwcPermission {
+    GET_INFO
+    GET_BALANCE
+    MAKE_INVOICE
+    PAY_INVOICE
+    LOOKUP_INVOICE
+    LIST_TRANSACTIONS
+    NOTIFICATIONS_PAYMENT_SENT
+    NOTIFICATIONS_PAYMENT_RECEIVED
+}
+
 enum NwcNotificationType {
     PAYMENT_SENT
     PAYMENT_RECEIVED
 }
 
+type NwcBudget {
+    amountSats: Int!
+    period: NwcBudgetPeriod!
+    usedSats: Int!
+    remainingSats: Int!
+    resetsAt: Timestamp
+}
+
+enum NwcBudgetPeriod {
+    DAILY
+    WEEKLY
+    MONTHLY
+    NEVER
+}
+
 input NwcConnectionCreateInput {
-    walletId: WalletId!
+    nwcUri: String!
+    walletId: WalletId
     alias: String
-    apiKey: String!
-    apiKeyId: String
-    permissions: [Nip47Method!]!
-    walletCurrency: WalletCurrency
+    permissions: [NwcPermission!]!
+    budget: NwcBudgetInput
     expiresAt: Timestamp
-    notificationsEnabled: Boolean
 }
 
 input NwcConnectionUpdateInput {
-    id: ID!
+    connectionId: ID!
     alias: String
-    permissions: [Nip47Method!]
-    notificationsEnabled: Boolean
+    budget: NwcBudgetInput
+}
+
+input NwcBudgetInput {
+    amountSats: Int!
+    period: NwcBudgetPeriod!
 }
 
 input NwcConnectionDeleteInput {
-    id: ID!
+    connectionId: ID!
 }
 
 input NwcConnectionRevokeInput {
-    id: ID!
+    connectionId: ID!
 }
 
 type NwcConnectionCreatePayload {
@@ -127,6 +159,7 @@ type NwcConnectionDeletePayload {
 
 type NwcConnectionRevokePayload {
     errors: [Error!]!
+    success: Boolean!
     connection: NwcConnection
 }
 

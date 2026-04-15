@@ -33,7 +33,7 @@ export type GraphQLPublicContext = {
 
 export type GraphQLPublicContextAuth = GraphQLPublicContext & {
   user: User
-  domainAccount: Account
+  authorization: string
   scope: ScopesOauth2[] | undefined
   appId: string | undefined
 }

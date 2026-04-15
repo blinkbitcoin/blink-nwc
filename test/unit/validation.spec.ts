@@ -106,6 +106,12 @@ describe("Validation Functions", () => {
       expect(result).toEqual(allMethods)
     })
 
+    it("should accept notification permissions", () => {
+      const permissions = ["get_info", "notifications:payment_sent"]
+      const result = checkedToPermissions(permissions)
+      expect(result).toEqual(permissions)
+    })
+
     it("should reject array with invalid permission", () => {
       const invalidPermissions = ["get_info", "invalid_method"]
       const result = checkedToPermissions(invalidPermissions)
@@ -278,6 +284,12 @@ describe("Validation Functions", () => {
       expect(result).toBe(invoice.toLowerCase())
     })
 
+    it("should reject mixed-case invoices", () => {
+      const result = checkedToBolt11Invoice("LnBc1000N1...")
+      expect(result).toBeInstanceOf(ValidationError)
+      expect((result as ValidationError).message).toContain("single-case")
+    })
+
     it("should reject non-string input", () => {
       const result = checkedToBolt11Invoice(12345)
       expect(result).toBeInstanceOf(ValidationError)
@@ -403,9 +415,14 @@ describe("Validation Functions", () => {
       expect(result).toBe(description)
     })
 
-    it("should accept empty string", () => {
+    it("should reject empty string", () => {
       const result = checkedToDescription("")
-      expect(result).toBe("")
+      expect(result).toBeInstanceOf(ValidationError)
+    })
+
+    it("should reject whitespace-only string", () => {
+      const result = checkedToDescription("   ")
+      expect(result).toBeInstanceOf(ValidationError)
     })
 
     it("should reject non-string input", () => {
@@ -570,8 +587,21 @@ describe("Validation Functions", () => {
       expect(result).toBeInstanceOf(ValidationError)
     })
 
+    it("should reject msat amounts that are not whole satoshis", () => {
+      const req = { amount: 1500 }
+      const result = checkedToNip47MakeInvoiceRequest(req)
+      expect(result).toBeInstanceOf(ValidationError)
+      expect((result as ValidationError).message).toContain("multiple of 1000")
+    })
+
     it("should reject invalid description", () => {
       const req = { amount: 1000, description: 12345 }
+      const result = checkedToNip47MakeInvoiceRequest(req)
+      expect(result).toBeInstanceOf(ValidationError)
+    })
+
+    it("should reject empty descriptions", () => {
+      const req = { amount: 1000, description: " " }
       const result = checkedToNip47MakeInvoiceRequest(req)
       expect(result).toBeInstanceOf(ValidationError)
     })
@@ -587,6 +617,15 @@ describe("Validation Functions", () => {
       const result = checkedToNip47MakeInvoiceRequest(req)
       expect(result).toBeInstanceOf(ValidationError)
     })
+
+    it("should reject description_hash for amountless invoices", () => {
+      const req = { description_hash: "a".repeat(64) }
+      const result = checkedToNip47MakeInvoiceRequest(req)
+      expect(result).toBeInstanceOf(ValidationError)
+      expect((result as ValidationError).message).toContain(
+        "description_hash is not supported for amountless invoices",
+      )
+    })
   })
 
   describe("checkedToNip47PayInvoiceRequest", () => {
@@ -594,6 +633,12 @@ describe("Validation Functions", () => {
       const req = { invoice: "lnbc1000n1..." }
       const result = checkedToNip47PayInvoiceRequest(req)
       expect(result).toEqual({ invoice: req.invoice })
+    })
+
+    it("should accept valid request with amount", () => {
+      const req = { invoice: "lnbc1000n1...", amount: 25000 }
+      const result = checkedToNip47PayInvoiceRequest(req)
+      expect(result).toEqual(req)
     })
 
     it("should reject missing invoice", () => {
@@ -613,6 +658,26 @@ describe("Validation Functions", () => {
       const req = { invoice: 12345 }
       const result = checkedToNip47PayInvoiceRequest(req)
       expect(result).toBeInstanceOf(ValidationError)
+    })
+
+    it("should reject invalid amount", () => {
+      const req = { invoice: "lnbc1000n1...", amount: -1 }
+      const result = checkedToNip47PayInvoiceRequest(req)
+      expect(result).toBeInstanceOf(ValidationError)
+    })
+
+    it("should reject zero amount", () => {
+      const req = { invoice: "lnbc1000n1...", amount: 0 }
+      const result = checkedToNip47PayInvoiceRequest(req)
+      expect(result).toBeInstanceOf(ValidationError)
+      expect((result as ValidationError).message).toContain("positive integer")
+    })
+
+    it("should reject msat overrides that are not whole satoshis", () => {
+      const req = { invoice: "lnbc1000n1...", amount: 1500 }
+      const result = checkedToNip47PayInvoiceRequest(req)
+      expect(result).toBeInstanceOf(ValidationError)
+      expect((result as ValidationError).message).toContain("multiple of 1000")
     })
   })
 
@@ -661,6 +726,18 @@ describe("Validation Functions", () => {
     it("should accept empty request", () => {
       const req = {}
       const result = checkedToNip47ListTransactionsRequest(req)
+      expect(result).toMatchObject({
+        from: undefined,
+        until: undefined,
+        limit: undefined,
+        offset: undefined,
+        unpaid: undefined,
+        type: PD.Both,
+      })
+    })
+
+    it("should accept undefined request", () => {
+      const result = checkedToNip47ListTransactionsRequest(undefined)
       expect(result).toMatchObject({
         from: undefined,
         until: undefined,

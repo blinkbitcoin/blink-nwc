@@ -7,10 +7,24 @@ const mockFindByPubkey = jest.fn()
 const mockUpdateLastUsed = jest.fn()
 const mockDecrypt = jest.fn()
 const mockEncrypt = jest.fn()
-const mockParseNip47Response = jest.fn()
 const mockHandle = jest.fn()
 const mockSleep = jest.fn()
-const mockConnectionsRepository = jest.fn()
+const mockConnectionsRepositoryFactory = jest.fn()
+const mockProcessedNwcRequestsRepositoryFactory = jest.fn()
+const mockIsProcessed = jest.fn()
+const mockMarkProcessed = jest.fn()
+const mockPruneExpired = jest.fn()
+
+const mockConnectionsRepository = {
+  findByPubkey: mockFindByPubkey,
+  updateLastUsed: mockUpdateLastUsed,
+}
+
+const mockProcessedNwcRequestsRepository = {
+  isProcessed: mockIsProcessed,
+  markProcessed: mockMarkProcessed,
+  pruneExpired: mockPruneExpired,
+}
 
 let relayInstance: MockRelay | undefined
 let currentSubscription:
@@ -30,21 +44,23 @@ class MockRelay {
 
 jest.mock("ws", () => ({}))
 
-jest.mock("nostr-tools", () => ({
-  Relay: jest.fn(() => {
-    relayInstance = new MockRelay()
-    return relayInstance
-  }),
-  finalizeEvent: (...args: unknown[]) => mockFinalizeEvent(...args),
-  verifyEvent: (...args: unknown[]) => mockVerifyEvent(...args),
-}))
+jest.mock("nostr-tools", () => {
+  const actual = jest.requireActual<typeof import("nostr-tools")>("nostr-tools")
+
+  return {
+    ...actual,
+    Relay: jest.fn(() => {
+      relayInstance = new MockRelay()
+      return relayInstance
+    }),
+    finalizeEvent: (...args: unknown[]) => mockFinalizeEvent(...args),
+    verifyEvent: (...args: unknown[]) => mockVerifyEvent(...args),
+  }
+})
 
 jest.mock("@/services/db", () => ({
-  ConnectionsRepository: () =>
-    mockConnectionsRepository({
-      findByPubkey: mockFindByPubkey,
-      updateLastUsed: mockUpdateLastUsed,
-    }),
+  ConnectionsRepository: () => mockConnectionsRepositoryFactory(),
+  ProcessedNwcRequestsRepository: () => mockProcessedNwcRequestsRepositoryFactory(),
 }))
 
 jest.mock("@/config", () => ({
@@ -57,43 +73,38 @@ jest.mock("@/config", () => ({
     "lookup_invoice",
     "list_transactions",
   ],
+  SUPPORTED_NWC_NOTIFICATIONS: ["payment_sent", "payment_received"],
 }))
 
-jest.mock("@/domain/connection", () => ({
-  getServerKeypair: () => ({
-    pubkey: "a".repeat(64),
-    privkey: "b".repeat(64),
-  }),
-  hasPermission: (method: string, connection: { permissions?: string[] }) =>
-    connection.permissions?.includes(method) ?? false,
-}))
+jest.mock("@/domain/connection", () => {
+  const actual =
+    jest.requireActual<typeof import("@/domain/connection")>("@/domain/connection")
 
-jest.mock("@/domain/nostr", () => ({
-  decrypt: (...args: unknown[]) => mockDecrypt(...args),
-  encrypt: (...args: unknown[]) => mockEncrypt(...args),
-  EventKind: {
-    Request: 23194,
-    Response: 23195,
-    InfoEvent: 13194,
-  },
-  hexToBytes: jest.fn().mockReturnValue(new Uint8Array(32)),
-  Nip47UnauthorizedError: class Nip47UnauthorizedError extends Error {
-    code = "UNAUTHORIZED"
-  },
-  Nip47InternalError: class Nip47InternalError extends Error {
-    code = "INTERNAL"
-  },
-  Nip47RestrictedError: class Nip47RestrictedError extends Error {
-    code = "RESTRICTED"
-  },
-  parseNip47Response: (...args: unknown[]) => mockParseNip47Response(...args),
-}))
+  return {
+    ...actual,
+    getServerKeypair: () => ({
+      pubkey: "a".repeat(64),
+      privkey: "b".repeat(64),
+    }),
+  }
+})
+
+jest.mock("@/domain/nostr", () => {
+  const actual = jest.requireActual<typeof import("@/domain/nostr")>("@/domain/nostr")
+
+  return {
+    ...actual,
+    decrypt: (...args: unknown[]) => mockDecrypt(...args),
+    encrypt: (...args: unknown[]) => mockEncrypt(...args),
+  }
+})
 
 jest.mock("@/domain/utils", () => ({
   sleep: (...args: unknown[]) => mockSleep(...args),
 }))
 
 import { NwcSubscriber } from "@/services/nwc-subscriber"
+import { EventKind } from "@/domain/nostr"
 
 const flushMicrotasks = async () => {
   await Promise.resolve()
@@ -109,7 +120,10 @@ describe("NwcSubscriber", () => {
       close: jest.fn(),
     }
     mockSubscribe.mockImplementation(() => currentSubscription)
-    mockConnectionsRepository.mockImplementation((repository) => repository)
+    mockConnectionsRepositoryFactory.mockReturnValue(mockConnectionsRepository)
+    mockProcessedNwcRequestsRepositoryFactory.mockReturnValue(
+      mockProcessedNwcRequestsRepository,
+    )
     mockVerifyEvent.mockReturnValue(true)
     mockFinalizeEvent.mockImplementation((template: unknown) => template)
     mockFindByPubkey.mockResolvedValue({
@@ -129,22 +143,9 @@ describe("NwcSubscriber", () => {
     )
     mockEncrypt.mockReturnValue("encrypted-response")
     mockSleep.mockResolvedValue(undefined)
-    mockParseNip47Response.mockImplementation((result: unknown) => {
-      if (
-        result instanceof Error &&
-        "code" in result &&
-        typeof result.code === "string"
-      ) {
-        return {
-          error: {
-            code: result.code,
-            message: result.message,
-          },
-        }
-      }
-
-      return { result }
-    })
+    mockIsProcessed.mockResolvedValue(false)
+    mockMarkProcessed.mockResolvedValue(undefined)
+    mockPruneExpired.mockResolvedValue(0)
   })
 
   it("publishes the synchronously encrypted response event", async () => {
@@ -174,7 +175,7 @@ describe("NwcSubscriber", () => {
     expect(mockHandle).toHaveBeenCalledTimes(1)
     expect(mockPublish).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        kind: 23195,
+        kind: EventKind.Response,
         content: "encrypted-response",
       }),
     )
@@ -197,7 +198,8 @@ describe("NwcSubscriber", () => {
 
     await flushMicrotasks()
 
-    expect(mockConnectionsRepository).toHaveBeenCalledTimes(1)
+    expect(mockConnectionsRepositoryFactory).toHaveBeenCalledTimes(1)
+    expect(mockProcessedNwcRequestsRepositoryFactory).toHaveBeenCalledTimes(1)
     expect(mockFindByPubkey).toHaveBeenCalledTimes(1)
     expect(mockUpdateLastUsed).toHaveBeenCalledTimes(1)
 
@@ -214,7 +216,7 @@ describe("NwcSubscriber", () => {
     expect(mockSubscribe).toHaveBeenCalledWith(
       [
         {
-          "kinds": [23194],
+          "kinds": [EventKind.Request],
           "#p": ["a".repeat(64)],
           "since": 1710000000,
         },
@@ -226,10 +228,31 @@ describe("NwcSubscriber", () => {
     await stop()
   })
 
+  it("publishes a spec-compliant info event on startup", async () => {
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    expect(mockPublish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: EventKind.InfoEvent,
+        content:
+          "get_info get_balance make_invoice pay_invoice lookup_invoice list_transactions notifications",
+        tags: expect.arrayContaining([
+          ["encryption", "nip44_v2 nip04"],
+          ["notifications", "payment_sent payment_received"],
+        ]),
+      }),
+    )
+
+    await stop()
+  })
+
   it("retries relay publish failures that escape event processing", async () => {
     let publishAttempts = 0
     mockPublish.mockImplementation(async (event: { kind?: number }) => {
-      if (event.kind === 23195) {
+      if (event.kind === EventKind.Response) {
         publishAttempts += 1
         if (publishAttempts === 1) {
           throw new Error("relay publish failed")
@@ -317,5 +340,121 @@ describe("NwcSubscriber", () => {
     )
 
     await stop()
+  })
+
+  it("ignores expired requests", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(1710000000000)
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [
+        ["encryption", "nip04"],
+        ["expiration", "1709999999"],
+      ],
+    })
+
+    await flushMicrotasks()
+
+    expect(mockHandle).not.toHaveBeenCalled()
+    expect(mockEncrypt).not.toHaveBeenCalled()
+
+    jest.restoreAllMocks()
+    await stop()
+  })
+
+  it("returns UNSUPPORTED_ENCRYPTION for unknown encryption tags", async () => {
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip99"]],
+    })
+
+    await flushMicrotasks()
+
+    expect(mockHandle).not.toHaveBeenCalled()
+    expect(mockEncrypt).toHaveBeenCalledWith(
+      expect.objectContaining({ pubkey: "a".repeat(64) }),
+      "c".repeat(64),
+      JSON.stringify({
+        error: {
+          code: "UNSUPPORTED_ENCRYPTION",
+          message: "Unsupported encryption type: nip99",
+        },
+      }),
+      "nip04",
+    )
+
+    await stop()
+  })
+
+  it("ignores duplicate request ids while a request is already tracked", async () => {
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    const event = {
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    }
+
+    currentSubscription?.onevent?.(event)
+    await flushMicrotasks()
+    currentSubscription?.onevent?.(event)
+    await flushMicrotasks()
+
+    expect(mockHandle).toHaveBeenCalledTimes(1)
+
+    await stop()
+  })
+
+  it("ignores request ids that were already persisted by an earlier subscriber instance", async () => {
+    const persistedEventIds = new Set<string>()
+    mockIsProcessed.mockImplementation(async (eventId: string) => {
+      return persistedEventIds.has(eventId)
+    })
+    mockMarkProcessed.mockImplementation(async (eventId: string) => {
+      persistedEventIds.add(eventId)
+    })
+
+    const event = {
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    }
+
+    const firstSubscriber = NwcSubscriber()
+    const firstStop = firstSubscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+    currentSubscription?.onevent?.(event)
+    await flushMicrotasks()
+    await firstStop()
+
+    const secondSubscriber = NwcSubscriber()
+    const secondStop = secondSubscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+    currentSubscription?.onevent?.(event)
+    await flushMicrotasks()
+
+    expect(mockHandle).toHaveBeenCalledTimes(1)
+
+    await secondStop()
   })
 })

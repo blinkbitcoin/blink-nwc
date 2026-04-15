@@ -19,7 +19,7 @@ integration-test:
 	pnpm run integration
 
 bats-test: build
-	bats -t test/bats
+	USE_RUNNING_NWC_DEV=$${USE_RUNNING_NWC_DEV:-false} bats -t test/bats
 
 build:
 	pnpm build
