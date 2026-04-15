@@ -167,10 +167,33 @@ login_user() {
   local auth_token=""
   local auth_error=""
 
+  token_is_valid() {
+    local candidate_token=$1
+    local validation_response
+    local user_id
+
+    validation_response="$(
+      curl -s \
+        -X POST \
+        -H "Authorization: Bearer ${candidate_token}" \
+        -H "Content-Type: application/json" \
+        -d '{"query":"query CurrentUser { me { id } }"}' \
+        "${endpoint}/graphql"
+    )"
+    user_id="$(echo "$validation_response" | jq -r '.data.me.id // empty')"
+
+    [[ -n "${user_id}" ]]
+  }
+
   if [[ -s "$token_cache_file" ]]; then
     auth_token="$(cat "$token_cache_file")"
     [[ -n "${auth_token}" ]] || return 1
-    return 0
+
+    if token_is_valid "${auth_token}"; then
+      return 0
+    fi
+
+    rm -f "$token_cache_file"
   fi
 
   for delay in 0 5 10 20; do
