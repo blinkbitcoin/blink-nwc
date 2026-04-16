@@ -30,6 +30,7 @@ export class InvalidNwcBudget extends ValidationError {}
 export class InvalidInvoice extends ValidationError {}
 export class InvalidAmount extends ValidationError {}
 export class InvalidNwcAlias extends ValidationError {}
+export class InvalidNwcKnownAppConfig extends ValidationError {}
 export class InvalidUnixTimestamp extends ValidationError {}
 export class InvalidHash extends ValidationError {}
 export class InvalidPaymentDirection extends ValidationError {}

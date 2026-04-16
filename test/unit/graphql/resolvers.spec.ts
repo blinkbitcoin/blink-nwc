@@ -1,3 +1,10 @@
+import { readFileSync } from "fs"
+import path from "path"
+
+import { buildSubgraphSchema } from "@apollo/subgraph"
+import { graphql } from "graphql"
+import { gql } from "graphql-tag"
+
 import { NWC_KNOWN_APPS } from "@/config/nwc-known-apps"
 
 const mockExampleHello = jest.fn()
@@ -50,7 +57,18 @@ import type {
 import { NwcBudgetPeriod } from "@/domain/nwc-budget"
 import { Nip47Method } from "@/domain/nostr"
 import { resolvers } from "@/graphql/resolvers"
-import { NwcPermissionPresetId } from "@/domain/nwc-permission-preset"
+import {
+  NWC_PERMISSION_PRESETS,
+  NwcPermissionPresetId,
+} from "@/domain/nwc-permission-preset"
+
+const schemaPath = path.resolve(__dirname, "../../../src/graphql/schema.graphql")
+
+const buildExecutableSchema = () =>
+  buildSubgraphSchema({
+    typeDefs: gql(readFileSync(schemaPath, "utf8")),
+    resolvers,
+  })
 
 describe("graphql resolvers", () => {
   const userId = "user-1" as UserId
@@ -603,6 +621,70 @@ describe("graphql resolvers", () => {
     )
   })
 
+  it("keeps permission preset ids aligned with configured presets", () => {
+    expect(NWC_PERMISSION_PRESETS.map((preset) => preset.id).sort()).toEqual(
+      Object.values(NwcPermissionPresetId).sort(),
+    )
+  })
+
+  it("serializes permission preset ids through the executable schema", async () => {
+    const result = await graphql({
+      schema: buildExecutableSchema(),
+      source: `
+        query PermissionPresets {
+          nwcPermissionPresets {
+            id
+            name
+          }
+        }
+      `,
+    })
+
+    expect(result.errors).toBeUndefined()
+    expect(result.data).toEqual({
+      nwcPermissionPresets: expect.arrayContaining([
+        expect.objectContaining({
+          id: "SATSBACK_USER",
+          name: "Satsback User",
+        }),
+        expect.objectContaining({
+          id: "READ_ONLY",
+          name: "Read-Only",
+        }),
+      ]),
+    })
+  })
+
+  it("resolves known app metadata through the executable schema", async () => {
+    const knownApp = NWC_KNOWN_APPS[0]
+    const result = await graphql({
+      schema: buildExecutableSchema(),
+      source: `
+        query KnownApp($pubkey: String!) {
+          nwcKnownApp(pubkey: $pubkey) {
+            pubkey
+            name
+            recommendedPreset {
+              id
+            }
+          }
+        }
+      `,
+      variableValues: { pubkey: knownApp.pubkey },
+    })
+
+    expect(result.errors).toBeUndefined()
+    expect(result.data).toEqual({
+      nwcKnownApp: {
+        pubkey: knownApp.pubkey,
+        name: knownApp.name,
+        recommendedPreset: {
+          id: "SATSBACK_USER",
+        },
+      },
+    })
+  })
+
   it("returns known app metadata by pubkey", async () => {
     const nwcKnownAppResolver = resolvers.Query!.nwcKnownApp as (
       parent: unknown,
@@ -651,5 +733,23 @@ describe("graphql resolvers", () => {
         pubkey: knownApp.pubkey,
       }),
     )
+  })
+
+  it("returns null for malformed known app pubkeys", async () => {
+    const nwcKnownAppResolver = resolvers.Query!.nwcKnownApp as (
+      parent: unknown,
+      args: { pubkey: string },
+      context: unknown,
+      info: unknown,
+    ) => Promise<unknown> | unknown
+
+    const result = await nwcKnownAppResolver(
+      {},
+      { pubkey: "not-a-pubkey" },
+      {},
+      {} as never,
+    )
+
+    expect(result).toBeNull()
   })
 })

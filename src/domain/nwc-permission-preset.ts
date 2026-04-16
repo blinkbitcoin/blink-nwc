@@ -19,8 +19,15 @@ export type NwcPermissionPreset = {
   id: NwcPermissionPresetIdType
   name: string
   description: string
-  permissions: NwcPermissionType[]
+  permissions: readonly NwcPermissionType[]
 }
+
+export const GraphqlNwcPermissionPresetId = {
+  SATSBACK_USER: NwcPermissionPresetId.SatsbackUser,
+  SATSBACK_MERCHANT: NwcPermissionPresetId.SatsbackMerchant,
+  NOSTR_ZAPPER: NwcPermissionPresetId.NostrZapper,
+  READ_ONLY: NwcPermissionPresetId.ReadOnly,
+} as const
 
 export const NWC_PERMISSION_PRESETS: readonly NwcPermissionPreset[] = [
   {
