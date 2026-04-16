@@ -7,6 +7,8 @@ import {
   toNotificationTypeFromPermission,
 } from "@/domain/nostr/notification-type"
 
+const NIP47_METHODS = new Set<string>(Object.values(Nip47Method))
+
 export const GraphqlNwcPermission = {
   GET_INFO: Nip47Method.GetInfo,
   GET_BALANCE: Nip47Method.GetBalance,
@@ -36,7 +38,7 @@ export const grantedMethodPermissions = (
   permissions: readonly NwcPermissionType[],
 ): Nip47MethodType[] =>
   [...new Set(permissions)].filter((permission): permission is Nip47MethodType =>
-    Object.values(Nip47Method).includes(permission as Nip47MethodType),
+    NIP47_METHODS.has(permission),
   )
 
 export const grantedNotificationTypes = (

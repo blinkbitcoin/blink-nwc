@@ -19,6 +19,9 @@ describe("permission-checker", () => {
       toNotificationPermission(NwcNotificationType.PaymentSent),
     ],
   } as const
+  const notificationsOnlyConnection = {
+    permissions: [toNotificationPermission(NwcNotificationType.PaymentReceived)],
+  } as const
 
   it("returns only method permissions for allowed methods and de-duplicates them", () => {
     expect(allowedMethods(connection)).toEqual([
@@ -29,6 +32,13 @@ describe("permission-checker", () => {
 
   it("returns only granted notifications and de-duplicates them", () => {
     expect(enabledNotifications(connection)).toEqual([NwcNotificationType.PaymentSent])
+  })
+
+  it("returns no methods for a notifications-only connection", () => {
+    expect(allowedMethods(notificationsOnlyConnection)).toEqual([])
+    expect(enabledNotifications(notificationsOnlyConnection)).toEqual([
+      NwcNotificationType.PaymentReceived,
+    ])
   })
 
   it("returns a restricted error for disallowed methods", () => {

@@ -6,12 +6,14 @@ export const NwcNotificationType = {
 export type NwcNotificationTypeValue =
   (typeof NwcNotificationType)[keyof typeof NwcNotificationType]
 
+const NOTIFICATION_PREFIX = "notifications:"
+
 export type NwcNotificationPermissionType = `notifications:${NwcNotificationTypeValue}`
 
 export const toNotificationPermission = (
   notificationType: NwcNotificationTypeValue,
 ): NwcNotificationPermissionType =>
-  `notifications:${notificationType}` as NwcNotificationPermissionType
+  `${NOTIFICATION_PREFIX}${notificationType}` as NwcNotificationPermissionType
 
 export const SUPPORTED_NWC_NOTIFICATION_PERMISSIONS: NwcNotificationPermissionType[] =
   Object.values(NwcNotificationType).map((notificationType) =>
@@ -21,10 +23,10 @@ export const SUPPORTED_NWC_NOTIFICATION_PERMISSIONS: NwcNotificationPermissionTy
 export const toNotificationTypeFromPermission = (
   permission: string,
 ): NwcNotificationTypeValue | undefined => {
-  if (!permission.startsWith("notifications:")) {
+  if (!permission.startsWith(NOTIFICATION_PREFIX)) {
     return undefined
   }
 
-  const notificationType = permission.slice("notifications:".length)
+  const notificationType = permission.slice(NOTIFICATION_PREFIX.length)
   return Object.values(NwcNotificationType).find((value) => value === notificationType)
 }
