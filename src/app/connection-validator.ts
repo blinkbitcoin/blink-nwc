@@ -13,6 +13,7 @@ export const isConnectionExpired = (
   connection: Pick<ValidatableConnection, "expiresAt">,
   now = new Date(),
 ): boolean => {
+  // Treat the timestamp as an inclusive cutoff: requests at or after it are expired.
   return connection.expiresAt != null && connection.expiresAt <= now
 }
 

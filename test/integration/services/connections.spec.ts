@@ -137,6 +137,22 @@ describe("ConnectionsRepository", () => {
       }
       expect(result.revoked).toBe(true)
     })
+
+    it("should find expired connection so request-time validation can reject it", async () => {
+      const repo = ConnectionsRepository()
+      const testConn = createTestConnection({
+        expiresAt: new Date("2026-01-01T00:00:00.000Z"),
+      })
+      await insertTestConnection(testConn)
+
+      const result = await repo.findByPubkey(testConn.appPubkey)
+
+      expect(result).not.toBeInstanceOf(Error)
+      if (result instanceof Error) {
+        return
+      }
+      expect(result.expiresAt).toEqual(new Date("2026-01-01T00:00:00.000Z"))
+    })
   })
 
   describe("findById", () => {

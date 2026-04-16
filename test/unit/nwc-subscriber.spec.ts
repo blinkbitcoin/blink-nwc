@@ -104,7 +104,7 @@ jest.mock("@/domain/utils", () => ({
 }))
 
 import { NwcSubscriber } from "@/services/nwc-subscriber"
-import { EventKind } from "@/domain/nostr"
+import { EventKind, Nip47NotImplementedError } from "@/domain/nostr"
 
 const flushMicrotasks = async () => {
   await Promise.resolve()
@@ -426,6 +426,55 @@ describe("NwcSubscriber", () => {
     )
 
     jest.restoreAllMocks()
+    await stop()
+  })
+
+  it("lets unsupported methods fall through to the handler without updating last_used_at", async () => {
+    mockDecrypt.mockReturnValueOnce(
+      JSON.stringify({
+        method: "unsupported_method",
+        params: {},
+      }),
+    )
+    mockHandle.mockResolvedValueOnce(
+      new Nip47NotImplementedError("Unsupported method: unsupported_method"),
+    )
+
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+
+    await flushMicrotasks()
+
+    expect(mockHandle).toHaveBeenCalledWith(
+      {
+        method: "unsupported_method",
+        params: {},
+      },
+      expect.objectContaining({ id: "connection-id" }),
+    )
+    expect(mockUpdateLastUsed).not.toHaveBeenCalled()
+    expect(mockEncrypt).toHaveBeenCalledWith(
+      expect.objectContaining({ pubkey: "a".repeat(64) }),
+      "c".repeat(64),
+      JSON.stringify({
+        result_type: "unsupported_method",
+        error: {
+          code: "NOT_IMPLEMENTED",
+          message: "Unsupported method: unsupported_method",
+        },
+      }),
+      "nip04",
+    )
+
     await stop()
   })
 

@@ -365,10 +365,10 @@ export const NwcSubscriber = () => {
           return
         }
 
-        const validationError = validateConnectionForRequest(
-          userConnection,
-          request.method,
-        )
+        const shouldValidateConnection = SUPPORTED_NWC_METHODS.includes(request.method)
+        const validationError = shouldValidateConnection
+          ? validateConnectionForRequest(userConnection, request.method)
+          : null
         if (validationError) {
           eventLogger.warn(
             {
@@ -389,12 +389,14 @@ export const NwcSubscriber = () => {
           return
         }
 
-        connectionsRepository.updateLastUsed(userConnection.id).catch((err) => {
-          eventLogger.error(
-            { err, connectionId: userConnection.id },
-            "failed to update last_used_at",
-          )
-        })
+        if (shouldValidateConnection) {
+          connectionsRepository.updateLastUsed(userConnection.id).catch((err) => {
+            eventLogger.error(
+              { err, connectionId: userConnection.id },
+              "failed to update last_used_at",
+            )
+          })
+        }
 
         const response = await handle(request, userConnection)
         await sendNwcResponse(
