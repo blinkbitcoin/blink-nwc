@@ -5,11 +5,7 @@ import {
   ensureMethodPermission,
 } from "@/app/permission-checker"
 import { parseErrorForNip47Response } from "@/app/nwc-event-handler.error"
-import {
-  getServerKeypair,
-  isConnectionExpired,
-  NwcConnection,
-} from "@/domain/connection"
+import { getServerKeypair, isConnectionExpired, NwcConnection } from "@/domain/connection"
 import { IBlinkCoreService } from "@/domain/core"
 import { ErrorLevel } from "@/domain/errors"
 import {
