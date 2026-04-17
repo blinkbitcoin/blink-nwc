@@ -227,6 +227,26 @@ describe("NwcEventHandler", () => {
       expect(result.code).toContain("UNAUTHORIZED")
       expect(result.message).toBe("Connection has expired")
     })
+
+    it("should reject revoked connections even when called directly", async () => {
+      const handler = NwcEventHandler()
+      const revokedConnection = {
+        ...mockConnection,
+        revoked: true,
+      }
+
+      const result = await handler.handle(
+        { method: Nip47Method.GetInfo, params: {} },
+        revokedConnection,
+      )
+
+      expect(result).toBeInstanceOf(Nip47Error)
+      if (!(result instanceof Nip47Error)) {
+        return
+      }
+      expect(result.code).toContain("UNAUTHORIZED")
+      expect(result.message).toBe("Connection has been revoked")
+    })
   })
 
   describe("getInfo", () => {

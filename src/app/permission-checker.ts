@@ -1,5 +1,5 @@
+import type { NwcConnection } from "@/domain/connection"
 import { Nip47MethodType } from "@/domain/index.types"
-import { NwcPermissionType } from "@/domain/nostr/index.types"
 import {
   grantedNotificationTypes,
   grantedMethodPermissions,
@@ -8,7 +8,7 @@ import {
 import { Nip47RestrictedError } from "@/domain/nostr"
 
 type PermissionedConnection = {
-  permissions: readonly NwcPermissionType[]
+  permissions: readonly NwcConnection["permissions"][number][]
 }
 
 export const allowedMethods = (connection: PermissionedConnection) =>

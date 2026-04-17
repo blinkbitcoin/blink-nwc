@@ -1,11 +1,12 @@
 import { SUPPORTED_NWC_METHODS, WALLET_ALIAS, WALLET_COLOR } from "@/config"
+import { validateConnectionState } from "@/app/connection-validator"
 import {
   allowedMethods,
   enabledNotifications,
   ensureMethodPermission,
 } from "@/app/permission-checker"
 import { parseErrorForNip47Response } from "@/app/nwc-event-handler.error"
-import { getServerKeypair, isConnectionExpired, NwcConnection } from "@/domain/connection"
+import { getServerKeypair, NwcConnection } from "@/domain/connection"
 import { IBlinkCoreService } from "@/domain/core"
 import { ErrorLevel } from "@/domain/errors"
 import {
@@ -21,7 +22,6 @@ import {
   Nip47NotFoundError,
   Nip47NotImplementedError,
   Nip47OtherError,
-  Nip47UnauthorizedError,
 } from "@/domain/nostr"
 import { PaymentDirection as PD } from "@/domain/nostr/payment-direction"
 import { BlinkCoreService } from "@/services"
@@ -367,6 +367,23 @@ const NwcEventHandler = ({
       "nwc.appPubkey": connection.appPubkey,
     })
 
+    const connectionError = validateConnectionState(connection)
+    if (connectionError) {
+      requestLogger.info(
+        {
+          response: {
+            error: {
+              code: connectionError.code,
+              message: connectionError.message,
+            },
+          },
+        },
+        "completed NWC request",
+      )
+      recordExceptionInCurrentSpan({ error: connectionError, level: ErrorLevel.Warn })
+      return connectionError
+    }
+
     if (!SUPPORTED_NWC_METHODS.includes(request.method)) {
       const response = new Nip47NotImplementedError(
         `Unsupported method: ${request.method}`,
@@ -383,23 +400,6 @@ const NwcEventHandler = ({
         "completed NWC request",
       )
       return response
-    }
-
-    if (isConnectionExpired(connection)) {
-      const error = new Nip47UnauthorizedError("Connection has expired")
-      recordExceptionInCurrentSpan({ error, level: ErrorLevel.Warn })
-      requestLogger.info(
-        {
-          response: {
-            error: {
-              code: error.code,
-              message: error.message,
-            },
-          },
-        },
-        "completed NWC request",
-      )
-      return error
     }
 
     const permissionError = ensureMethodPermission(connection, request.method)

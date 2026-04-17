@@ -1,13 +1,7 @@
-import { ensureMethodPermission } from "@/app/permission-checker"
-import { Nip47MethodType } from "@/domain/index.types"
-import { NwcPermissionType } from "@/domain/nostr/index.types"
-import { Nip47Error, Nip47UnauthorizedError } from "@/domain/nostr"
+import type { NwcConnection } from "@/domain/connection"
+import { Nip47UnauthorizedError } from "@/domain/nostr"
 
-type ValidatableConnection = {
-  revoked: boolean
-  expiresAt: Date | null
-  permissions: readonly NwcPermissionType[]
-}
+type ValidatableConnection = Pick<NwcConnection, "revoked" | "expiresAt">
 
 export const isConnectionExpired = (
   connection: Pick<ValidatableConnection, "expiresAt">,
@@ -17,11 +11,10 @@ export const isConnectionExpired = (
   return connection.expiresAt != null && connection.expiresAt <= now
 }
 
-export const validateConnectionForRequest = (
+export const validateConnectionState = (
   connection: ValidatableConnection,
-  method: Nip47MethodType,
   now = new Date(),
-): Nip47Error | null => {
+): Nip47UnauthorizedError | null => {
   if (connection.revoked) {
     return new Nip47UnauthorizedError("Connection has been revoked")
   }
@@ -30,5 +23,5 @@ export const validateConnectionForRequest = (
     return new Nip47UnauthorizedError("Connection has expired")
   }
 
-  return ensureMethodPermission(connection, method)
+  return null
 }

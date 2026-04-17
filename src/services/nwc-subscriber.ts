@@ -8,7 +8,7 @@ import {
   SUPPORTED_NWC_METHODS,
   SUPPORTED_NWC_NOTIFICATIONS,
 } from "@/config"
-import { validateConnectionForRequest } from "@/app/connection-validator"
+import { validateConnectionState } from "@/app/connection-validator"
 import { getServerKeypair, NwcConnection } from "@/domain/connection"
 import { parseErrorFromUnknown } from "@/domain/errors"
 import {
@@ -24,6 +24,8 @@ import {
   EventKind,
   hexToBytes,
   Nip47InternalError,
+  Nip47NotImplementedError,
+  Nip47RestrictedError,
   Nip47UnsupportedEncryptionError,
   Nip47UnauthorizedError,
   parseNip47Response,
@@ -64,6 +66,7 @@ export const NwcSubscriber = () => {
   const processedNwcRequestsRepository = ProcessedNwcRequestsRepository()
   const processedEventIds = new Map<string, number>()
   const inFlightEventIds = new Set<string>()
+  const lastUsedUpdatesInFlight = new Map<string, Promise<void>>()
 
   const REQUEST_EVENT_TTL_MS = 10 * 60 * 1000
   const PROCESSED_EVENT_PRUNE_INTERVAL_MS = 60 * 1000
@@ -365,10 +368,7 @@ export const NwcSubscriber = () => {
           return
         }
 
-        const shouldValidateConnection = SUPPORTED_NWC_METHODS.includes(request.method)
-        const validationError = shouldValidateConnection
-          ? validateConnectionForRequest(userConnection, request.method)
-          : null
+        const validationError = validateConnectionState(userConnection)
         if (validationError) {
           eventLogger.warn(
             {
@@ -389,15 +389,6 @@ export const NwcSubscriber = () => {
           return
         }
 
-        if (shouldValidateConnection) {
-          connectionsRepository.updateLastUsed(userConnection.id).catch((err) => {
-            eventLogger.error(
-              { err, connectionId: userConnection.id },
-              "failed to update last_used_at",
-            )
-          })
-        }
-
         const response = await handle(request, userConnection)
         await sendNwcResponse(
           event.id,
@@ -406,6 +397,9 @@ export const NwcSubscriber = () => {
           encryptionType as Nip47EncryptionType,
           parseNip47Response(response),
         )
+        if (shouldTrackLastUsed(response)) {
+          await updateLastUsed(userConnection.id, eventLogger)
+        }
         await markEventProcessed(event.id, expirationTimestamp)
       } finally {
         inFlightEventIds.delete(event.id)
@@ -514,6 +508,45 @@ export const NwcSubscriber = () => {
       "backing off before retry",
     )
     await sleep(Math.round(delay + jitter))
+  }
+
+  // Track handled, authorized requests after a response has been published.
+  const shouldTrackLastUsed = (response: Nip47Result) =>
+    !(
+      response instanceof Nip47UnauthorizedError ||
+      response instanceof Nip47RestrictedError ||
+      response instanceof Nip47NotImplementedError
+    )
+
+  const updateLastUsed = async (
+    connectionId: NwcConnection["id"],
+    logger: { error: (obj: object, msg: string) => void },
+  ) => {
+    const existingUpdate = lastUsedUpdatesInFlight.get(connectionId)
+    if (existingUpdate) {
+      await existingUpdate
+      return
+    }
+
+    const updatePromise = (async () => {
+      try {
+        const result = await connectionsRepository.updateLastUsed(connectionId)
+        if (result instanceof Error) {
+          logger.error({ err: result, connectionId }, "failed to update last_used_at")
+        }
+      } catch (err) {
+        logger.error({ err, connectionId }, "failed to update last_used_at")
+      }
+    })()
+
+    lastUsedUpdatesInFlight.set(connectionId, updatePromise)
+    try {
+      await updatePromise
+    } finally {
+      if (lastUsedUpdatesInFlight.get(connectionId) === updatePromise) {
+        lastUsedUpdatesInFlight.delete(connectionId)
+      }
+    }
   }
 
   return { subscribe }
