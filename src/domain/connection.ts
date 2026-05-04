@@ -156,6 +156,15 @@ export const parseNwcUri = (uri: string): ParsedNwcUri | InvalidNwcUri => {
     return new InvalidNwcUri("NWC URI must include relay information")
   }
 
+  try {
+    const relayUrl = new URL(relay)
+    if (relayUrl.protocol !== "ws:" && relayUrl.protocol !== "wss:") {
+      return new InvalidNwcUri("NWC URI relay must use ws:// or wss://")
+    }
+  } catch {
+    return new InvalidNwcUri("NWC URI relay must be a valid URL")
+  }
+
   const secret = parsed.searchParams.get("secret")
   if (!secret) {
     return new InvalidNwcUri("NWC URI must include a secret")

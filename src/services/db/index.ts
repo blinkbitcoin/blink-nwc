@@ -12,7 +12,9 @@ const logger = baseLogger.child({ module: "db" })
 
 export * from "./query-builder"
 export * from "./connections"
+export * from "./notification-audit"
 export * from "./processed-nwc-requests"
+export * from "./stream-cursors"
 
 export const KnownDbErrorDetails = {
   InvalidConnection: "ECONNREFUSED",

@@ -1,6 +1,6 @@
 import { ApolloClient, ApolloLink, InMemoryCache, HttpLink } from "@apollo/client"
 
-import { ROUTER_URL } from "@/config"
+import { PUBLIC_GRAPHQL_URL, ROUTER_URL } from "@/config"
 
 const authLink = new ApolloLink((operation, forward) => {
   const { apiKey, authorization } = operation.getContext()
@@ -14,7 +14,14 @@ const authLink = new ApolloLink((operation, forward) => {
 })
 
 export const httpLink = new HttpLink({
-  uri: ROUTER_URL,
+  uri: (operation) => {
+    const { uri, apiKey } = operation.getContext()
+    if (typeof uri === "string" && uri.length > 0) {
+      return uri
+    }
+
+    return apiKey ? PUBLIC_GRAPHQL_URL : ROUTER_URL
+  },
 })
 
 const client = new ApolloClient({

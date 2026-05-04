@@ -74,8 +74,8 @@ export type Nip47GetInfoResult = {
   color: NwcServerColor
   pubkey: ServerNostrPubkey
   network: Network
-  block_height: BlockHeight
-  block_hash: BlockHash
+  block_height?: BlockHeight
+  block_hash?: BlockHash
   methods: Nip47MethodType[]
   notifications: NwcNotificationTypeValue[]
 }
@@ -121,7 +121,7 @@ export type Nip47PaymentReceivedNotification = {
   notification: {
     type: "incoming"
     state?: PaymentStateType // optional
-    invoice: InvoiceBolt11 // encoded invoice
+    invoice?: InvoiceBolt11 // encoded invoice
     description?: Description // invoice's description, optional
     description_hash?: DescriptionHash // invoice's description hash, optional
     preimage?: Preimage // payment's preimage
@@ -139,15 +139,15 @@ export type Nip47PaymentSentNotification = {
   notification: {
     type: "outgoing"
     state?: PaymentStateType // optional
-    invoice: InvoiceBolt11 // encoded invoice
+    invoice?: InvoiceBolt11 // encoded invoice
     description?: Description // invoice's description, optional
     description_hash?: DescriptionHash // invoice's description hash, optional
-    preimage: Preimage // payment's preimage
+    preimage?: Preimage // payment's preimage
     payment_hash: PaymentHash // Payment hash for the payment
     amount: MilliSatoshis // value in msats
     fees_paid: MilliSatoshis // value in msats
     created_at: UnixTimestamp // invoice/payment creation time
-    expires_at: UnixTimestamp // invoice expiration time, optional if not applicable
+    expires_at?: UnixTimestamp // invoice expiration time, optional if not applicable
     settled_at: UnixTimestamp // invoice/payment settlement time
   }
 }
