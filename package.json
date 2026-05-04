@@ -4,7 +4,7 @@
   "description": "Nostr Wallet Connect GraphQL subgraph",
   "scripts": {
     "start": "node -r ./lib/src/services/tracing.js ./lib/src/server/index.js",
-    "build": "tsc && tsc-alias -p tsconfig.json",
+    "build": "tsc && mkdir -p lib/src/services/core/grpc && cp -R src/services/core/grpc/proto lib/src/services/core/grpc/ && tsc-alias -p tsconfig.json",
     "dev": "tsnd --respawn --files -r tsconfig-paths/register -r src/services/tracing.ts src/server/index.ts",
     "eslint-check": "eslint \"{src,test}/**/*.ts\"",
     "eslint-fix": "eslint \"{src,test}/**/*.ts\" --fix",
@@ -20,6 +20,7 @@
     "db:rollback": "knex --knexfile ./src/config/db.ts migrate:rollback",
     "db:create:seed": "knex --knexfile ./src/config/db.ts seed:make -x ts",
     "db:seed": "knex --knexfile ./src/config/db.ts seed:run",
+    "codegen:blink-core-grpc": "cd ./src/services/core/grpc/proto && buf generate",
     "build-strfry-policy": "docker run --rm -v ./strfry-policy:/build -w /build rust:1.83-alpine sh -c 'apk add --no-cache musl-dev && cargo build --release'"
   },
   "devDependencies": {
@@ -33,6 +34,7 @@
     "@swc/jest": "^0.2.29",
     "@types/eslint": "^9.6.1",
     "@types/express": "^4.17.21",
+    "@types/google-protobuf": "^3.15.12",
     "@types/jest": "^29.5.14",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.4.8",
@@ -44,11 +46,14 @@
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jest": "^28.11.0",
     "eslint-plugin-prettier": "^5.5.1",
+    "grpc-tools": "^1.13.0",
+    "grpc_tools_node_protoc_ts": "^5.3.3",
     "jest": "^29.7.0",
     "jest_workaround": "^0.79.19",
     "nodemon": "^3.0.1",
     "pino-pretty": "^10.2.0",
     "prettier": "^3.0.0",
+    "protoc-gen-js": "^3.21.4",
     "ts-node": "^10.9.1",
     "ts-node-dev": "^2.0.0",
     "tsc-alias": "^1.8.16",
@@ -59,7 +64,9 @@
   "dependencies": {
     "@apollo/client": "^4.0.9",
     "@apollo/server": "^4.9.1",
-    "@apollo/subgraph": "^2.5.1",
+    "@apollo/subgraph": "^2.13.3",
+    "@grpc/grpc-js": "^1.13.4",
+    "@grpc/proto-loader": "^0.7.15",
     "@opentelemetry/api": "1.9.0",
     "@opentelemetry/core": "1.26.0",
     "@opentelemetry/exporter-trace-otlp-http": "0.53.0",
@@ -79,6 +86,7 @@
     "bolt11": "^1.4.1",
     "cron": "^4.3.4",
     "express": "^4.18.2",
+    "google-protobuf": "^3.21.4",
     "graphql": "^16.7.1",
     "graphql-tag": "^2.12.6",
     "helmet": "^7.0.0",
@@ -91,5 +99,10 @@
     "pino-http": "^8.3.3",
     "ws": "^8.19.0",
     "zod": "^3.25.67"
+  },
+  "pnpm": {
+    "overrides": {
+      "handlebars": "4.7.9"
+    }
   }
 }

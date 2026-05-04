@@ -10,6 +10,7 @@ const ignores = [
   "dist",
   "node_modules",
   "**/proto/**/*.js",
+  "**/proto/**/*.d.ts",
   "**/*.pb.js",
   "**/jest.config.js",
   "**/jest.setup.js",

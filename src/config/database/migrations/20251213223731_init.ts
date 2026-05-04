@@ -46,16 +46,9 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["action"])
     table.index(["created_at"])
   })
-
-  await knex.schema.createTable("stream_cursors", (table) => {
-    table.string("stream_name").primary()
-    table.text("cursor_value").notNullable()
-    table.timestamp("updated_at").notNullable().defaultTo(knex.fn.now())
-  })
 }
 
 export async function down(knex: Knex): Promise<void> {
-  await knex.schema.dropTableIfExists("stream_cursors")
   await knex.schema.dropTableIfExists("nwc_audit_log")
   await knex.schema.dropTableIfExists("nwc_connections")
 }

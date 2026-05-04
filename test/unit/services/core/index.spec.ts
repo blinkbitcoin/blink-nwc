@@ -149,13 +149,15 @@ describe("BlinkCoreService", () => {
     })
   })
 
-  it("returns CouldNotFetchNodeInfoError for malformed or failed node info lookups", async () => {
+  it("tolerates missing block info and still maps failed node info lookups", async () => {
     mockGetNodeInfo.mockResolvedValueOnce({ network: "regtest", blockInfo: null })
     const service = BlinkCoreService()
 
-    await expect(service.getNodeInfo()).resolves.toBeInstanceOf(
-      CouldNotFetchNodeInfoError,
-    )
+    await expect(service.getNodeInfo()).resolves.toEqual({
+      network: "regtest",
+      blockHeight: undefined,
+      blockHash: undefined,
+    })
 
     mockGetNodeInfo.mockRejectedValueOnce(new Error("offline"))
 
