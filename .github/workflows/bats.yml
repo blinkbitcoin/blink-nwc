@@ -8,42 +8,23 @@ jobs:
   integration:
     name: Bats tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Setup BATS
         uses: mig4/setup-bats@v1
         with:
           bats-version: 1.9.0
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v14
       - name: Run the Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
       - run: nix develop -c pnpm install --frozen-lockfile
-      - name: Generate types and build
-        run: nix develop -c bash -c "pnpm generate-gql-types && pnpm build"
-      - name: Start dependencies
-        run: |
-          # Retry logic for docker compose to handle transient Docker Hub issues
-          max_attempts=3
-          attempt=1
-          until nix develop -c make start-deps; do
-            if [ $attempt -eq $max_attempts ]; then
-              echo "Failed to start dependencies after $max_attempts attempts"
-              exit 1
-            fi
-            echo "Attempt $attempt failed. Cleaning up and retrying in 10 seconds..."
-            nix develop -c make clean-deps || true
-            sleep 10
-            attempt=$((attempt + 1))
-          done
-      - name: Wait for services to be ready
-        run: |
-          echo "Waiting for Galoy API to be ready..."
-          timeout 300 bash -c 'until curl -s -X POST -H "Content-Type: application/json" -d "{\"query\":\"{ __typename }\"}" http://localhost:4455/graphql | grep -q "Query" 2>&1; do echo "Still waiting..."; sleep 5; done' || (echo "Services failed to start. Dumping logs:" && docker compose -p blink-nwc logs && exit 1)
-          echo "Services are ready!"
       - name: Run bats tests
-        run: nix develop -c make bats-test
-      - name: Stop dependencies
+        run: nix develop -c ./dev/ci_run.sh
+      - name: Upload Tilt log
         if: always()
-        run: nix develop -c make clean-deps
+        uses: actions/upload-artifact@v4
+        with:
+          name: bats-tilt-log
+          path: dev/.e2e-tilt.log

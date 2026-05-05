@@ -10,6 +10,9 @@ nwc_local_env = {
   "NOSTR_PRIVATE_KEY": "1" * 64,
   "OATHKEEPER_DECISION_ENDPOINT": "http://localhost:4456",
   "ROUTER_URL": "http://localhost:4004/graphql",
+  "BLINK_CORE_GRPC_HOST": "localhost",
+  "BLINK_CORE_GRPC_PORT": "50053",
+  "NWC_NOSTR_MONITORING_PORT": "4011",
   "NOSTR_RELAY_URL": "ws://localhost:7777",
   "NOSTR_RELAY_PUBLIC_URL": "ws://localhost:7777",
 }
@@ -49,6 +52,7 @@ local_resource(
   serve_env = nwc_local_env,
   links = [
     link("http://localhost:4010/graphql", "graphql-playground"),
+    link("http://localhost:4011/metrics", "nwc-nostr-metrics"),
   ],
   readiness_probe = probe(
     period_secs = 5,

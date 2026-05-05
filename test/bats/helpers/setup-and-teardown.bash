@@ -5,6 +5,7 @@ SERVER_PID_FILE=$REPO_ROOT/test/bats/.galoy_server_pid
 NOSTR_SUBSCRIBER_PID_FILE=$REPO_ROOT/test/bats/.nwc_subscriber_pid
 USE_RUNNING_NWC_DEV="${USE_RUNNING_NWC_DEV:-false}"
 NWC_SUBGRAPH_PORT="${SUBGRAPH_PORT:-4010}"
+NWC_NOSTR_MONITORING_PORT="${NWC_NOSTR_MONITORING_PORT:-4011}"
 
 NWC_TEST_ENV=(
   DATA_ENCRYPTION_KEY="$DATA_ENCRYPTION_KEY"
@@ -14,7 +15,21 @@ NWC_TEST_ENV=(
   DB_USER="$DB_USER"
   DB_PWD="$DB_PWD"
   DB_DB="$DB_DB"
+  NWC_NOSTR_MONITORING_PORT="$NWC_NOSTR_MONITORING_PORT"
 )
+
+is_blink_core_grpc_up() {
+  nc -z "${BLINK_CORE_GRPC_HOST:-localhost}" "${BLINK_CORE_GRPC_PORT:-50053}"
+}
+
+wait_for_blink_core_grpc() {
+  if retry 30 1 is_blink_core_grpc_up; then
+    return
+  fi
+
+  echo "Blink Core gRPC stream is not listening on ${BLINK_CORE_GRPC_HOST:-localhost}:${BLINK_CORE_GRPC_PORT:-50053}."
+  return 1
+}
 
 bitcoin_cli() {
   local container_id
@@ -27,6 +42,56 @@ bitcoin_cli() {
   [[ -n "${container_id}" ]] || return 1
 
   docker exec "${container_id}" bitcoin-cli "$@"
+}
+
+nwc_db_query() {
+  local sql=$1
+  local container_id
+  container_id="$(
+    docker ps \
+      --filter "label=com.docker.compose.service=nwc-pg" \
+      --format '{{.ID}}' \
+      | head -n 1
+  )"
+  [[ -n "${container_id}" ]] || return 1
+
+  docker exec \
+    -e PGPASSWORD="${DB_PWD}" \
+    "${container_id}" \
+    psql \
+      -U "${DB_USER}" \
+      -d "${DB_DB}" \
+      -Atc "${sql}"
+}
+
+notification_audit_count() {
+  local notification_type=$1
+  local payment_hash=$2
+  local connection_id=${3:-}
+  local connection_filter=""
+
+  if [[ -n "$connection_id" ]]; then
+    connection_filter="AND connection_id = '${connection_id}'"
+  fi
+
+  nwc_db_query "
+    SELECT count(*)
+    FROM nwc_audit_log
+    WHERE action = 'notification_published'
+      AND method = '${notification_type}'
+      AND status = 'success'
+      AND metadata->>'payment_hash' = '${payment_hash}'
+      ${connection_filter};
+  " | tr -d '[:space:]'
+}
+
+rewind_transaction_stream_cursor() {
+  nwc_db_query "
+    INSERT INTO stream_cursors (stream_name, cursor_value, updated_at)
+    VALUES ('transactions', '000000000000000000000000', NOW())
+    ON CONFLICT (stream_name)
+    DO UPDATE SET cursor_value = EXCLUDED.cursor_value, updated_at = NOW();
+  " > /dev/null
 }
 
 is_galoy_block_info_ready() {
@@ -73,17 +138,44 @@ is_running_nwc_dev_up() {
   curl -sf "http://localhost:${NWC_SUBGRAPH_PORT}/healthz" > /dev/null
 }
 
+is_running_nwc_nostr_monitoring_up() {
+  curl -s "http://localhost:${NWC_NOSTR_MONITORING_PORT}/healthz" > /dev/null
+}
+
+is_nwc_nostr_monitoring_port_in_use() {
+  nc -z localhost "${NWC_NOSTR_MONITORING_PORT}"
+}
+
+is_nwc_nostr_stream_connected() {
+  local response
+  response="$(curl -s "http://localhost:${NWC_NOSTR_MONITORING_PORT}/healthz")" || return 1
+
+  if [[ "$(echo "$response" | jq -r '.streamConnected')" == "true" ]]; then
+    return 0
+  fi
+
+  echo "NWC Nostr stream is not connected: ${response}"
+  return 1
+}
+
+print_bats_mode_hint() {
+  echo "Managed BATS needs to own the NWC ports. Stop the dev/Tilt process before running: nix develop -c make bats-test"
+  echo "To run against an already-running dev stack, first make sure Core gRPC is listening and NWC streamConnected is true, then run:"
+  echo "  USE_RUNNING_NWC_DEV=true nix develop -c bats -t test/bats"
+}
+
 start_server() {
   migrate_nwc_db
-
-  if is_running_nwc_dev_up; then
-    USE_RUNNING_NWC_DEV="true"
-    return
-  fi
 
   if [[ "$USE_RUNNING_NWC_DEV" == "true" ]]; then
     retry 20 1 is_running_nwc_dev_up
     return
+  fi
+
+  if is_running_nwc_dev_up; then
+    echo "NWC dev is already running on port ${NWC_SUBGRAPH_PORT}."
+    print_bats_mode_hint
+    return 1
   fi
 
   rm -f .e2e-server.log
@@ -95,7 +187,11 @@ start_server() {
     PUBLIC_GRAPHQL_URL="${PUBLIC_GRAPHQL_URL:-http://localhost:4455/graphql}" \
     NOSTR_RELAY_PUBLIC_URL="ws://localhost:7777" \
     SUBGRAPH_PORT="${NWC_SUBGRAPH_PORT}" \
-    node lib/src/server/graphql-public-api-server.js > .e2e-server.log
+    node \
+      -r ts-node/register/transpile-only \
+      -r tsconfig-paths/register \
+      -r src/services/tracing.ts \
+      src/server/graphql-public-api-server.ts > .e2e-server.log
   echo $! > $SERVER_PID_FILE
 
   server_is_up() {
@@ -116,7 +212,15 @@ stop_server() {
 
 start_nostr_subscriber() {
   if [[ "$USE_RUNNING_NWC_DEV" == "true" ]]; then
+    retry 20 1 is_running_nwc_nostr_monitoring_up
+    retry 20 1 is_nwc_nostr_stream_connected
     return
+  fi
+
+  if is_nwc_nostr_monitoring_port_in_use; then
+    echo "NWC Nostr monitoring port ${NWC_NOSTR_MONITORING_PORT} is already in use."
+    print_bats_mode_hint
+    return 1
   fi
 
   rm -f .e2e-nostr.log
@@ -126,11 +230,17 @@ start_nostr_subscriber() {
     PUBLIC_GRAPHQL_URL="${PUBLIC_GRAPHQL_URL:-http://localhost:4455/graphql}" \
     NOSTR_RELAY_URL="ws://localhost:7777" \
     NOSTR_RELAY_PUBLIC_URL="ws://localhost:7777" \
-    node lib/src/server/nostr.js > .e2e-nostr.log
+    node \
+      -r ts-node/register/transpile-only \
+      -r tsconfig-paths/register \
+      -r src/services/tracing.ts \
+      src/server/nostr.ts > .e2e-nostr.log
   echo $! > $NOSTR_SUBSCRIBER_PID_FILE
 
   subscriber_is_up() {
-    grep -q '"msg":"subscribed to relay"' .e2e-nostr.log
+    grep -q '"msg":"subscribed to relay"' .e2e-nostr.log && \
+      is_running_nwc_nostr_monitoring_up && \
+      is_nwc_nostr_stream_connected
   }
 
   retry 20 1 subscriber_is_up

@@ -47,7 +47,7 @@ Useful endpoints:
 - Apollo Router: http://localhost:4004/graphql
 - Tilt UI: http://localhost:10350
 
-## Running with Supergraph
+## Running with Tilt
 
 For normal local development, use Tilt:
 
@@ -55,19 +55,25 @@ For normal local development, use Tilt:
 nix develop -c make start
 ```
 
-For dependency-only workflows, keep using the compose path:
+For local integration tests, use the same make command as before:
 
-1. Start shared dependencies and Apollo Router:
 ```bash
-make start-deps
+nix develop -c make integration-test
 ```
 
-2. Start only the NWC subgraph process:
+For CI-style one-shot integration tests with Tilt-managed dependencies:
+
 ```bash
-pnpm dev
+nix develop -c ./dev/ci_run.sh integration
 ```
 
-This split path is still useful for CI and for cases where you do not want Tilt managing the full session.
+For CI-style Bats E2E:
+
+```bash
+nix develop -c ./dev/ci_run.sh
+```
+
+The old compose-only dependency path has been removed so CI uses the Tilt-managed environment.
 
 ## Development
 
@@ -76,7 +82,9 @@ This split path is still useful for CI and for cases where you do not want Tilt 
 - `make start` - Start the full Tilt-based local development environment
 - `make tilt-up` - Run `tilt up` explicitly
 - `make tilt-down` - Stop the Tilt session
-- `make start-deps` - Start only docker-compose dependencies and Apollo Router
+- `make integration-test` - Run integration tests
+- `make bats-test` - Run Bats E2E against an already-running environment
+- `./dev/ci_run.sh [bats|integration]` - Start the Tilt environment, run a one-shot CI suite, and tear it down
 - `pnpm dev` - Start only the NWC subgraph server
 - `pnpm build` - Build for production
 - `pnpm start` - Start production server

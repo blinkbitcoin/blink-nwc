@@ -53,3 +53,6 @@ src/graphql/__generated__/resolvers-types.ts
 
 # Local docs/tracking (not part of the codebase)
 docs/
+
+# Local demo app experiments (not part of production source)
+demo/

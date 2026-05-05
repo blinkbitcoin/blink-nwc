@@ -4,7 +4,11 @@ import knex, { Knex } from "knex"
 import { generateSecretKey, getPublicKey } from "nostr-tools"
 
 import databaseConfig from "@/config/db"
-import { NwcConnectionRecord, ProcessedNwcRequestRecord } from "@/services/db/index.types"
+import {
+  NwcConnectionRecord,
+  ProcessedNwcRequestRecord,
+  StreamCursorRecord,
+} from "@/services/db/index.types"
 import { NwcConnection } from "@/domain/connection"
 import {
   NwcAppPubkey,
@@ -36,6 +40,8 @@ export const closeTestDb = async (): Promise<void> => {
 export const clearAllTables = async (): Promise<void> => {
   const testDb = getTestDb()
   await testDb("nwc_processed_requests").del()
+  await testDb("stream_cursors").del()
+  await testDb("nwc_audit_log").del()
   await testDb("nwc_connections").del()
 }
 
@@ -166,4 +172,11 @@ export const getProcessedRequestByEventId = async (
 ): Promise<ProcessedNwcRequestRecord | undefined> => {
   const testDb = getTestDb()
   return testDb("nwc_processed_requests").where({ event_id: eventId }).first()
+}
+
+export const getStreamCursorByName = async (
+  streamName: string,
+): Promise<StreamCursorRecord | undefined> => {
+  const testDb = getTestDb()
+  return testDb("stream_cursors").where({ stream_name: streamName }).first()
 }
