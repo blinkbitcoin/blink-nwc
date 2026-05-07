@@ -43,6 +43,7 @@ export const mapError = (error: ApplicationError): CustomGraphQLError => {
     case "InvalidInvoice":
     case "InvalidAmount":
     case "InvalidNwcAlias":
+    case "InvalidNwcKnownAppConfig":
     case "InvalidUnixTimestamp":
     case "InvalidHash":
     case "InvalidPaymentDirection":
@@ -89,7 +90,7 @@ export const mapAndParseErrorForGqlResponse = (err: ApplicationError): IError =>
   const mappedError = mapError(err)
   return {
     message: mappedError.message,
-    path: mappedError.path as any,
+    path: mappedError.path as IError["path"],
     code: `${mappedError.extensions.code}`,
   }
 }

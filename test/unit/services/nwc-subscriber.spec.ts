@@ -104,12 +104,28 @@ jest.mock("@/domain/utils", () => ({
 }))
 
 import { NwcSubscriber } from "@/services/nwc-subscriber"
-import { EventKind } from "@/domain/nostr"
+import {
+  EventKind,
+  Nip47NotImplementedError,
+  Nip47OtherError,
+  Nip47RestrictedError,
+} from "@/domain/nostr"
 
 const flushMicrotasks = async () => {
   await Promise.resolve()
   await Promise.resolve()
   await new Promise((resolve) => setTimeout(resolve, 0))
+}
+
+const createDeferred = <T>() => {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+
+  return { promise, resolve, reject }
 }
 
 describe("NwcSubscriber", () => {
@@ -202,6 +218,68 @@ describe("NwcSubscriber", () => {
     expect(mockProcessedNwcRequestsRepositoryFactory).toHaveBeenCalledTimes(1)
     expect(mockFindByPubkey).toHaveBeenCalledTimes(1)
     expect(mockUpdateLastUsed).toHaveBeenCalledTimes(1)
+
+    await stop()
+  })
+
+  it("updates last_used_at only after the handler completes and the response is published", async () => {
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+
+    await flushMicrotasks()
+
+    const lastPublishOrder =
+      mockPublish.mock.invocationCallOrder[
+        mockPublish.mock.invocationCallOrder.length - 1
+      ]
+
+    expect(mockHandle.mock.invocationCallOrder[0]).toBeLessThan(
+      mockUpdateLastUsed.mock.invocationCallOrder[0],
+    )
+    expect(lastPublishOrder).toBeLessThan(mockUpdateLastUsed.mock.invocationCallOrder[0])
+
+    await stop()
+  })
+
+  it("updates last_used_at for authorized requests even when the handler returns a domain error", async () => {
+    mockHandle.mockResolvedValueOnce(new Nip47OtherError("Invalid request"))
+
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+
+    await flushMicrotasks()
+
+    expect(mockUpdateLastUsed).toHaveBeenCalledTimes(1)
+    expect(mockEncrypt).toHaveBeenCalledWith(
+      expect.objectContaining({ pubkey: "a".repeat(64) }),
+      "c".repeat(64),
+      JSON.stringify({
+        result_type: "get_balance",
+        error: {
+          code: "OTHER",
+          message: "Invalid request",
+        },
+      }),
+      "nip04",
+    )
 
     await stop()
   })
@@ -304,7 +382,7 @@ describe("NwcSubscriber", () => {
     await stop()
   })
 
-  it("rejects requests for methods outside the connection allowlist", async () => {
+  it("forwards restricted responses from the handler without updating last_used_at", async () => {
     const subscriber = NwcSubscriber()
     const stop = subscriber.subscribe(mockHandle)
     mockDecrypt.mockReturnValue(
@@ -312,6 +390,11 @@ describe("NwcSubscriber", () => {
         method: "pay_invoice",
         params: {},
       }),
+    )
+    mockHandle.mockResolvedValueOnce(
+      new Nip47RestrictedError(
+        "Connection does not have permission for requested operation: pay_invoice",
+      ),
     )
 
     await flushMicrotasks()
@@ -325,7 +408,14 @@ describe("NwcSubscriber", () => {
 
     await flushMicrotasks()
 
-    expect(mockHandle).not.toHaveBeenCalled()
+    expect(mockHandle).toHaveBeenCalledWith(
+      {
+        method: "pay_invoice",
+        params: {},
+      },
+      expect.objectContaining({ id: "connection-id" }),
+    )
+    expect(mockUpdateLastUsed).not.toHaveBeenCalled()
     expect(mockEncrypt).toHaveBeenCalledWith(
       expect.objectContaining({ pubkey: "a".repeat(64) }),
       "c".repeat(64),
@@ -333,11 +423,219 @@ describe("NwcSubscriber", () => {
         result_type: "pay_invoice",
         error: {
           code: "RESTRICTED",
-          message: "Connection does not have permission for this method",
+          message:
+            "Connection does not have permission for requested operation: pay_invoice",
         },
       }),
       "nip04",
     )
+
+    await stop()
+  })
+
+  it("rejects revoked connections before invoking the handler", async () => {
+    mockFindByPubkey.mockResolvedValue({
+      id: "connection-id",
+      appPubkey: "c".repeat(64),
+      permissions: ["get_balance"],
+      revoked: true,
+      expiresAt: null,
+    })
+
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+
+    await flushMicrotasks()
+
+    expect(mockHandle).not.toHaveBeenCalled()
+    expect(mockUpdateLastUsed).not.toHaveBeenCalled()
+    expect(mockEncrypt).toHaveBeenCalledWith(
+      expect.objectContaining({ pubkey: "a".repeat(64) }),
+      "c".repeat(64),
+      JSON.stringify({
+        result_type: "get_balance",
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Connection has been revoked",
+        },
+      }),
+      "nip04",
+    )
+
+    await stop()
+  })
+
+  it("rejects expired connections before invoking the handler", async () => {
+    mockFindByPubkey.mockResolvedValue({
+      id: "connection-id",
+      appPubkey: "c".repeat(64),
+      permissions: ["get_balance"],
+      revoked: false,
+      expiresAt: new Date("2026-01-01T00:00:00.000Z"),
+    })
+    jest
+      .spyOn(Date, "now")
+      .mockReturnValue(new Date("2026-01-02T00:00:00.000Z").getTime())
+
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+
+    await flushMicrotasks()
+
+    expect(mockHandle).not.toHaveBeenCalled()
+    expect(mockUpdateLastUsed).not.toHaveBeenCalled()
+    expect(mockEncrypt).toHaveBeenCalledWith(
+      expect.objectContaining({ pubkey: "a".repeat(64) }),
+      "c".repeat(64),
+      JSON.stringify({
+        result_type: "get_balance",
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Connection has expired",
+        },
+      }),
+      "nip04",
+    )
+
+    jest.restoreAllMocks()
+    await stop()
+  })
+
+  it("lets unsupported methods fall through to the handler without updating last_used_at", async () => {
+    mockDecrypt.mockReturnValueOnce(
+      JSON.stringify({
+        method: "unsupported_method",
+        params: {},
+      }),
+    )
+    mockHandle.mockResolvedValueOnce(
+      new Nip47NotImplementedError("Unsupported method: unsupported_method"),
+    )
+
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+
+    await flushMicrotasks()
+
+    expect(mockHandle).toHaveBeenCalledWith(
+      {
+        method: "unsupported_method",
+        params: {},
+      },
+      expect.objectContaining({ id: "connection-id" }),
+    )
+    expect(mockUpdateLastUsed).not.toHaveBeenCalled()
+    expect(mockEncrypt).toHaveBeenCalledWith(
+      expect.objectContaining({ pubkey: "a".repeat(64) }),
+      "c".repeat(64),
+      JSON.stringify({
+        result_type: "unsupported_method",
+        error: {
+          code: "NOT_IMPLEMENTED",
+          message: "Unsupported method: unsupported_method",
+        },
+      }),
+      "nip04",
+    )
+
+    await stop()
+  })
+
+  it("still publishes the response when updateLastUsed rejects", async () => {
+    mockUpdateLastUsed.mockRejectedValueOnce(new Error("db unavailable"))
+
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+
+    await flushMicrotasks()
+
+    expect(mockHandle).toHaveBeenCalledTimes(1)
+    expect(mockUpdateLastUsed).toHaveBeenCalledTimes(1)
+    expect(mockPublish).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        kind: EventKind.Response,
+        content: "encrypted-response",
+      }),
+    )
+
+    await stop()
+  })
+
+  it("coalesces concurrent last_used_at writes for the same connection", async () => {
+    const firstHandle = createDeferred<{ balance: number }>()
+    const secondHandle = createDeferred<{ balance: number }>()
+    const updateLastUsed = createDeferred<void>()
+
+    mockHandle
+      .mockImplementationOnce(() => firstHandle.promise)
+      .mockImplementationOnce(() => secondHandle.promise)
+    mockUpdateLastUsed.mockImplementationOnce(() => updateLastUsed.promise)
+
+    const subscriber = NwcSubscriber()
+    const stop = subscriber.subscribe(mockHandle)
+
+    await flushMicrotasks()
+
+    currentSubscription?.onevent?.({
+      id: "request-id-1",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+    currentSubscription?.onevent?.({
+      id: "request-id-2",
+      pubkey: "c".repeat(64),
+      content: "ciphertext",
+      tags: [["encryption", "nip04"]],
+    })
+
+    await flushMicrotasks()
+
+    firstHandle.resolve({ balance: 1000 })
+    secondHandle.resolve({ balance: 2000 })
+
+    await flushMicrotasks()
+
+    expect(mockUpdateLastUsed).toHaveBeenCalledTimes(1)
+
+    updateLastUsed.resolve()
+    await flushMicrotasks()
 
     await stop()
   })

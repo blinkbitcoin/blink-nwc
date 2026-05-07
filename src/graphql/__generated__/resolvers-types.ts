@@ -1,6 +1,7 @@
 import { Nip47MethodType as Nip47Method } from '@/domain/nostr/index.types';
 import { NwcPermissionType as NwcPermission } from '@/domain/nostr/index.types';
 import { NwcNotificationTypeValue as NwcNotificationType } from '@/domain/nostr/notification-type';
+import { NwcPermissionPresetIdType as NwcPermissionPresetId } from '@/domain/nwc-permission-preset';
 import { GraphQLResolveInfo, GraphQLScalarType, GraphQLScalarTypeConfig } from 'graphql';
 import { IError } from '@/graphql/index.types';
 export type Maybe<T> = T | null;
@@ -167,9 +168,28 @@ export type NwcConnectionUpdatePayload = {
   errors: Array<Error>;
 };
 
+export type NwcKnownApp = {
+  __typename?: 'NwcKnownApp';
+  description: Scalars['String']['output'];
+  iconUrl?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  pubkey: Scalars['String']['output'];
+  recommendedPreset: NwcPermissionPreset;
+};
+
 export { NwcNotificationType };
 
 export { NwcPermission };
+
+export type NwcPermissionPreset = {
+  __typename?: 'NwcPermissionPreset';
+  description: Scalars['String']['output'];
+  id: NwcPermissionPresetId;
+  name: Scalars['String']['output'];
+  permissions: Array<NwcPermission>;
+};
+
+export { NwcPermissionPresetId };
 
 export type NwcServiceInfo = {
   __typename?: 'NwcServiceInfo';
@@ -184,6 +204,8 @@ export type Query = {
   hello: Scalars['String']['output'];
   nwcConnection?: Maybe<NwcConnection>;
   nwcConnections: Array<NwcConnection>;
+  nwcKnownApp?: Maybe<NwcKnownApp>;
+  nwcPermissionPresets: Array<NwcPermissionPreset>;
   nwcServiceInfo: NwcServiceInfo;
 };
 
@@ -195,6 +217,11 @@ export type QueryNwcConnectionArgs = {
 
 export type QueryNwcConnectionsArgs = {
   includeRevoked?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
+export type QueryNwcKnownAppArgs = {
+  pubkey: Scalars['String']['input'];
 };
 
 export type User = {
@@ -318,8 +345,11 @@ export type ResolversTypes = ResolversObject<{
   NwcConnectionRevokePayload: ResolverTypeWrapper<Omit<NwcConnectionRevokePayload, 'errors'> & { errors: Array<ResolversTypes['Error']> }>;
   NwcConnectionUpdateInput: NwcConnectionUpdateInput;
   NwcConnectionUpdatePayload: ResolverTypeWrapper<Omit<NwcConnectionUpdatePayload, 'errors'> & { errors: Array<ResolversTypes['Error']> }>;
+  NwcKnownApp: ResolverTypeWrapper<NwcKnownApp>;
   NwcNotificationType: NwcNotificationType;
   NwcPermission: NwcPermission;
+  NwcPermissionPreset: ResolverTypeWrapper<NwcPermissionPreset>;
+  NwcPermissionPresetId: NwcPermissionPresetId;
   NwcServiceInfo: ResolverTypeWrapper<NwcServiceInfo>;
   Query: ResolverTypeWrapper<{}>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
@@ -351,6 +381,8 @@ export type ResolversParentTypes = ResolversObject<{
   NwcConnectionRevokePayload: Omit<NwcConnectionRevokePayload, 'errors'> & { errors: Array<ResolversParentTypes['Error']> };
   NwcConnectionUpdateInput: NwcConnectionUpdateInput;
   NwcConnectionUpdatePayload: Omit<NwcConnectionUpdatePayload, 'errors'> & { errors: Array<ResolversParentTypes['Error']> };
+  NwcKnownApp: NwcKnownApp;
+  NwcPermissionPreset: NwcPermissionPreset;
   NwcServiceInfo: NwcServiceInfo;
   Query: {};
   String: Scalars['String']['output'];
@@ -449,9 +481,28 @@ export type NwcConnectionUpdatePayloadResolvers<ContextType = any, ParentType ex
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type NwcKnownAppResolvers<ContextType = any, ParentType extends ResolversParentTypes['NwcKnownApp'] = ResolversParentTypes['NwcKnownApp']> = ResolversObject<{
+  description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  iconUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  pubkey?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  recommendedPreset?: Resolver<ResolversTypes['NwcPermissionPreset'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type NwcNotificationTypeResolvers = EnumResolverSignature<{ PAYMENT_RECEIVED?: any, PAYMENT_SENT?: any }, ResolversTypes['NwcNotificationType']>;
 
 export type NwcPermissionResolvers = EnumResolverSignature<{ GET_BALANCE?: any, GET_INFO?: any, LIST_TRANSACTIONS?: any, LOOKUP_INVOICE?: any, MAKE_INVOICE?: any, NOTIFICATIONS_PAYMENT_RECEIVED?: any, NOTIFICATIONS_PAYMENT_SENT?: any, PAY_INVOICE?: any }, ResolversTypes['NwcPermission']>;
+
+export type NwcPermissionPresetResolvers<ContextType = any, ParentType extends ResolversParentTypes['NwcPermissionPreset'] = ResolversParentTypes['NwcPermissionPreset']> = ResolversObject<{
+  description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['NwcPermissionPresetId'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  permissions?: Resolver<Array<ResolversTypes['NwcPermission']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type NwcPermissionPresetIdResolvers = EnumResolverSignature<{ NOSTR_ZAPPER?: any, READ_ONLY?: any, SATSBACK_MERCHANT?: any, SATSBACK_USER?: any }, ResolversTypes['NwcPermissionPresetId']>;
 
 export type NwcServiceInfoResolvers<ContextType = any, ParentType extends ResolversParentTypes['NwcServiceInfo'] = ResolversParentTypes['NwcServiceInfo']> = ResolversObject<{
   relayUrl?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -465,6 +516,8 @@ export type QueryResolvers<ContextType = any, ParentType extends ResolversParent
   hello?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   nwcConnection?: Resolver<Maybe<ResolversTypes['NwcConnection']>, ParentType, ContextType, RequireFields<QueryNwcConnectionArgs, 'id'>>;
   nwcConnections?: Resolver<Array<ResolversTypes['NwcConnection']>, ParentType, ContextType, RequireFields<QueryNwcConnectionsArgs, 'includeRevoked'>>;
+  nwcKnownApp?: Resolver<Maybe<ResolversTypes['NwcKnownApp']>, ParentType, ContextType, RequireFields<QueryNwcKnownAppArgs, 'pubkey'>>;
+  nwcPermissionPresets?: Resolver<Array<ResolversTypes['NwcPermissionPreset']>, ParentType, ContextType>;
   nwcServiceInfo?: Resolver<ResolversTypes['NwcServiceInfo'], ParentType, ContextType>;
 }>;
 
@@ -501,8 +554,11 @@ export type Resolvers<ContextType = any> = ResolversObject<{
   NwcConnectionRevokeAllPayload?: NwcConnectionRevokeAllPayloadResolvers<ContextType>;
   NwcConnectionRevokePayload?: NwcConnectionRevokePayloadResolvers<ContextType>;
   NwcConnectionUpdatePayload?: NwcConnectionUpdatePayloadResolvers<ContextType>;
+  NwcKnownApp?: NwcKnownAppResolvers<ContextType>;
   NwcNotificationType?: NwcNotificationTypeResolvers;
   NwcPermission?: NwcPermissionResolvers;
+  NwcPermissionPreset?: NwcPermissionPresetResolvers<ContextType>;
+  NwcPermissionPresetId?: NwcPermissionPresetIdResolvers;
   NwcServiceInfo?: NwcServiceInfoResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   Timestamp?: GraphQLScalarType;

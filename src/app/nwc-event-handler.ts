@@ -1,16 +1,12 @@
+import { SUPPORTED_NWC_METHODS, WALLET_ALIAS, WALLET_COLOR } from "@/config"
+import { validateConnectionState } from "@/app/connection-validator"
 import {
-  SUPPORTED_NWC_METHODS,
-  SUPPORTED_NWC_NOTIFICATIONS,
-  WALLET_ALIAS,
-  WALLET_COLOR,
-} from "@/config"
+  allowedMethods,
+  enabledNotifications,
+  ensureMethodPermission,
+} from "@/app/permission-checker"
 import { parseErrorForNip47Response } from "@/app/nwc-event-handler.error"
-import {
-  getServerKeypair,
-  isConnectionExpired,
-  NwcConnection,
-  hasPermission,
-} from "@/domain/connection"
+import { getServerKeypair, NwcConnection } from "@/domain/connection"
 import { IBlinkCoreService } from "@/domain/core"
 import { ErrorLevel } from "@/domain/errors"
 import {
@@ -26,17 +22,16 @@ import {
   Nip47NotFoundError,
   Nip47NotImplementedError,
   Nip47OtherError,
-  Nip47RestrictedError,
-  Nip47UnauthorizedError,
 } from "@/domain/nostr"
+import { PaymentDirection as PD } from "@/domain/nostr/payment-direction"
 import { BlinkCoreService } from "@/services"
+import { InvalidResponseError, InvoiceNotFoundError } from "@/services/core/errors"
 import { baseLogger } from "@/services/logger"
 import {
   addAttributesToCurrentSpan,
   recordExceptionInCurrentSpan,
   wrapAsyncToRunInSpan,
 } from "@/services/tracing"
-import { toNwcTx } from "@/domain/utils"
 import {
   ensureUnixSeconds,
   toCursor,
@@ -44,16 +39,14 @@ import {
   toMinutes,
   toSatoshis,
 } from "@/domain/units"
+import { toNwcTx } from "@/domain/utils"
 import {
-  checkedToNip47ListTransactionsRequest,
   checkedToDecodedBolt11Invoice,
+  checkedToNip47ListTransactionsRequest,
   checkedToNip47LookupInvoiceRequest,
   checkedToNip47MakeInvoiceRequest,
   checkedToNip47PayInvoiceRequest,
 } from "@/domain/validation"
-import { toNotificationTypeFromPermission } from "@/domain/nostr/notification-type"
-import { PaymentDirection as PD } from "@/domain/nostr/payment-direction"
-import { InvalidResponseError, InvoiceNotFoundError } from "@/services/core/errors"
 
 const DEFAULT_INVOICE_EXPIRY_SECONDS = 24 * 60 * 60
 const DEFAULT_BATCH_SIZE = 10
@@ -80,32 +73,6 @@ const NwcEventHandler = ({
   blinkCoreService = BlinkCoreService(),
 }: NwcEventHandlerDeps = {}) => {
   const logger = baseLogger.child({ module: "nwc-event-handler" })
-
-  const enabledNotifications = (connection: NwcConnection) => {
-    if (!connection.notificationsEnabled) {
-      return []
-    }
-
-    return [
-      ...new Set(
-        connection.permissions
-          .map((permission) => toNotificationTypeFromPermission(permission))
-          .filter(
-            (
-              notification,
-            ): notification is (typeof SUPPORTED_NWC_NOTIFICATIONS)[number] =>
-              notification !== undefined &&
-              SUPPORTED_NWC_NOTIFICATIONS.includes(notification),
-          ),
-      ),
-    ]
-  }
-
-  const allowedMethods = (connection: NwcConnection): Nip47MethodType[] => {
-    return connection.permissions.filter((method): method is Nip47MethodType =>
-      SUPPORTED_NWC_METHODS.includes(method as Nip47MethodType),
-    )
-  }
 
   const serializeParamsForLog = (
     method: Nip47MethodType,
@@ -400,6 +367,23 @@ const NwcEventHandler = ({
       "nwc.appPubkey": connection.appPubkey,
     })
 
+    const connectionError = validateConnectionState(connection)
+    if (connectionError) {
+      requestLogger.info(
+        {
+          response: {
+            error: {
+              code: connectionError.code,
+              message: connectionError.message,
+            },
+          },
+        },
+        "completed NWC request",
+      )
+      recordExceptionInCurrentSpan({ error: connectionError, level: ErrorLevel.Warn })
+      return connectionError
+    }
+
     if (!SUPPORTED_NWC_METHODS.includes(request.method)) {
       const response = new Nip47NotImplementedError(
         `Unsupported method: ${request.method}`,
@@ -418,40 +402,22 @@ const NwcEventHandler = ({
       return response
     }
 
-    if (isConnectionExpired(connection)) {
-      const error = new Nip47UnauthorizedError("Connection has expired")
-      recordExceptionInCurrentSpan({ error, level: ErrorLevel.Warn })
+    const permissionError = ensureMethodPermission(connection, request.method)
+    if (permissionError) {
+      requestLogger.warn({ requestedMethod: request.method }, permissionError.message)
+      recordExceptionInCurrentSpan({ error: permissionError, level: ErrorLevel.Warn })
       requestLogger.info(
         {
           response: {
             error: {
-              code: error.code,
-              message: error.message,
+              code: permissionError.code,
+              message: permissionError.message,
             },
           },
         },
         "completed NWC request",
       )
-      return error
-    }
-
-    if (!hasPermission(request.method, connection)) {
-      const error = new Nip47RestrictedError(
-        `Connection does not have permission for requested operation: ${request.method}`,
-      )
-      recordExceptionInCurrentSpan({ error, level: ErrorLevel.Warn })
-      requestLogger.info(
-        {
-          response: {
-            error: {
-              code: error.code,
-              message: error.message,
-            },
-          },
-        },
-        "completed NWC request",
-      )
-      return error
+      return permissionError
     }
 
     const response = await handlers[request.method](request, connection)

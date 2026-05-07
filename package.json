@@ -4,7 +4,7 @@
   "description": "Nostr Wallet Connect GraphQL subgraph",
   "scripts": {
     "start": "node -r ./lib/src/services/tracing.js ./lib/src/server/index.js",
-    "build": "tsc && tscpaths -p tsconfig.json -s . -o ./lib",
+    "build": "tsc && tsc-alias -p tsconfig.json",
     "dev": "tsnd --respawn --files -r tsconfig-paths/register -r src/services/tracing.ts src/server/index.ts",
     "eslint-check": "eslint \"{src,test}/**/*.ts\"",
     "eslint-fix": "eslint \"{src,test}/**/*.ts\" --fix",
@@ -51,9 +51,9 @@
     "prettier": "^3.0.0",
     "ts-node": "^10.9.1",
     "ts-node-dev": "^2.0.0",
+    "tsc-alias": "^1.8.16",
     "tsc-watch": "^6.0.4",
     "tsconfig-paths": "^4.2.0",
-    "tscpaths": "^0.0.9",
     "typescript": "^5.1.6"
   },
   "dependencies": {

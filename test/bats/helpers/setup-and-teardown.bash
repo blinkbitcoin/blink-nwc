@@ -156,6 +156,25 @@ wait_for_galoy_server() {
   ensure_regtest_block_info
 }
 
+is_auth_token_valid() {
+  local auth_token=$1
+  local endpoint=${2:-${GALOY_ENDPOINT}}
+  local response=""
+  local user_id=""
+
+  response="$(
+    curl -s \
+      -X POST \
+      -H "Authorization: Bearer ${auth_token}" \
+      -H "Content-Type: application/json" \
+      -d '{"query":"query MeForAuthValidation { me { id } }"}' \
+      "${endpoint}/graphql"
+  )"
+  user_id="$(echo "$response" | jq -r '.data.me.id // empty')"
+
+  [[ -n "${user_id}" ]]
+}
+
 login_user() {
   local token_name=$1
   local phone=$2
@@ -167,29 +186,11 @@ login_user() {
   local auth_token=""
   local auth_error=""
 
-  token_is_valid() {
-    local candidate_token=$1
-    local validation_response
-    local user_id
-
-    validation_response="$(
-      curl -s \
-        -X POST \
-        -H "Authorization: Bearer ${candidate_token}" \
-        -H "Content-Type: application/json" \
-        -d '{"query":"query CurrentUser { me { id } }"}' \
-        "${endpoint}/graphql"
-    )"
-    user_id="$(echo "$validation_response" | jq -r '.data.me.id // empty')"
-
-    [[ -n "${user_id}" ]]
-  }
-
   if [[ -s "$token_cache_file" ]]; then
     auth_token="$(cat "$token_cache_file")"
     [[ -n "${auth_token}" ]] || return 1
 
-    if token_is_valid "${auth_token}"; then
+    if is_auth_token_valid "${auth_token}" "${endpoint}"; then
       return 0
     fi
 

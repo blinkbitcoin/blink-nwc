@@ -1,9 +1,7 @@
-import { ApplicationErrors } from "@/app/errors"
 import { PartialResult } from "@/app/partial-result"
 import { InvalidWalletId } from "@/domain/errors"
-import { ExampleError } from "@/domain/example/errors"
 
-describe("app helpers", () => {
+describe("PartialResult", () => {
   it("creates successful, partial, and failed partial results", () => {
     const error = new InvalidWalletId("bad wallet")
 
@@ -21,10 +19,5 @@ describe("app helpers", () => {
       error,
       partialResult: true,
     })
-  })
-
-  it("re-exports domain and example application errors", () => {
-    expect(ApplicationErrors.InvalidWalletId).toBe(InvalidWalletId)
-    expect(ApplicationErrors.ExampleError).toBe(ExampleError)
   })
 })

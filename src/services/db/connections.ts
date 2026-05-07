@@ -1,3 +1,5 @@
+import type { Knex } from "knex"
+
 import { queryBuilder } from "@/services/db/query-builder"
 import type { NwcConnectionRecord } from "@/services/db/index.types"
 import type {
@@ -23,6 +25,27 @@ import { wrapAsyncFunctionsToRunInSpan } from "@/services/tracing"
 import { decryptSecret, encryptSecret } from "@/services/secret-encryption"
 
 const TABLE_NAME = "nwc_connections"
+
+const currentTimestamp = <TDate extends Date | null = Date>(): Knex.Raw<TDate> =>
+  queryBuilder.raw("CURRENT_TIMESTAMP") as Knex.Raw<TDate>
+
+type ConnectionRecordUpdate = Omit<
+  Partial<NwcConnectionRecord>,
+  "updated_at" | "revoked_at" | "last_used_at"
+> & {
+  updated_at?: Knex.Raw<Date>
+  revoked_at?: Knex.Raw<Date | null>
+  last_used_at?: Knex.Raw<Date | null>
+}
+
+const applyActiveConnectionFilter = <TRecord extends object, TResult>(
+  query: Knex.QueryBuilder<TRecord, TResult>,
+) =>
+  query
+    .where({ revoked: false })
+    .andWhere((builder) =>
+      builder.whereNull("expires_at").orWhere("expires_at", ">", currentTimestamp()),
+    )
 
 export const ConnectionsRepository = (): IConnectionsRepository => {
   const findByPubkey = async (
@@ -112,7 +135,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
     >,
   ): Promise<NwcConnection | RepositoryError> => {
     try {
-      const updateData: Partial<NwcConnectionRecord> = {}
+      const updateData: ConnectionRecordUpdate = {}
 
       if (updates.alias !== undefined) {
         updateData.alias = updates.alias
@@ -122,7 +145,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
         updateData.notifications_enabled = hasNotificationPermission(updates.permissions)
       }
 
-      updateData.updated_at = queryBuilder.fn.now() as any
+      updateData.updated_at = currentTimestamp()
 
       const [doc] = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
         .where({ id })
@@ -157,8 +180,8 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
         .where({ id })
         .update({
           revoked: true,
-          revoked_at: queryBuilder.fn.now() as any,
-          updated_at: queryBuilder.fn.now() as any,
+          revoked_at: currentTimestamp<Date | null>(),
+          updated_at: currentTimestamp(),
         })
       return !!affectedRows
     } catch (err) {
@@ -189,9 +212,9 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
     notificationType: string,
   ): Promise<NwcConnection[] | RepositoryError> => {
     try {
-      const docs = await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
-        .where({ wallet_id: walletId, revoked: false })
-        .whereRaw("? = ANY(permissions)", [notificationType])
+      const docs = await applyActiveConnectionFilter(
+        queryBuilder<NwcConnectionRecord>(TABLE_NAME).where({ wallet_id: walletId }),
+      ).whereRaw("? = ANY(permissions)", [notificationType])
 
       if (!docs || !docs.length) {
         return []
@@ -207,9 +230,9 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
     walletId: WalletId,
   ): Promise<number | RepositoryError> => {
     try {
-      const result = await queryBuilder(TABLE_NAME)
-        .where({ revoked: false })
-        .where({ wallet_id: walletId })
+      const result = await applyActiveConnectionFilter(
+        queryBuilder(TABLE_NAME).where({ wallet_id: walletId }),
+      )
         .count<{ count: string }>("id as count")
         .first()
 
@@ -241,10 +264,10 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
     try {
       return await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
         .where({ user_id: userId, revoked: false })
-        .update({
+        .update<number>({
           revoked: true,
-          revoked_at: queryBuilder.fn.now() as any,
-          updated_at: queryBuilder.fn.now() as any,
+          revoked_at: currentTimestamp<Date | null>(),
+          updated_at: currentTimestamp(),
         })
     } catch (err) {
       return parseRepositoryError(err)
@@ -273,7 +296,7 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
         .update({
           permissions,
           notifications_enabled: hasNotificationPermission(permissions),
-          updated_at: queryBuilder.fn.now() as any,
+          updated_at: currentTimestamp(),
         })
         .returning("*")
 
@@ -291,12 +314,10 @@ export const ConnectionsRepository = (): IConnectionsRepository => {
 
   const updateLastUsed = async (id: NwcConnectionId): Promise<void | RepositoryError> => {
     try {
-      await queryBuilder<NwcConnectionRecord>(TABLE_NAME)
-        .where({ id })
-        .update({
-          last_used_at: queryBuilder.fn.now() as any,
-          updated_at: queryBuilder.fn.now() as any,
-        })
+      await queryBuilder<NwcConnectionRecord>(TABLE_NAME).where({ id }).update({
+        last_used_at: currentTimestamp<Date | null>(),
+        updated_at: currentTimestamp(),
+      })
     } catch (err) {
       return parseRepositoryError(err)
     }
