@@ -26,6 +26,21 @@ services:
     environment:
       - MONGODB_CON=mongodb://mongodb:27017/galoy?replicaSet=rs0&directConnection=true
 
+  # Temporary until Blink Core's generated quickstart compose includes this service.
+  blink-core-transactions-grpc-stream:
+    extends:
+      file: docker-compose.yml
+      service: galoy
+    image: blink-core-transactions-grpc-stream:feat-nwc-grpc-server
+    build:
+      context: https://github.com/blinkbitcoin/blink.git#feat--nwc-grpc-server
+      dockerfile: core/api-transactions-grpc-stream/Dockerfile
+    ports:
+      - "50053:50053"
+      - "8889:8889"
+    environment:
+      - MONGODB_CON=mongodb://mongodb:27017/galoy?replicaSet=rs0&directConnection=true
+
   trigger:
     environment:
       - MONGODB_CON=mongodb://mongodb:27017/galoy?replicaSet=rs0&directConnection=true
