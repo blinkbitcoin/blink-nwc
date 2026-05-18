@@ -36,7 +36,6 @@ const createTransactionEvent = (ledgerTransactionId: string): TransactionEvent =
   event.setWalletId("wallet-1")
   event.setAccountId("account-1")
   event.setPaymentHash(`payment-hash-${ledgerTransactionId}`)
-  event.setPreimage(`preimage-${ledgerTransactionId}`)
   event.setSatsAmount(21)
   event.setCurrency("BTC")
   event.setType(TransactionType.RECEIVED)
@@ -132,7 +131,7 @@ describe("TransactionSubscriber integration", () => {
     const { server, address } = await startGrpcServer((call) => {
       requestCursors.push(
         call.request.hasAfterTransactionId()
-          ? call.request.getAfterTransactionId()
+          ? call.request.getAfterTransactionId() ?? null
           : null,
       )
       subscribeCount += 1
@@ -176,7 +175,7 @@ describe("TransactionSubscriber integration", () => {
     const { server, address } = await startGrpcServer((call) => {
       requestCursors.push(
         call.request.hasAfterTransactionId()
-          ? call.request.getAfterTransactionId()
+          ? call.request.getAfterTransactionId() ?? null
           : null,
       )
 

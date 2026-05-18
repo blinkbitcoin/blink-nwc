@@ -12,9 +12,7 @@ function serialize_services_transactions_v1_SubscribeTransactionsRequest(arg) {
 }
 
 function deserialize_services_transactions_v1_SubscribeTransactionsRequest(buffer_arg) {
-  return transactions_pb.SubscribeTransactionsRequest.deserializeBinary(
-    new Uint8Array(buffer_arg),
-  );
+  return transactions_pb.SubscribeTransactionsRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_services_transactions_v1_TransactionEvent(arg) {
@@ -28,22 +26,19 @@ function deserialize_services_transactions_v1_TransactionEvent(buffer_arg) {
   return transactions_pb.TransactionEvent.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-var TransactionsStreamService =
-  (exports.TransactionsStreamService = {
-    subscribeTransactions: {
-      path: '/services.transactions.v1.TransactionsStream/SubscribeTransactions',
-      requestStream: false,
-      responseStream: true,
-      requestType: transactions_pb.SubscribeTransactionsRequest,
-      responseType: transactions_pb.TransactionEvent,
-      requestSerialize: serialize_services_transactions_v1_SubscribeTransactionsRequest,
-      requestDeserialize: deserialize_services_transactions_v1_SubscribeTransactionsRequest,
-      responseSerialize: serialize_services_transactions_v1_TransactionEvent,
-      responseDeserialize: deserialize_services_transactions_v1_TransactionEvent,
-    },
-  });
 
-exports.TransactionsStreamClient = grpc.makeGenericClientConstructor(
-  TransactionsStreamService,
-  'TransactionsStream',
-);
+var TransactionsStreamService = exports.TransactionsStreamService = {
+  subscribeTransactions: {
+    path: '/services.transactions.v1.TransactionsStream/SubscribeTransactions',
+    requestStream: false,
+    responseStream: true,
+    requestType: transactions_pb.SubscribeTransactionsRequest,
+    responseType: transactions_pb.TransactionEvent,
+    requestSerialize: serialize_services_transactions_v1_SubscribeTransactionsRequest,
+    requestDeserialize: deserialize_services_transactions_v1_SubscribeTransactionsRequest,
+    responseSerialize: serialize_services_transactions_v1_TransactionEvent,
+    responseDeserialize: deserialize_services_transactions_v1_TransactionEvent,
+  },
+};
+
+exports.TransactionsStreamClient = grpc.makeGenericClientConstructor(TransactionsStreamService, 'TransactionsStream');

@@ -3,15 +3,18 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    nixpkgs-docker.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
   outputs = {
     self,
     nixpkgs,
+    nixpkgs-docker,
     flake-utils,
   }:
     flake-utils.lib.eachDefaultSystem (system: let
+      dockerPkgs = import nixpkgs-docker {inherit system;};
       overlays = [
         (self: super: {
           nodejs = super.nodejs_20;
@@ -19,6 +22,10 @@
         })
       ];
       pkgs = import nixpkgs {inherit overlays system;};
+      bufPkg =
+        if pkgs.stdenv.isDarwin
+        then dockerPkgs.buf
+        else pkgs.buf;
       nativeBuildInputs = with pkgs;
         [
           git
@@ -33,7 +40,7 @@
           vendir
           jq
           ytt
-          buf
+          bufPkg
           bats
         ];
     in

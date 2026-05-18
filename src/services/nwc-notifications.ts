@@ -143,7 +143,7 @@ const buildNotificationFromTransactionEvent = (
   )
   const feesPaid = toMilliSatoshis((enrichedTx?.feesPaid ?? 0) as Satoshis)
   const createdAt = enrichedTx?.createdAt ?? settledAt
-  const preimage = enrichedTx?.preimage ?? event.getPreimage()
+  const preimage = enrichedTx?.preimage
 
   const notification = {
     type: context.direction,

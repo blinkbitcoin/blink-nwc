@@ -51,7 +51,6 @@ const createTransactionEvent = ({
   event.setWalletId("wallet-1")
   event.setAccountId("account-1")
   event.setPaymentHash(paymentHash)
-  event.setPreimage("stream-preimage")
   event.setSatsAmount(21)
   event.setCurrency(currency)
   event.setType(type)
@@ -106,11 +105,11 @@ describe("buildNotificationFromTransactionEvent", () => {
           payment_hash: "payment-hash-1",
           amount: 21000,
           fees_paid: 0,
-          preimage: "stream-preimage",
           settled_at: 1710000000,
         }),
       }),
     )
+    expect(notification?.notification).not.toHaveProperty("preimage")
   })
 
   it("returns undefined when the event cannot be mapped into a notification", () => {
@@ -498,11 +497,13 @@ describe("NwcNotificationPublisher", () => {
         notification_type: "payment_sent",
         notification: expect.objectContaining({
           amount: 21000,
-          preimage: "stream-preimage",
         }),
       }),
       "app-pubkey-1",
     )
+    expect(
+      (notificationService.sendNotification as jest.Mock).mock.calls[0][0].notification,
+    ).not.toHaveProperty("preimage")
   })
 
   it("throws when publishing to any connection fails", async () => {
