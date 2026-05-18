@@ -37,45 +37,51 @@ export const isNwcBudgetPeriod = (value: unknown): value is NwcBudgetPeriodType 
 export const toNwcBudgetFromApiKeyLimits = (
   limits: ApiKeyLimitsLike,
 ): NwcBudget | null => {
+  return toNwcBudgetsFromApiKeyLimits(limits)[0] ?? null
+}
+
+export const toNwcBudgetsFromApiKeyLimits = (limits: ApiKeyLimitsLike): NwcBudget[] => {
+  const budgets: NwcBudget[] = []
+
   if (limits.dailyLimitSats != null) {
-    return {
+    budgets.push({
       amountSats: limits.dailyLimitSats,
       period: NwcBudgetPeriod.Daily,
       usedSats: limits.dailySpentSats,
       remainingSats: Math.max(limits.dailyLimitSats - limits.dailySpentSats, 0),
       resetsAt: null,
-    }
+    })
   }
 
   if (limits.weeklyLimitSats != null) {
-    return {
+    budgets.push({
       amountSats: limits.weeklyLimitSats,
       period: NwcBudgetPeriod.Weekly,
       usedSats: limits.weeklySpentSats,
       remainingSats: Math.max(limits.weeklyLimitSats - limits.weeklySpentSats, 0),
       resetsAt: null,
-    }
+    })
   }
 
   if (limits.monthlyLimitSats != null) {
-    return {
+    budgets.push({
       amountSats: limits.monthlyLimitSats,
       period: NwcBudgetPeriod.Monthly,
       usedSats: limits.monthlySpentSats,
       remainingSats: Math.max(limits.monthlyLimitSats - limits.monthlySpentSats, 0),
       resetsAt: null,
-    }
+    })
   }
 
   if (limits.annualLimitSats != null) {
-    return {
+    budgets.push({
       amountSats: limits.annualLimitSats,
       period: NwcBudgetPeriod.Never,
       usedSats: limits.annualSpentSats,
       remainingSats: Math.max(limits.annualLimitSats - limits.annualSpentSats, 0),
       resetsAt: null,
-    }
+    })
   }
 
-  return null
+  return budgets
 }

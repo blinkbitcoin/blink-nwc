@@ -25,6 +25,8 @@ services:
   galoy:
     environment:
       - MONGODB_CON=mongodb://mongodb:27017/galoy?replicaSet=rs0&directConnection=true
+      - API_KEYS_HOST=api-keys
+      - API_KEYS_PORT=6686
 
   # Temporary until Blink Core's generated quickstart compose includes this service.
   blink-core-transactions-grpc-stream:
@@ -44,3 +46,5 @@ services:
   trigger:
     environment:
       - MONGODB_CON=mongodb://mongodb:27017/galoy?replicaSet=rs0&directConnection=true
+      - API_KEYS_HOST=api-keys
+      - API_KEYS_PORT=6686

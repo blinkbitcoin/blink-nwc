@@ -100,6 +100,7 @@ describe("graphql resolvers", () => {
     remainingSats: 600,
     resetsAt: null,
   }
+  const budgets = [budget]
   const apiKeyLimits = {
     dailyLimitSats: 1_000,
     dailySpentSats: 400,
@@ -186,7 +187,7 @@ describe("graphql resolvers", () => {
     })
   })
 
-  it("returns a stripped top-level connection with derived budget", async () => {
+  it("returns a stripped top-level connection with derived budgets", async () => {
     mockGetNwcConnectionByIdForUser.mockResolvedValue(connection)
     mockGetApiKeysForNwc.mockResolvedValue([
       { id: connection.apiKeyId, limits: apiKeyLimits },
@@ -210,7 +211,7 @@ describe("graphql resolvers", () => {
     expect(result).toEqual(
       expect.objectContaining({
         id: connection.id,
-        budget,
+        budgets,
       }),
     )
     expect(result).not.toHaveProperty("apiKey")
@@ -254,7 +255,7 @@ describe("graphql resolvers", () => {
     expect(result).toEqual([
       expect.objectContaining({
         id: connection.id,
-        budget: null,
+        budgets: [],
       }),
     ])
     expect(result[0]).not.toHaveProperty("apiKey")
@@ -309,7 +310,7 @@ describe("graphql resolvers", () => {
         apiKeyId: null,
       },
       connectionUri: "nostr+walletconnect://uri",
-      budget,
+      budgets,
     })
     const createResolver = resolvers.Mutation!.nwcConnectionCreate as (
       parent: unknown,
@@ -319,7 +320,7 @@ describe("graphql resolvers", () => {
           walletId?: string | null
           alias?: string | null
           permissions: string[]
-          budget?: { amountSats: number; period: string } | null
+          budgets?: Array<{ amountSats: number; period: string }> | null
           expiresAt?: string | null
         }
       },
@@ -335,10 +336,12 @@ describe("graphql resolvers", () => {
           walletId: connection.walletId,
           alias: null,
           permissions: [Nip47Method.GetBalance],
-          budget: {
-            amountSats: budget.amountSats,
-            period: budget.period,
-          },
+          budgets: [
+            {
+              amountSats: budget.amountSats,
+              period: budget.period,
+            },
+          ],
           expiresAt: "2025-03-01T00:00:00.000Z",
         },
       },
@@ -351,17 +354,19 @@ describe("graphql resolvers", () => {
       walletId: connection.walletId,
       permissions: [Nip47Method.GetBalance],
       alias: undefined,
-      budget: {
-        amountSats: budget.amountSats,
-        period: budget.period,
-      },
+      budgets: [
+        {
+          amountSats: budget.amountSats,
+          period: budget.period,
+        },
+      ],
       expiresAt: new Date("2025-03-01T00:00:00.000Z"),
     })
     expect(result).toEqual({
       errors: [],
       connection: expect.objectContaining({
         id: connection.id,
-        budget,
+        budgets,
       }),
       connectionUri: "nostr+walletconnect://uri",
     })
@@ -401,7 +406,7 @@ describe("graphql resolvers", () => {
     })
   })
 
-  it("updates connections with alias and budget using the E2 input contract", async () => {
+  it("updates connections with alias and budgets using the E2 input contract", async () => {
     mockUpdateNwcConnection.mockResolvedValue({
       ...connection,
       alias: "Updated" as never,
@@ -415,7 +420,7 @@ describe("graphql resolvers", () => {
         input: {
           connectionId: string
           alias?: string | null
-          budget?: { amountSats: number; period: string } | null
+          budgets?: Array<{ amountSats: number; period: string }> | null
         }
       },
       context: { user?: { id?: string }; authorization?: string },
@@ -428,10 +433,12 @@ describe("graphql resolvers", () => {
         input: {
           connectionId: connection.id,
           alias: "Updated",
-          budget: {
-            amountSats: budget.amountSats,
-            period: budget.period,
-          },
+          budgets: [
+            {
+              amountSats: budget.amountSats,
+              period: budget.period,
+            },
+          ],
         },
       },
       { user: { id: userId }, authorization },
@@ -444,10 +451,12 @@ describe("graphql resolvers", () => {
       connection.id,
       {
         alias: "Updated",
-        budget: {
-          amountSats: budget.amountSats,
-          period: budget.period,
-        },
+        budgets: [
+          {
+            amountSats: budget.amountSats,
+            period: budget.period,
+          },
+        ],
       },
     )
     expect(result).toEqual({
@@ -455,7 +464,7 @@ describe("graphql resolvers", () => {
       connection: expect.objectContaining({
         id: connection.id,
         alias: "Updated",
-        budget,
+        budgets,
       }),
     })
   })
