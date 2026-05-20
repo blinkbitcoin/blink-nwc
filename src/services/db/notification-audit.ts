@@ -9,6 +9,7 @@ import { wrapAsyncFunctionsToRunInSpan } from "@/services/tracing"
 const TABLE_NAME = "nwc_audit_log"
 const NOTIFICATION_PUBLISHED_ACTION = "notification_published"
 const SUCCESS_STATUS = "success"
+const NOTIFICATION_ONCE_INDEX = "idx_nwc_audit_log_notification_once"
 
 type PublishedNotificationKey = {
   readonly connectionId: NwcConnectionId
@@ -88,4 +89,4 @@ export const NotificationAuditRepository = (): INotificationAuditRepository =>
     },
   })
 
-export { NOTIFICATION_PUBLISHED_ACTION }
+export { NOTIFICATION_ONCE_INDEX, NOTIFICATION_PUBLISHED_ACTION }

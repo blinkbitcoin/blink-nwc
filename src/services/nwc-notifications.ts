@@ -22,7 +22,11 @@ import {
   toNotificationPermission,
 } from "@/domain/nostr/notification-type"
 import { toMilliSatoshis, toUnixSeconds } from "@/domain/units"
-import { parseErrorFromUnknown, RepositoryError } from "@/domain/errors"
+import {
+  parseErrorFromUnknown,
+  RepositoryError,
+  UniqueConstraintViolationError,
+} from "@/domain/errors"
 import { BlinkCoreService } from "@/services/core"
 import { BlinkServiceError } from "@/services/core/errors"
 import {
@@ -31,6 +35,7 @@ import {
 } from "@/services/core/grpc/proto/transactions_pb"
 import {
   ConnectionsRepository,
+  NOTIFICATION_ONCE_INDEX,
   NotificationAuditRepository,
   type INotificationAuditRepository,
 } from "@/services/db"
@@ -289,7 +294,7 @@ export const NwcNotificationPublisher = ({
     } else {
       logger.warn(
         {
-          error: lookupResult,
+          err: lookupResult,
           ledgerTransactionId: event.getLedgerTransactionId(),
           paymentHash: event.getPaymentHash(),
         },
@@ -309,16 +314,7 @@ export const NwcNotificationPublisher = ({
       return
     }
 
-    try {
-      await ensureRelayConnected()
-    } catch (error) {
-      monitoring?.recordNotificationPublishError(notification.notification_type)
-      throw error
-    }
-
-    const publishForConnection = async (
-      connection: (typeof connections)[number],
-    ): Promise<"published" | "skipped"> => {
+    const getPublishTarget = async (connection: (typeof connections)[number]) => {
       const auditKey = {
         connectionId: connection.id as NwcConnectionId,
         notificationType: notification.notification_type,
@@ -332,9 +328,52 @@ export const NwcNotificationPublisher = ({
       }
 
       if (alreadyPublished) {
-        return "skipped"
+        return { status: "skipped" as const }
       }
 
+      return { status: "pending" as const, connection, auditKey }
+    }
+
+    const auditResults = await Promise.allSettled(connections.map(getPublishTarget))
+    const auditFailures = auditResults.filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    )
+
+    if (auditFailures.length > 0) {
+      if (auditFailures.length === 1) {
+        throw auditFailures[0].reason
+      }
+
+      throw new AggregateError(
+        auditFailures.map((failure) => failure.reason),
+        `Failed to check notification audit for ${auditFailures.length} connection(s)`,
+      )
+    }
+
+    const skippedCount = auditResults.filter(
+      (result) => result.status === "fulfilled" && result.value.status === "skipped",
+    ).length
+    const publishTargets = auditResults.flatMap((result) => {
+      if (result.status === "fulfilled" && result.value.status === "pending") {
+        return [result.value]
+      }
+
+      return []
+    })
+
+    if (publishTargets.length > 0) {
+      try {
+        await ensureRelayConnected()
+      } catch (error) {
+        monitoring?.recordNotificationPublishError(notification.notification_type)
+        throw error
+      }
+    }
+
+    const publishForConnection = async ({
+      connection,
+      auditKey,
+    }: (typeof publishTargets)[number]): Promise<"published"> => {
       const startedAt = Date.now()
       let published = false
 
@@ -367,6 +406,22 @@ export const NwcNotificationPublisher = ({
       })
 
       if (auditResult instanceof RepositoryError) {
+        if (
+          auditResult instanceof UniqueConstraintViolationError &&
+          auditResult.message === NOTIFICATION_ONCE_INDEX
+        ) {
+          logger.info(
+            {
+              connectionId: connection.id,
+              ledgerTransactionId,
+              notificationType: notification.notification_type,
+            },
+            "notification publish audit already exists after successful publish",
+          )
+          monitoring?.recordNotificationPublished(notification.notification_type)
+          return "published"
+        }
+
         monitoring?.recordNotificationPublishError(notification.notification_type)
         throw auditResult
       }
@@ -376,7 +431,9 @@ export const NwcNotificationPublisher = ({
       return "published"
     }
 
-    const publishResults = await Promise.allSettled(connections.map(publishForConnection))
+    const publishResults = await Promise.allSettled(
+      publishTargets.map(publishForConnection),
+    )
     const failures = publishResults.filter(
       (result): result is PromiseRejectedResult => result.status === "rejected",
     )
@@ -395,10 +452,6 @@ export const NwcNotificationPublisher = ({
     const publishedCount = publishResults.filter(
       (result) => result.status === "fulfilled" && result.value === "published",
     ).length
-    const skippedCount = publishResults.filter(
-      (result) => result.status === "fulfilled" && result.value === "skipped",
-    ).length
-
     logger.info(
       {
         ledgerTransactionId: event.getLedgerTransactionId(),

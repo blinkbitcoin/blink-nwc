@@ -3,7 +3,8 @@ import {
   NwcNotificationPublisher,
 } from "@/services/nwc-notifications"
 import { BlinkServiceError } from "@/services/core/errors"
-import { RepositoryError } from "@/domain/errors"
+import { RepositoryError, UniqueConstraintViolationError } from "@/domain/errors"
+import { NOTIFICATION_ONCE_INDEX } from "@/services/db/notification-audit"
 import {
   TransactionEvent,
   TransactionType,
@@ -472,6 +473,7 @@ describe("NwcNotificationPublisher", () => {
     const coreService = {
       lookupInvoice: jest.fn().mockResolvedValue(new BlinkServiceError("lookup failed")),
     }
+    const logger = createLogger()
 
     const publisher = NwcNotificationPublisher({
       relay: {
@@ -483,7 +485,7 @@ describe("NwcNotificationPublisher", () => {
       connectionsRepository: connectionsRepository as any,
       coreService: coreService as any,
       notificationAuditRepository: createNotificationAuditRepository(),
-      logger: createLogger(),
+      logger,
     })
 
     await publisher.publishTransactionEvent(
@@ -504,6 +506,14 @@ describe("NwcNotificationPublisher", () => {
     expect(
       (notificationService.sendNotification as jest.Mock).mock.calls[0][0].notification,
     ).not.toHaveProperty("preimage")
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        err: expect.any(BlinkServiceError),
+        ledgerTransactionId: "ledger-tx-1",
+        paymentHash: "payment-hash-1",
+      }),
+      "failed to enrich transaction event from Blink Core, falling back to stream data",
+    )
   })
 
   it("throws when publishing to any connection fails", async () => {
@@ -614,6 +624,99 @@ describe("NwcNotificationPublisher", () => {
         paymentHash: "payment-hash-1",
       }),
     )
+  })
+
+  it("does not connect to the relay when every connection was already audited", async () => {
+    const relay = {
+      connected: false,
+      connect: jest.fn(),
+      close: jest.fn(),
+    }
+    const notificationService = {
+      sendNotification: jest.fn().mockResolvedValue(true),
+    }
+    const notificationAuditRepository = createNotificationAuditRepository({
+      hasPublishedNotification: jest.fn().mockResolvedValue(true),
+    })
+
+    const publisher = NwcNotificationPublisher({
+      relay: relay as any,
+      notificationService: notificationService as any,
+      connectionsRepository: {
+        findByWalletIdWithNotificationPerm: jest.fn().mockResolvedValue([
+          {
+            id: "connection-1",
+            appPubkey: "app-pubkey-1",
+            apiKey: "api-key-1",
+            walletId: "wallet-1",
+            userId: "user-1",
+          },
+        ]),
+      } as any,
+      coreService: {
+        lookupInvoice: jest
+          .fn()
+          .mockResolvedValue(new BlinkServiceError("lookup failed")),
+      } as any,
+      notificationAuditRepository,
+      logger: createLogger(),
+    })
+
+    await publisher.publishTransactionEvent(createTransactionEvent())
+
+    expect(relay.connect).not.toHaveBeenCalled()
+    expect(notificationService.sendNotification).not.toHaveBeenCalled()
+    expect(notificationAuditRepository.recordPublishedNotification).not.toHaveBeenCalled()
+  })
+
+  it("treats the notification audit unique conflict as already recorded after publish", async () => {
+    const monitoring = createMonitoring()
+    const notificationAuditRepository = createNotificationAuditRepository({
+      recordPublishedNotification: jest
+        .fn()
+        .mockResolvedValue(new UniqueConstraintViolationError(NOTIFICATION_ONCE_INDEX)),
+    })
+    const notificationService = {
+      sendNotification: jest.fn().mockResolvedValue(true),
+    }
+
+    const publisher = NwcNotificationPublisher({
+      relay: {
+        connected: true,
+        connect: jest.fn(),
+        close: jest.fn(),
+      } as any,
+      notificationService: notificationService as any,
+      connectionsRepository: {
+        findByWalletIdWithNotificationPerm: jest.fn().mockResolvedValue([
+          {
+            id: "connection-1",
+            appPubkey: "app-pubkey-1",
+            apiKey: "api-key-1",
+            walletId: "wallet-1",
+            userId: "user-1",
+          },
+        ]),
+      } as any,
+      coreService: {
+        lookupInvoice: jest
+          .fn()
+          .mockResolvedValue(new BlinkServiceError("lookup failed")),
+      } as any,
+      notificationAuditRepository,
+      logger: createLogger(),
+      monitoring,
+    })
+
+    await expect(
+      publisher.publishTransactionEvent(createTransactionEvent()),
+    ).resolves.toBeUndefined()
+
+    expect(notificationService.sendNotification).toHaveBeenCalledTimes(1)
+    expect(monitoring.recordNotificationPublished).toHaveBeenCalledWith(
+      "payment_received",
+    )
+    expect(monitoring.recordNotificationPublishError).not.toHaveBeenCalled()
   })
 
   it("records successful fan-out before surfacing a later publish failure", async () => {
