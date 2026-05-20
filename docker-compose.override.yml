@@ -4,3 +4,47 @@ services:
       - "4004:4004"
     extra_hosts:
       - "nostr-wallet-connect:host-gateway"
+
+  mongodb:
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --eval 'try { rs.status().ok } catch (e) { rs.initiate({ _id: \"rs0\", members: [{ _id: 0, host: \"mongodb:27017\" }] }).ok }' | grep 1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  mongodb-migrate:
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  galoy:
+    environment:
+      - MONGODB_CON=mongodb://mongodb:27017/galoy?replicaSet=rs0&directConnection=true
+      - API_KEYS_HOST=api-keys
+      - API_KEYS_PORT=6686
+
+  # Temporary until Blink Core's generated quickstart compose includes this service.
+  blink-core-transactions-grpc-stream:
+    extends:
+      file: docker-compose.yml
+      service: galoy
+    image: blink-core-transactions-grpc-stream:feat-nwc-grpc-server
+    build:
+      context: https://github.com/blinkbitcoin/blink.git#feat--nwc-grpc-server
+      dockerfile: core/api-transactions-grpc-stream/Dockerfile
+    ports:
+      - "50053:50053"
+      - "8889:8889"
+    environment:
+      - MONGODB_CON=mongodb://mongodb:27017/galoy?replicaSet=rs0&directConnection=true
+
+  trigger:
+    environment:
+      - MONGODB_CON=mongodb://mongodb:27017/galoy?replicaSet=rs0&directConnection=true
+      - API_KEYS_HOST=api-keys
+      - API_KEYS_PORT=6686

@@ -11,6 +11,7 @@ import {
   checkedToNip47PayInvoiceRequest,
   checkedToNonNegativeInteger,
   checkedToNwcAlias,
+  checkedToNwcBudgetInputs,
   checkedToNwcUpdates,
   checkedToPaymentDirection,
   checkedToPaymentHash,
@@ -22,6 +23,7 @@ import {
 } from "@/domain/validation"
 import { ValidationError } from "@/domain/errors"
 import { PaymentDirection as PD } from "@/domain/nostr/payment-direction"
+import { NwcBudgetPeriod } from "@/domain/nwc-budget"
 
 describe("Validation Functions", () => {
   describe("checkedToUserId", () => {
@@ -250,6 +252,40 @@ describe("Validation Functions", () => {
       const updates = { permissions: ["invalid_method"] }
       const result = checkedToNwcUpdates(updates)
       expect(result).toBeInstanceOf(ValidationError)
+    })
+  })
+
+  describe("checkedToNwcBudgetInputs", () => {
+    it("should accept multiple budget periods", () => {
+      const result = checkedToNwcBudgetInputs([
+        { amountSats: 1_000, period: NwcBudgetPeriod.Daily },
+        { amountSats: 10_000, period: NwcBudgetPeriod.Monthly },
+      ])
+
+      expect(result).toEqual([
+        { amountSats: 1_000, period: NwcBudgetPeriod.Daily },
+        { amountSats: 10_000, period: NwcBudgetPeriod.Monthly },
+      ])
+    })
+
+    it("should reject duplicate budget periods", () => {
+      const result = checkedToNwcBudgetInputs([
+        { amountSats: 1_000, period: NwcBudgetPeriod.Daily },
+        { amountSats: 2_000, period: NwcBudgetPeriod.Daily },
+      ])
+
+      expect(result).toBeInstanceOf(ValidationError)
+      expect((result as ValidationError).message).toContain("Duplicate budget period")
+    })
+
+    it("should reject non-array budget lists", () => {
+      const result = checkedToNwcBudgetInputs({
+        amountSats: 1_000,
+        period: NwcBudgetPeriod.Daily,
+      })
+
+      expect(result).toBeInstanceOf(ValidationError)
+      expect((result as ValidationError).message).toContain("Budgets must be an array")
     })
   })
 

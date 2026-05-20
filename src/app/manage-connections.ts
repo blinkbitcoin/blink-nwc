@@ -4,7 +4,7 @@ import {
   checkedToWalletId,
   checkedToPermissions,
   checkedToNwcAlias,
-  checkedToNwcBudgetInput,
+  checkedToNwcBudgetInputs,
   checkedToConnectionId,
   checkedToNwcUri,
 } from "@/domain/validation"
@@ -24,7 +24,10 @@ import {
 } from "@/domain/errors"
 import client from "@/graphql/internal-client"
 import { getAuthenticatedWallet } from "@/graphql/internal-client/queries/get-authenticated-wallet"
-import { createApiKeyForNwc } from "@/graphql/internal-client/queries/api-key-create"
+import {
+  createApiKeyForNwc,
+  type ApiKeyLimitsSnapshot,
+} from "@/graphql/internal-client/queries/api-key-create"
 import { setApiKeyLimitForNwc } from "@/graphql/internal-client/queries/api-key-set-limit"
 import { removeApiKeyLimitForNwc } from "@/graphql/internal-client/queries/api-key-remove-limit"
 import { revokeApiKeyForNwc } from "@/graphql/internal-client/queries/api-key-revoke"
@@ -35,7 +38,7 @@ import {
   NwcBudgetInput,
   NwcBudgetPeriod,
   NwcBudgetPeriodType,
-  toNwcBudgetFromApiKeyLimits,
+  toNwcBudgetsFromApiKeyLimits,
 } from "@/domain/nwc-budget"
 import { hasNotificationPermission } from "@/domain/nwc-permission"
 
@@ -81,56 +84,69 @@ const toApiKeyLimitTimeWindow = (period: NwcBudgetPeriodType): LimitTimeWindow =
   }
 }
 
-const apiKeyLimitTimeWindowFromSnapshot = (limits: {
-  dailyLimitSats?: number | null
-  weeklyLimitSats?: number | null
-  monthlyLimitSats?: number | null
-  annualLimitSats?: number | null
-}): LimitTimeWindow | null => {
-  if (limits.dailyLimitSats != null) return LimitTimeWindow.Daily
-  if (limits.weeklyLimitSats != null) return LimitTimeWindow.Weekly
-  if (limits.monthlyLimitSats != null) return LimitTimeWindow.Monthly
-  if (limits.annualLimitSats != null) return LimitTimeWindow.Annual
-  return null
+const apiKeyLimitTimeWindowsFromSnapshot = (
+  limits: Pick<
+    ApiKeyLimitsSnapshot,
+    "dailyLimitSats" | "weeklyLimitSats" | "monthlyLimitSats" | "annualLimitSats"
+  >,
+): LimitTimeWindow[] => {
+  const windows: LimitTimeWindow[] = []
+  if (limits.dailyLimitSats != null) windows.push(LimitTimeWindow.Daily)
+  if (limits.weeklyLimitSats != null) windows.push(LimitTimeWindow.Weekly)
+  if (limits.monthlyLimitSats != null) windows.push(LimitTimeWindow.Monthly)
+  if (limits.annualLimitSats != null) windows.push(LimitTimeWindow.Annual)
+  return windows
 }
 
-const syncApiKeyBudget = async ({
+const syncApiKeyBudgets = async ({
   authorization,
   apiKeyId,
-  budget,
+  budgets,
 }: {
   authorization: string
   apiKeyId: NwcConnection["apiKeyId"]
-  budget: NwcBudgetInput | null
+  budgets: NwcBudgetInput[] | null
 }): Promise<void> => {
   if (!apiKeyId) {
     return
   }
 
-  if (budget) {
+  const desiredBudgets = budgets ?? []
+  const desiredLimitTimeWindows = new Set(
+    desiredBudgets.map((budget) => toApiKeyLimitTimeWindow(budget.period)),
+  )
+
+  let limitsSnapshot: ApiKeyLimitsSnapshot | null = null
+  for (const budget of desiredBudgets) {
     const limitTimeWindow = toApiKeyLimitTimeWindow(budget.period)
-    await setApiKeyLimitForNwc(client, authorization, {
+    limitsSnapshot = await setApiKeyLimitForNwc(client, authorization, {
       id: apiKeyId,
       limitSats: budget.amountSats,
       limitTimeWindow,
     })
+  }
+
+  if (!limitsSnapshot) {
+    const apiKeys = await getApiKeysForNwc(client, authorization)
+    const apiKey = apiKeys.find((key) => key.id === apiKeyId)
+    limitsSnapshot = apiKey?.limits ?? null
+  }
+
+  if (!limitsSnapshot) {
     return
   }
 
-  const apiKeys = await getApiKeysForNwc(client, authorization)
-  const apiKey = apiKeys.find((key) => key.id === apiKeyId)
-  const currentLimitTimeWindow = apiKey
-    ? apiKeyLimitTimeWindowFromSnapshot(apiKey.limits)
-    : null
+  const currentLimitTimeWindows = apiKeyLimitTimeWindowsFromSnapshot(limitsSnapshot)
+  for (const limitTimeWindow of currentLimitTimeWindows) {
+    if (desiredLimitTimeWindows.has(limitTimeWindow)) {
+      continue
+    }
 
-  if (!currentLimitTimeWindow) {
-    return
+    await removeApiKeyLimitForNwc(client, authorization, {
+      id: apiKeyId,
+      limitTimeWindow,
+    })
   }
-
-  await removeApiKeyLimitForNwc(client, authorization, {
-    id: apiKeyId,
-    limitTimeWindow: currentLimitTimeWindow,
-  })
 }
 
 const revokeCreatedApiKey = async ({
@@ -159,18 +175,22 @@ export const createNwcConnection = async (
     walletId,
     permissions,
     alias,
-    budget,
+    budgets,
     expiresAt,
   }: {
     nwcUri: string
     walletId?: string | null
     permissions: string[]
     alias?: string
-    budget?: NwcBudgetInput | null
+    budgets?: NwcBudgetInput[] | null
     expiresAt?: Date | null
   },
 ): Promise<
-  | { connectionObj: NwcConnection; connectionUri: NwcUri; budget: NwcBudget | null }
+  | {
+      connectionObj: NwcConnection
+      connectionUri: NwcUri
+      budgets: NwcBudget[]
+    }
   | ApplicationError
 > => {
   const checkedPermissions = checkedToPermissions(permissions)
@@ -198,9 +218,9 @@ export const createNwcConnection = async (
     return checkedAlias
   }
 
-  const checkedBudget = checkedToNwcBudgetInput(budget)
-  if (checkedBudget instanceof Error) {
-    return checkedBudget
+  const checkedBudgets = checkedToNwcBudgetInputs(budgets)
+  if (checkedBudgets instanceof Error) {
+    return checkedBudgets
   }
 
   if (walletId) {
@@ -229,10 +249,6 @@ export const createNwcConnection = async (
     return new InvalidWalletId("Wallet does not belong to the authenticated account")
   }
 
-  const limitTimeWindow = checkedBudget
-    ? toApiKeyLimitTimeWindow(checkedBudget.period)
-    : null
-
   const apiKeyName = checkedAlias ?? `nwc-${parsedNwcUri.appPubkey.slice(0, 8)}`
   const scopes = permissionsToApiKeyScopes(checkedPermissions)
 
@@ -244,12 +260,14 @@ export const createNwcConnection = async (
       scopes,
     })
 
-    let budgetSnapshot = null
-    if (checkedBudget && limitTimeWindow) {
+    const budgetInputs = checkedBudgets ?? []
+
+    let budgetSnapshot: ApiKeyLimitsSnapshot | null = null
+    for (const budgetInput of budgetInputs) {
       budgetSnapshot = await setApiKeyLimitForNwc(client, authorization, {
         id: createdApiKey.id,
-        limitSats: checkedBudget.amountSats,
-        limitTimeWindow,
+        limitSats: budgetInput.amountSats,
+        limitTimeWindow: toApiKeyLimitTimeWindow(budgetInput.period),
       })
     }
 
@@ -281,6 +299,10 @@ export const createNwcConnection = async (
       return connectionObj
     }
 
+    const createdBudgets = budgetSnapshot
+      ? toNwcBudgetsFromApiKeyLimits(budgetSnapshot)
+      : []
+
     return {
       connectionObj,
       connectionUri: stringifyNwcUri({
@@ -288,7 +310,7 @@ export const createNwcConnection = async (
         relay: parsedNwcUri.relay,
         secret: parsedNwcUri.secret,
       }),
-      budget: budgetSnapshot ? toNwcBudgetFromApiKeyLimits(budgetSnapshot) : null,
+      budgets: createdBudgets,
     }
   } catch (err) {
     await revokeCreatedApiKey({
@@ -305,7 +327,7 @@ export const updateNwcConnection = async (
   connectionId: string,
   updates: {
     alias?: string | null
-    budget?: NwcBudgetInput | null
+    budgets?: NwcBudgetInput[] | null
   },
 ): Promise<NwcConnection | ApplicationError> => {
   const checkedConnectionId = checkedToConnectionId(connectionId)
@@ -327,13 +349,13 @@ export const updateNwcConnection = async (
     checkedAlias = parsedAlias
   }
 
-  let checkedBudget: NwcBudgetInput | null | undefined
-  if ("budget" in updates) {
-    const parsedBudget = checkedToNwcBudgetInput(updates.budget)
-    if (parsedBudget instanceof Error) {
-      return parsedBudget
+  let checkedBudgets: NwcBudgetInput[] | null | undefined
+  if ("budgets" in updates) {
+    const parsedBudgets = checkedToNwcBudgetInputs(updates.budgets)
+    if (parsedBudgets instanceof Error) {
+      return parsedBudgets
     }
-    checkedBudget = parsedBudget
+    checkedBudgets = parsedBudgets
   }
 
   const existingConnection = await ConnectionsRepository().findById(checkedConnectionId)
@@ -346,11 +368,11 @@ export const updateNwcConnection = async (
   }
 
   try {
-    if (checkedBudget !== undefined) {
-      await syncApiKeyBudget({
+    if (checkedBudgets !== undefined) {
+      await syncApiKeyBudgets({
         authorization,
         apiKeyId: existingConnection.apiKeyId,
-        budget: checkedBudget,
+        budgets: checkedBudgets,
       })
     }
   } catch (err) {

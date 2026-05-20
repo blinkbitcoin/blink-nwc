@@ -1,4 +1,4 @@
-.PHONY: generate-gql-types generate-supergraph check-code unit-test integration-test bats-test build audit clean-deps reset-deps start-deps start-supergraph start-subgraph start tilt-up tilt-up-bg tilt-down update-vendor
+.PHONY: generate-gql-types generate-supergraph check-code unit-test integration-test bats-test build audit start tilt-up tilt-up-bg tilt-down update-vendor
 
 generate-gql-types:
 	pnpm generate-gql-types
@@ -18,7 +18,7 @@ unit-test:
 integration-test:
 	pnpm run integration
 
-bats-test: build
+bats-test:
 	USE_RUNNING_NWC_DEV=$${USE_RUNNING_NWC_DEV:-false} bats -t test/bats
 
 build:
@@ -28,30 +28,18 @@ tilt-up:
 	tilt up
 
 tilt-up-bg:
-	tilt up &
+	mkdir -p dev
+	tilt up > dev/.e2e-tilt.log 2>&1 & echo $$! > dev/.e2e-tilt_pid
 
 tilt-down:
 	tilt down
+	@if [ -f dev/.e2e-tilt_pid ]; then \
+		kill "$$(cat dev/.e2e-tilt_pid)" > /dev/null 2>&1 || true; \
+		rm -f dev/.e2e-tilt_pid; \
+	fi
 
-# 16 is exit code for critical https://classic.yarnpkg.com/lang/en/docs/cli/audit
 audit:
-	bash -c 'pnpm audit --audit-level critical; [[ $$? -ge 16 ]] && exit 1 || exit 0'
-
-clean-deps:
-	docker compose -p blink-nwc -f vendor/blink-quickstart/docker-compose.yml -f docker-compose.yml -f docker-compose.override.yml down -t 3
-
-reset-deps: clean-deps start-deps
-
-# CI and dependency-only workflows still use the compose path.
-start-deps: start-supergraph
-
-start-supergraph:
-	docker compose -p blink-nwc \
-		-f vendor/blink-quickstart/docker-compose.yml -f docker-compose.yml \
-		-f docker-compose.override.yml up -d
-
-start-subgraph:
-	pnpm dev
+	pnpm audit --audit-level critical
 
 # Default local development entrypoint.
 start: tilt-up

@@ -137,8 +137,8 @@ const NwcEventHandler = ({
       methods: allowedMethods(connection),
       notifications: enabledNotifications(connection),
       network: info.network,
-      block_height: info.blockHeight,
-      block_hash: info.blockHash,
+      ...(info.blockHeight !== undefined ? { block_height: info.blockHeight } : {}),
+      ...(info.blockHash !== undefined ? { block_hash: info.blockHash } : {}),
     }
   }
 

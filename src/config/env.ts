@@ -28,6 +28,17 @@ export const env = createEnv({
     OATHKEEPER_DECISION_ENDPOINT: z.string().url().default("http://localhost:4456"),
     ROUTER_URL: z.string().url().default("http://localhost:4004/graphql"),
     PUBLIC_GRAPHQL_URL: z.string().url().default("http://localhost:4455/graphql"),
+    BLINK_CORE_GRPC_HOST: z.string().default("localhost"),
+    BLINK_CORE_GRPC_PORT: z
+      .number()
+      .or(z.string())
+      .pipe(z.coerce.number())
+      .default(50053),
+    NWC_NOSTR_MONITORING_PORT: z
+      .number()
+      .or(z.string())
+      .pipe(z.coerce.number())
+      .default(4011),
     NOSTR_RELAY_URL: z.string().url().default("ws://localhost:7777"),
     NOSTR_RELAY_PUBLIC_URL: z.string().url().default("ws://relay:7777"), // todo change on prod
     ...databaseServerSchema,
@@ -41,6 +52,9 @@ export const env = createEnv({
     OATHKEEPER_DECISION_ENDPOINT: process.env.OATHKEEPER_DECISION_ENDPOINT,
     ROUTER_URL: process.env.ROUTER_URL,
     PUBLIC_GRAPHQL_URL: process.env.PUBLIC_GRAPHQL_URL,
+    BLINK_CORE_GRPC_HOST: process.env.BLINK_CORE_GRPC_HOST,
+    BLINK_CORE_GRPC_PORT: process.env.BLINK_CORE_GRPC_PORT,
+    NWC_NOSTR_MONITORING_PORT: process.env.NWC_NOSTR_MONITORING_PORT,
     NOSTR_RELAY_URL: process.env.NOSTR_RELAY_URL,
     NOSTR_RELAY_PUBLIC_URL: process.env.NOSTR_RELAY_PUBLIC_URL,
     ...databaseRuntimeEnv,

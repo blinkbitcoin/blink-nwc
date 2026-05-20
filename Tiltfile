@@ -1,5 +1,13 @@
 is_ci = sys.argv[1] == "ci" if len(sys.argv) > 1 else False
 
+watch_settings(ignore=[
+  ".git",
+  "dev/.e2e-tilt.log",
+  "dev/.e2e-tilt_pid",
+  "lib",
+  "tmp",
+])
+
 nwc_local_env = {
   "DB_HOST": "localhost",
   "DB_PORT": "5435",
@@ -10,6 +18,9 @@ nwc_local_env = {
   "NOSTR_PRIVATE_KEY": "1" * 64,
   "OATHKEEPER_DECISION_ENDPOINT": "http://localhost:4456",
   "ROUTER_URL": "http://localhost:4004/graphql",
+  "BLINK_CORE_GRPC_HOST": "localhost",
+  "BLINK_CORE_GRPC_PORT": "50053",
+  "NWC_NOSTR_MONITORING_PORT": "4011",
   "NOSTR_RELAY_URL": "ws://localhost:7777",
   "NOSTR_RELAY_PUBLIC_URL": "ws://localhost:7777",
 }
@@ -49,6 +60,7 @@ local_resource(
   serve_env = nwc_local_env,
   links = [
     link("http://localhost:4010/graphql", "graphql-playground"),
+    link("http://localhost:4011/metrics", "nwc-nostr-metrics"),
   ],
   readiness_probe = probe(
     period_secs = 5,
@@ -87,7 +99,7 @@ local_resource(
 
 docker_compose(['vendor/blink-quickstart/docker-compose.yml', 'docker-compose.yml', 'docker-compose.override.yml'])
 
-galoy_services = ["apollo-router", "galoy", "trigger", "redis", "mongodb", "mongodb-migrate", "price", "price-history", "price-history-migrate", "price-history-pg", "svix", "svix-pg", "notifications", "notifications-pg", "stablesats", "api-keys", "api-keys-pg"]
+galoy_services = ["apollo-router", "galoy", "trigger", "blink-core-transactions-grpc-stream", "redis", "mongodb", "mongodb-migrate", "price", "price-history", "price-history-migrate", "price-history-pg", "svix", "svix-pg", "notifications", "notifications-pg", "stablesats", "api-keys", "api-keys-pg"]
 auth_services = ["oathkeeper", "kratos", "kratos-pg", "hydra", "hydra-pg", "hydra-migrate"]
 bitcoin_services = ["bitcoind", "bitcoind-signer", "lnd1", "lnd-outside-1", "bria", "bria-pg", "fulcrum"]
 nwc_services = ["nwc-pg", "strfry", "strfry-policy-builder"]

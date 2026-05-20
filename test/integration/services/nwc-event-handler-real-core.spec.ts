@@ -18,6 +18,7 @@ import {
 } from "@/domain/nostr/notification-type"
 import {
   TEST_USERS,
+  createApiKey,
   createRuntimeConnection,
   getWalletByCurrency,
   loginTestUser,
@@ -77,9 +78,11 @@ describeRealCore("NwcEventHandler with real BlinkCoreService", () => {
     const aliceAuthToken = await loginTestUser(TEST_USERS.alice)
     const bobAuthToken = await loginTestUser(TEST_USERS.bob)
 
-    const [aliceWallet, bobWallet] = await Promise.all([
+    const [aliceWallet, bobWallet, aliceApiKey, bobApiKey] = await Promise.all([
       getWalletByCurrency(aliceAuthToken, "BTC"),
       getWalletByCurrency(bobAuthToken, "BTC"),
+      createApiKey(aliceAuthToken),
+      createApiKey(bobAuthToken),
     ])
 
     aliceWalletBalance = aliceWallet.balance
@@ -95,17 +98,14 @@ describeRealCore("NwcEventHandler with real BlinkCoreService", () => {
       toNotificationPermission(NwcNotificationType.PaymentReceived),
     ]
 
-    // The current local stack exposes the user-auth GraphQL path reliably for these
-    // operations, while API-key bootstrap is not yet available on the endpoint this
-    // test can reach. Switch this setup to real API keys once that surface is wired.
     aliceConnection = createRuntimeConnection({
-      apiKey: aliceAuthToken as NwcConnection["apiKey"],
+      apiKey: aliceApiKey,
       walletId: aliceWallet.id,
       permissions: fullPermissions,
     })
 
     bobConnection = createRuntimeConnection({
-      apiKey: bobAuthToken as NwcConnection["apiKey"],
+      apiKey: bobApiKey,
       walletId: bobWallet.id,
       permissions: fullPermissions,
     })
@@ -171,8 +171,10 @@ describeRealCore("NwcEventHandler with real BlinkCoreService", () => {
       Nip47Method.ListTransactions,
     ])
     expect(result.notifications).toHaveLength(2)
-    expect(typeof result.block_height).toBe("number")
-    expect(result.block_hash).toHaveLength(64)
+    expect(
+      result.block_height === undefined || typeof result.block_height === "number",
+    ).toBe(true)
+    expect(result.block_hash === undefined || result.block_hash.length === 64).toBe(true)
     expect(result.network.length).toBeGreaterThan(0)
   })
 

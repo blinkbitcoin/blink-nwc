@@ -10,8 +10,10 @@ describe("graphql schema", () => {
   it("exposes the architecture budget and permission types in the NWC contract", () => {
     const schema = readFileSync(schemaPath, "utf8")
 
-    expect(schema).toContain("budget: NwcBudget")
-    expect(schema).toContain("budget: NwcBudgetInput")
+    expect(schema).toContain("budgets: [NwcBudget!]!")
+    expect(schema).toContain("budgets: [NwcBudgetInput!]")
+    expect(schema).not.toMatch(/\bbudget: NwcBudget\b/)
+    expect(schema).not.toMatch(/\bbudget: NwcBudgetInput\b/)
     expect(schema).toContain("type NwcBudget")
     expect(schema).toContain("input NwcBudgetInput")
     expect(schema).toContain("enum NwcBudgetPeriod")
@@ -27,7 +29,7 @@ describe("graphql schema", () => {
     expect(schema).toContain("nwcKnownApp(pubkey: String!): NwcKnownApp")
     expect(schema).toContain("connectionId: ID!")
     expect(schema).toMatch(
-      /input NwcConnectionUpdateInput\s*\{[\s\S]*connectionId: ID![\s\S]*budget: NwcBudgetInput[\s\S]*\}/,
+      /input NwcConnectionUpdateInput\s*\{[\s\S]*connectionId: ID![\s\S]*budgets: \[NwcBudgetInput!\][\s\S]*\}/,
     )
     expect(schema).not.toMatch(
       /input NwcConnectionUpdateInput\s*\{[\s\S]*permissions: \[NwcPermission!\][\s\S]*\}/,

@@ -223,6 +223,15 @@ describe("connection", () => {
       expect(parsed).toBeInstanceOf(Error)
     })
 
+    it("should reject relay parameters that are not websocket URLs", () => {
+      const parsed = parseNwcUri(
+        `nostr+walletconnect://${mockPubkey}?relay=${encodeURIComponent(
+          "http://relay.example.com",
+        )}&secret=${mockSecret}`,
+      )
+      expect(parsed).toBeInstanceOf(Error)
+    })
+
     it("should reject URIs missing a secret", () => {
       const parsed = parseNwcUri(
         `nostr+walletconnect://${mockPubkey}?relay=${encodeURIComponent(mockRelay)}`,

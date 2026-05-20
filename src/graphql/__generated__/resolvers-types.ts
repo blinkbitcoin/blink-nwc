@@ -99,7 +99,7 @@ export type NwcConnection = {
   accountId: Scalars['AccountId']['output'];
   alias?: Maybe<Scalars['String']['output']>;
   appPubkey: Scalars['String']['output'];
-  budget?: Maybe<NwcBudget>;
+  budgets: Array<NwcBudget>;
   createdAt: Scalars['Timestamp']['output'];
   expiresAt?: Maybe<Scalars['Timestamp']['output']>;
   id: Scalars['ID']['output'];
@@ -115,7 +115,7 @@ export type NwcConnection = {
 
 export type NwcConnectionCreateInput = {
   alias?: InputMaybe<Scalars['String']['input']>;
-  budget?: InputMaybe<NwcBudgetInput>;
+  budgets?: InputMaybe<Array<NwcBudgetInput>>;
   expiresAt?: InputMaybe<Scalars['Timestamp']['input']>;
   nwcUri: Scalars['String']['input'];
   permissions: Array<NwcPermission>;
@@ -158,7 +158,7 @@ export type NwcConnectionRevokePayload = {
 
 export type NwcConnectionUpdateInput = {
   alias?: InputMaybe<Scalars['String']['input']>;
-  budget?: InputMaybe<NwcBudgetInput>;
+  budgets?: InputMaybe<Array<NwcBudgetInput>>;
   connectionId: Scalars['ID']['input'];
 };
 
@@ -434,7 +434,7 @@ export type NwcConnectionResolvers<ContextType = any, ParentType extends Resolve
   accountId?: Resolver<ResolversTypes['AccountId'], ParentType, ContextType>;
   alias?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   appPubkey?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  budget?: Resolver<Maybe<ResolversTypes['NwcBudget']>, ParentType, ContextType>;
+  budgets?: Resolver<Array<ResolversTypes['NwcBudget']>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['Timestamp'], ParentType, ContextType>;
   expiresAt?: Resolver<Maybe<ResolversTypes['Timestamp']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;

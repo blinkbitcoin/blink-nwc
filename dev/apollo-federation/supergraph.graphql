@@ -1579,7 +1579,7 @@ type NwcConnection
   alias: String
   appPubkey: String!
   permissions: [NwcPermission!]!
-  budget: NwcBudget
+  budgets: [NwcBudget!]!
   revoked: Boolean!
   expiresAt: Timestamp
   revokedAt: Timestamp
@@ -1595,7 +1595,7 @@ input NwcConnectionCreateInput
   walletId: WalletId
   alias: String
   permissions: [NwcPermission!]!
-  budget: NwcBudgetInput
+  budgets: [NwcBudgetInput!]
   expiresAt: Timestamp
 }
 
@@ -1646,7 +1646,7 @@ input NwcConnectionUpdateInput
 {
   connectionId: ID!
   alias: String
-  budget: NwcBudgetInput
+  budgets: [NwcBudgetInput!]
 }
 
 type NwcConnectionUpdatePayload

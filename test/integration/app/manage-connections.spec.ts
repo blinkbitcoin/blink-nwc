@@ -119,8 +119,22 @@ describe("manage-connections", () => {
     updatedAt: new Date(),
   }
 
+  const emptyApiKeyLimitsSnapshot = () => ({
+    dailyLimitSats: null as number | null,
+    dailySpentSats: 0,
+    weeklyLimitSats: null as number | null,
+    weeklySpentSats: 0,
+    monthlyLimitSats: null as number | null,
+    monthlySpentSats: 0,
+    annualLimitSats: null as number | null,
+    annualSpentSats: 0,
+  })
+
+  let apiKeyLimitsSnapshot = emptyApiKeyLimitsSnapshot()
+
   beforeEach(() => {
     jest.clearAllMocks()
+    apiKeyLimitsSnapshot = emptyApiKeyLimitsSnapshot()
     mockGetAuthenticatedWallet.mockResolvedValue({
       accountId: mockAccountId,
       id: mockWalletId as WalletId,
@@ -131,41 +145,48 @@ describe("manage-connections", () => {
       secret: mockApiKey,
     })
     mockSetApiKeyLimitForNwc.mockImplementation(
-      async (_client, _authorization, input) => ({
-        dailyLimitSats: input.limitTimeWindow === "DAILY" ? input.limitSats : null,
-        dailySpentSats: 0,
-        weeklyLimitSats: input.limitTimeWindow === "WEEKLY" ? input.limitSats : null,
-        weeklySpentSats: 0,
-        monthlyLimitSats: input.limitTimeWindow === "MONTHLY" ? input.limitSats : null,
-        monthlySpentSats: 0,
-        annualLimitSats: input.limitTimeWindow === "ANNUAL" ? input.limitSats : null,
-        annualSpentSats: 0,
-      }),
+      async (_client, _authorization, input) => {
+        switch (input.limitTimeWindow) {
+          case "DAILY":
+            apiKeyLimitsSnapshot.dailyLimitSats = input.limitSats
+            break
+          case "WEEKLY":
+            apiKeyLimitsSnapshot.weeklyLimitSats = input.limitSats
+            break
+          case "MONTHLY":
+            apiKeyLimitsSnapshot.monthlyLimitSats = input.limitSats
+            break
+          case "ANNUAL":
+            apiKeyLimitsSnapshot.annualLimitSats = input.limitSats
+            break
+        }
+        return apiKeyLimitsSnapshot
+      },
     )
-    mockRemoveApiKeyLimitForNwc.mockResolvedValue({
-      dailyLimitSats: null,
-      dailySpentSats: 0,
-      weeklyLimitSats: null,
-      weeklySpentSats: 0,
-      monthlyLimitSats: null,
-      monthlySpentSats: 0,
-      annualLimitSats: null,
-      annualSpentSats: 0,
-    })
+    mockRemoveApiKeyLimitForNwc.mockImplementation(
+      async (_client, _authorization, input) => {
+        switch (input.limitTimeWindow) {
+          case "DAILY":
+            apiKeyLimitsSnapshot.dailyLimitSats = null
+            break
+          case "WEEKLY":
+            apiKeyLimitsSnapshot.weeklyLimitSats = null
+            break
+          case "MONTHLY":
+            apiKeyLimitsSnapshot.monthlyLimitSats = null
+            break
+          case "ANNUAL":
+            apiKeyLimitsSnapshot.annualLimitSats = null
+            break
+        }
+        return apiKeyLimitsSnapshot
+      },
+    )
     mockRevokeApiKeyForNwc.mockResolvedValue(undefined)
-    mockGetApiKeysForNwc.mockResolvedValue([
+    mockGetApiKeysForNwc.mockImplementation(async () => [
       {
         id: mockApiKeyId,
-        limits: {
-          dailyLimitSats: 5000,
-          dailySpentSats: 200,
-          weeklyLimitSats: null,
-          weeklySpentSats: 0,
-          monthlyLimitSats: null,
-          monthlySpentSats: 0,
-          annualLimitSats: null,
-          annualSpentSats: 0,
-        },
+        limits: apiKeyLimitsSnapshot,
       },
     ])
   })
@@ -186,7 +207,7 @@ describe("manage-connections", () => {
 
       expect(result.connectionObj).toEqual(mockConnection)
       expect(result.connectionUri).toBe(mockNwcUri)
-      expect(result.budget).toBeNull()
+      expect(result.budgets).toEqual([])
 
       expect(mockCreateApiKeyForNwc).toHaveBeenCalledWith(
         expect.anything(),
@@ -290,17 +311,23 @@ describe("manage-connections", () => {
       expect(mockConnectionsRepository.create).not.toHaveBeenCalled()
     })
 
-    it("should create a budgeted API key when budget is provided", async () => {
+    it("should create budgeted API key limits when budgets are provided", async () => {
       mockConnectionsRepository.create.mockResolvedValue(mockConnection)
 
       const result = await createNwcConnection(mockUserId, mockAuthorization, {
         nwcUri: mockNwcUri,
         walletId: mockWalletId,
         permissions: [...mockPermissions, Nip47Method.PayInvoice],
-        budget: {
-          amountSats: 5000,
-          period: NwcBudgetPeriod.Daily,
-        },
+        budgets: [
+          {
+            amountSats: 5000,
+            period: NwcBudgetPeriod.Daily,
+          },
+          {
+            amountSats: 30000,
+            period: NwcBudgetPeriod.Monthly,
+          },
+        ],
       })
 
       expect(result).not.toBeInstanceOf(Error)
@@ -323,13 +350,31 @@ describe("manage-connections", () => {
           limitTimeWindow: "DAILY",
         },
       )
-      expect(result.budget).toEqual({
-        amountSats: 5000,
-        period: "DAILY",
-        usedSats: 0,
-        remainingSats: 5000,
-        resetsAt: null,
-      })
+      expect(mockSetApiKeyLimitForNwc).toHaveBeenCalledWith(
+        expect.anything(),
+        mockAuthorization,
+        {
+          id: mockApiKeyId,
+          limitSats: 30000,
+          limitTimeWindow: "MONTHLY",
+        },
+      )
+      expect(result.budgets).toEqual([
+        {
+          amountSats: 5000,
+          period: "DAILY",
+          usedSats: 0,
+          remainingSats: 5000,
+          resetsAt: null,
+        },
+        {
+          amountSats: 30000,
+          period: "MONTHLY",
+          usedSats: 0,
+          remainingSats: 30000,
+          resetsAt: null,
+        },
+      ])
     })
 
     it("should map NEVER budgets to the non-resetting upstream limit window", async () => {
@@ -339,10 +384,12 @@ describe("manage-connections", () => {
         nwcUri: mockNwcUri,
         walletId: mockWalletId,
         permissions: [Nip47Method.PayInvoice],
-        budget: {
-          amountSats: 5000,
-          period: NwcBudgetPeriod.Never,
-        },
+        budgets: [
+          {
+            amountSats: 5000,
+            period: NwcBudgetPeriod.Never,
+          },
+        ],
       })
 
       expect(result).not.toBeInstanceOf(Error)
@@ -403,7 +450,12 @@ describe("manage-connections", () => {
       })
     })
 
-    it("should update connection budget", async () => {
+    it("should replace connection budgets", async () => {
+      apiKeyLimitsSnapshot = {
+        ...emptyApiKeyLimitsSnapshot(),
+        dailyLimitSats: 5000,
+        dailySpentSats: 200,
+      }
       mockConnectionsRepository.findById.mockResolvedValue(mockConnection)
       mockConnectionsRepository.update.mockResolvedValue({
         ...mockConnection,
@@ -415,10 +467,16 @@ describe("manage-connections", () => {
         mockAuthorization,
         mockConnection.id,
         {
-          budget: {
-            amountSats: 8000,
-            period: NwcBudgetPeriod.Weekly,
-          },
+          budgets: [
+            {
+              amountSats: 8000,
+              period: NwcBudgetPeriod.Weekly,
+            },
+            {
+              amountSats: 30000,
+              period: NwcBudgetPeriod.Monthly,
+            },
+          ],
         },
       )
 
@@ -434,12 +492,35 @@ describe("manage-connections", () => {
           limitTimeWindow: "WEEKLY",
         },
       )
+      expect(mockSetApiKeyLimitForNwc).toHaveBeenCalledWith(
+        expect.anything(),
+        mockAuthorization,
+        {
+          id: mockApiKeyId,
+          limitSats: 30000,
+          limitTimeWindow: "MONTHLY",
+        },
+      )
+      expect(mockRemoveApiKeyLimitForNwc).toHaveBeenCalledWith(
+        expect.anything(),
+        mockAuthorization,
+        {
+          id: mockApiKeyId,
+          limitTimeWindow: "DAILY",
+        },
+      )
       expect(mockConnectionsRepository.update).toHaveBeenCalledWith(mockConnection.id, {
         alias: undefined,
       })
     })
 
-    it("should remove a connection budget when null is provided", async () => {
+    it("should remove connection budgets when null is provided", async () => {
+      apiKeyLimitsSnapshot = {
+        ...emptyApiKeyLimitsSnapshot(),
+        dailyLimitSats: 5000,
+        dailySpentSats: 200,
+        monthlyLimitSats: 30000,
+      }
       mockConnectionsRepository.findById.mockResolvedValue(mockConnection)
       mockConnectionsRepository.update.mockResolvedValue(mockConnection)
 
@@ -448,7 +529,7 @@ describe("manage-connections", () => {
         mockAuthorization,
         mockConnection.id,
         {
-          budget: null,
+          budgets: null,
         },
       )
 
@@ -465,6 +546,14 @@ describe("manage-connections", () => {
         {
           id: mockApiKeyId,
           limitTimeWindow: "DAILY",
+        },
+      )
+      expect(mockRemoveApiKeyLimitForNwc).toHaveBeenCalledWith(
+        expect.anything(),
+        mockAuthorization,
+        {
+          id: mockApiKeyId,
+          limitTimeWindow: "MONTHLY",
         },
       )
     })

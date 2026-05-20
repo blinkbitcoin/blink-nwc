@@ -189,6 +189,39 @@ export const checkedToNwcBudgetInput = (
   }
 }
 
+export const checkedToNwcBudgetInputs = (
+  budgets: unknown,
+): NwcBudgetInput[] | null | ValidationError => {
+  if (budgets == null) {
+    return null
+  }
+
+  if (!Array.isArray(budgets)) {
+    return new InvalidNwcBudget("Budgets must be an array")
+  }
+
+  const periods = new Set<NwcBudgetPeriodType>()
+  const checkedBudgets: NwcBudgetInput[] = []
+
+  for (const budget of budgets) {
+    const checkedBudget = checkedToNwcBudgetInput(budget)
+    if (checkedBudget instanceof Error) {
+      return checkedBudget
+    }
+    if (!checkedBudget) {
+      return new InvalidNwcBudget("Budget entries cannot be null")
+    }
+    if (periods.has(checkedBudget.period)) {
+      return new InvalidNwcBudget(`Duplicate budget period: ${checkedBudget.period}`)
+    }
+
+    periods.add(checkedBudget.period)
+    checkedBudgets.push(checkedBudget)
+  }
+
+  return checkedBudgets
+}
+
 export const checkedToConnectionId = (
   connectionId: unknown,
 ): NwcConnectionId | ValidationError => {

@@ -12,7 +12,7 @@ mutation NwcConnectionCreate($input: NwcConnectionCreateInput!) {
       appPubkey
       permissions
       revoked
-      budget {
+      budgets {
         amountSats
         period
       }

@@ -77,13 +77,24 @@ export const BlinkCoreService = (): IBlinkCoreService => {
   const getNodeInfo = async () => {
     try {
       const nodeInfo = await fetchNodeInfo(client)
-      if (!nodeInfo?.network || !nodeInfo.blockInfo) {
+      if (!nodeInfo?.network) {
         return new CouldNotFetchNodeInfoError()
       }
+
+      const blockHeight =
+        typeof nodeInfo.blockInfo?.blockHeight === "number"
+          ? (nodeInfo.blockInfo.blockHeight as BlockHeight)
+          : undefined
+      const blockHash =
+        typeof nodeInfo.blockInfo?.blockHash === "string" &&
+        nodeInfo.blockInfo.blockHash.length > 0
+          ? (nodeInfo.blockInfo.blockHash as BlockHash)
+          : undefined
+
       return {
         network: nodeInfo.network as Network,
-        blockHeight: nodeInfo.blockInfo.blockHeight as BlockHeight,
-        blockHash: nodeInfo.blockInfo.blockHash as BlockHash,
+        blockHeight,
+        blockHash,
       }
     } catch {
       return new CouldNotFetchNodeInfoError()

@@ -24,7 +24,7 @@ import {
 } from "@/config"
 import { findKnownAppByPubkey, type NwcKnownApp } from "@/config/nwc-known-apps"
 import { getServerKeypair, NwcConnection } from "@/domain/connection"
-import { toNwcBudgetFromApiKeyLimits } from "@/domain/nwc-budget"
+import { NwcBudget, toNwcBudgetsFromApiKeyLimits } from "@/domain/nwc-budget"
 import {
   GraphqlNwcPermissionPresetId,
   NWC_PERMISSION_PRESETS,
@@ -53,16 +53,14 @@ const requireAuthorization = (authorization: string | undefined): string => {
   return authorization
 }
 
-const toGraphqlConnection = (
-  connection: NwcConnection,
-  budget?: ReturnType<typeof toNwcBudgetFromApiKeyLimits>,
-) => {
+const toGraphqlConnection = (connection: NwcConnection, budgets?: NwcBudget[] | null) => {
   const sanitized = stripSensitiveFields(connection)
+  const connectionBudgets = budgets ?? []
 
   return {
     ...sanitized,
     permissions: sanitized.permissions,
-    budget: budget ?? null,
+    budgets: connectionBudgets,
   }
 }
 
@@ -81,14 +79,14 @@ const toGraphqlKnownApp = (knownApp: NwcKnownApp | null) =>
 
 const budgetsByApiKeyId = async (
   authorization: string | undefined,
-): Promise<Map<string, ReturnType<typeof toNwcBudgetFromApiKeyLimits>>> => {
+): Promise<Map<string, NwcBudget[]>> => {
   if (!authorization) {
     return new Map()
   }
 
   const apiKeys = await getApiKeysForNwc(client, authorization)
   return new Map(
-    apiKeys.map((apiKey) => [apiKey.id, toNwcBudgetFromApiKeyLimits(apiKey.limits)]),
+    apiKeys.map((apiKey) => [apiKey.id, toNwcBudgetsFromApiKeyLimits(apiKey.limits)]),
   )
 }
 
@@ -204,7 +202,7 @@ export const resolvers: Resolvers = {
         walletId: args.input.walletId ?? undefined,
         permissions: args.input.permissions,
         alias: args.input.alias ?? undefined,
-        budget: args.input.budget ?? undefined,
+        budgets: args.input.budgets ?? undefined,
         expiresAt: args.input.expiresAt ? new Date(args.input.expiresAt) : undefined,
       })
 
@@ -214,7 +212,7 @@ export const resolvers: Resolvers = {
 
       return {
         errors: [],
-        connection: toGraphqlConnection(result.connectionObj, result.budget),
+        connection: toGraphqlConnection(result.connectionObj, result.budgets),
         connectionUri: result.connectionUri,
       }
     },
@@ -225,10 +223,11 @@ export const resolvers: Resolvers = {
     ) => {
       const userId = requireUserId(user?.id)
       const authHeader = requireAuthorization(authorization)
-      const { connectionId, alias, budget } = args.input
+      const { connectionId, alias } = args.input
+      const hasBudgetsInput = Object.prototype.hasOwnProperty.call(args.input, "budgets")
       const connection = await updateNwcConnection(userId, authHeader, connectionId, {
         alias,
-        budget,
+        ...(hasBudgetsInput ? { budgets: args.input.budgets ?? null } : {}),
       })
 
       if (connection instanceof Error) {

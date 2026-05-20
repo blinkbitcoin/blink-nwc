@@ -8,36 +8,19 @@ jobs:
   integration:
     name: Integration test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v14
       - name: Run the Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
       - run: nix develop -c pnpm install --frozen-lockfile
-      - name: Start dependencies
-        run: |
-          max_attempts=3
-          attempt=1
-          until nix develop -c make start-deps; do
-            if [ $attempt -eq $max_attempts ]; then
-              echo "Failed to start dependencies after $max_attempts attempts"
-              exit 1
-            fi
-            echo "Attempt $attempt failed. Cleaning up and retrying in 10 seconds..."
-            nix develop -c make clean-deps || true
-            sleep 10
-            attempt=$((attempt + 1))
-          done
-      - name: Wait for Postgres to be ready
-        run: |
-          timeout 60 bash -c 'until pg_isready -h localhost -p 5435 -U blink-nwc-usr 2>/dev/null; do echo "Waiting for Postgres..."; sleep 2; done'
-          echo "Postgres is ready!"
-      - name: Generate types
-        run: nix develop -c pnpm generate-gql-types
-      - name: Run integration tests
-        run: nix develop -c make integration-test
-      - name: Stop dependencies
+      - name: Run integration tests via Tilt
+        run: nix develop -c ./dev/ci_run.sh integration
+      - name: Upload Tilt log
         if: always()
-        run: nix develop -c make clean-deps
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-tilt-log
+          path: dev/.e2e-tilt.log

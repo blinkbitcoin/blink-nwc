@@ -6,3 +6,7 @@ DB_PORT=5435
 DB_USER=blink-nwc-usr
 DB_PWD=blink-nwc-pwd
 DB_DB=blink-nwc
+BLINK_CORE_GRPC_HOST=localhost
+BLINK_CORE_GRPC_PORT=50053
+NWC_NOSTR_MONITORING_PORT=4011
+ROUTER_URL=http://localhost:4004/graphql

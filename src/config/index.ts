@@ -29,6 +29,9 @@ export const LOGLEVEL = env.LOGLEVEL
 export const OATHKEEPER_DECISION_ENDPOINT = env.OATHKEEPER_DECISION_ENDPOINT
 export const ROUTER_URL = env.ROUTER_URL
 export const PUBLIC_GRAPHQL_URL = env.PUBLIC_GRAPHQL_URL
+export const BLINK_CORE_GRPC_HOST = env.BLINK_CORE_GRPC_HOST
+export const BLINK_CORE_GRPC_PORT = env.BLINK_CORE_GRPC_PORT
+export const NWC_NOSTR_MONITORING_PORT = env.NWC_NOSTR_MONITORING_PORT
 
 export const databaseClientConfig = database
 
