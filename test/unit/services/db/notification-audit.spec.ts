@@ -54,8 +54,8 @@ describe("NotificationAuditRepository", () => {
       method: "payment_received",
       status: "success",
     })
-    expect(whereRaw).toHaveBeenCalledWith("metadata @> ?::jsonb", [
-      JSON.stringify({ ledger_transaction_id: "ledger-1" }),
+    expect(whereRaw).toHaveBeenCalledWith("metadata->>'ledger_transaction_id' = ?", [
+      "ledger-1",
     ])
     expect(first).toHaveBeenCalledWith("id")
   })

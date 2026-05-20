@@ -50,9 +50,7 @@ export const NotificationAuditRepository = (): INotificationAuditRepository =>
               method: notificationType,
               status: SUCCESS_STATUS,
             })
-            .whereRaw("metadata @> ?::jsonb", [
-              JSON.stringify({ ledger_transaction_id: ledgerTransactionId }),
-            ])
+            .whereRaw("metadata->>'ledger_transaction_id' = ?", [ledgerTransactionId])
             .first("id")
 
           return Boolean(record)
