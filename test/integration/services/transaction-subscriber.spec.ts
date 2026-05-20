@@ -131,7 +131,7 @@ describe("TransactionSubscriber integration", () => {
     const { server, address } = await startGrpcServer((call) => {
       requestCursors.push(
         call.request.hasAfterTransactionId()
-          ? call.request.getAfterTransactionId() ?? null
+          ? (call.request.getAfterTransactionId() ?? null)
           : null,
       )
       subscribeCount += 1
@@ -175,7 +175,7 @@ describe("TransactionSubscriber integration", () => {
     const { server, address } = await startGrpcServer((call) => {
       requestCursors.push(
         call.request.hasAfterTransactionId()
-          ? call.request.getAfterTransactionId() ?? null
+          ? (call.request.getAfterTransactionId() ?? null)
           : null,
       )
 
