@@ -6,7 +6,7 @@ directories:
     contents:
       - path: blink-quickstart
         git:
-          url: https://github.com/blinkbitcoin/blink.git
+          url: https://github.com/blinkbitcoin/blink-legacy.git
           ref: "main"
         includePaths:
           - quickstart/.env.galoy

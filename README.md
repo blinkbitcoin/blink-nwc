@@ -140,7 +140,9 @@ direnv allow
 
 ## Updating Vendor Dependencies
 
-This project uses `vendir` to manage vendor dependencies from the Galoy repository.
+This project uses `vendir` to manage quickstart dependencies from the public
+[`blink-legacy` repository](https://github.com/blinkbitcoin/blink-legacy).
+The private development repository is not required.
 
 To update:
 ```bash
