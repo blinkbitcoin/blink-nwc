@@ -140,7 +140,13 @@ direnv allow
 
 ## Updating Vendor Dependencies
 
-This project uses `vendir` to manage vendor dependencies from the Galoy repository.
+This project uses `vendir` to manage quickstart dependencies from the
+[`blinkbitcoin/blink`](https://github.com/blinkbitcoin/blink) repository.
+The vendored files in `vendor/` are committed, so building and testing do not
+need access to that repository.
+
+Updating `vendor/` requires access to the private `blinkbitcoin/blink`
+repository. `vendir` uses your local `git` credentials.
 
 To update:
 ```bash
